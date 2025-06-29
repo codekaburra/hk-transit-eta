@@ -4,10 +4,11 @@ import { useThemeStyles } from './hooks/useThemeStyles';
 import { Header } from './components/Header';
 import { SearchBox } from './components/SearchBox';
 import { ResultsList } from './components/ResultsList';
-import { AboutPage } from './components/AboutPage';
+// import { AboutPage } from './components/AboutPage';
 import { BusRoute, BusStop } from './types';
 import { api } from './services/api';
 import './App.css';
+import { AboutPage } from './components/AboutPage';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
@@ -17,7 +18,7 @@ function AppContent() {
   const [stops, setStops] = useState<BusStop[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const { getBackgroundClass, getTextClass } = useThemeStyles();
+  const { getBackgroundClass, getTextClass, getSecondaryTextClass } = useThemeStyles();
 
   // Load initial data on component mount
   useEffect(() => {
@@ -90,56 +91,80 @@ function AppContent() {
         {/* Tab Navigation */}
         <div className="flex mb-8 border-b">
           <button
-            onClick={() => setActiveTab('search')}
+            onClick={() => {
+              setActiveTab('search');
+              setSearchType('route');
+            }
+            }
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === 'search'
-                ? 'border-b-2 border-blue-500 text-blue-600'
+              activeTab === 'search' && searchType === 'route'
+                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
                 : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            🔍 Search
+            🚌 路線 Routes
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('search');
+              setSearchType('stop');
+            }
+            }
+            className={`px-6 py-3 font-medium transition-colors duration-300 ${
+              activeTab === 'search' && searchType === 'stop'
+                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            🚏 巴士站 Stops
           </button>
           <button
             onClick={() => setActiveTab('about')}
             className={`px-6 py-3 font-medium transition-colors duration-300 ${
               activeTab === 'about'
-                ? 'border-b-2 border-blue-500 text-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
+                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
+                : 'text-gray-500 hover:text-gray-700 '
             }`}
           >
             ℹ️ About
           </button>
         </div>
-
         {/* Tab Content */}
-        {activeTab === 'search' ? (
-          <div className="space-y-6">
-            <SearchBox
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              searchType={searchType}
-              onSearchTypeChange={setSearchType}
-            />
-            
-            {(loading || initialLoading) && (
-              <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
-                  {initialLoading ? 'Loading data...' : 'Searching...'}
-                </p>
-              </div>
-            )}
-            
-            <ResultsList
-              searchType={searchType}
-              routes={routes}
-              stops={stops}
-              searchTerm={searchTerm}
-            />
-          </div>
-        ) : (
-          <AboutPage />
-        )}
+        {(() => {
+          switch(activeTab) {
+            case 'search':
+              return (
+                <div className="space-y-6">
+                  <SearchBox
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    searchType={searchType}
+                    onSearchTypeChange={setSearchType}
+                  />
+                  
+                  {(loading || initialLoading) && (
+                    <div className="text-center py-8">
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
+                        {initialLoading ? 'Loading data...' : 'Searching...'}
+                      </p>
+                    </div>
+                  )}
+                  
+                  <ResultsList
+                    searchType={searchType}
+                    routes={routes}
+                    stops={stops}
+                    searchTerm={searchTerm}
+                  />
+                </div>
+              );
+            case 'about':
+              return <AboutPage />;
+            default:
+              return null;
+          }
+        })()}
       </main>
     </div>
   );

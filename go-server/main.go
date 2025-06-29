@@ -38,7 +38,6 @@ func initDatabases() {
 }
 
 func shouldFetchData() bool {
-	return true
 	// Check if KMB database has data
 	var count int
 	err := busDB.QueryRow("SELECT COUNT(*) FROM kmb_routes").Scan(&count)
