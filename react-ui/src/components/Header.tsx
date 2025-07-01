@@ -1,5 +1,6 @@
 import React from 'react';
-import { ThemeToggle } from './DarkModeToggle';
+import { ThemeToggle } from './ThemeToggle';
+import { Clock } from './Clock';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
 export const Header: React.FC = () => {
@@ -12,11 +13,12 @@ export const Header: React.FC = () => {
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <h1 className={`text-3xl font-bold transition-colors duration-300 ${getTitleClass()}`}>
-                🚌 香港巴士實時抵站時間 Hong Kong Bus Estimated Time of Arrival
+                香港巴士實時抵站時間 Hong Kong Bus Estimated Time of Arrival
               </h1>
             </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center space-x-6">
+            <Clock />
             <ThemeToggle />
           </div>
         </div>

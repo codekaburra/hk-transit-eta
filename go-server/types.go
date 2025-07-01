@@ -77,3 +77,40 @@ type CitybusRouteStop struct {
 	Stop          string `json:"stop"`
 	DataTimestamp string `json:"data_timestamp"`
 }
+
+type Route struct {
+	Id            string `json:"id"`
+	Company       string `json:"company"`
+	Direction     string `json:"direction"`
+	Route         string `json:"route"`
+	ServiceType   string `json:"service_type"`
+	OrigEn        string `json:"orig_en"`
+	OrigTc        string `json:"orig_tc"`
+	OrigSc        string `json:"orig_sc"`
+	DestEn        string `json:"dest_en"`
+	DestTc        string `json:"dest_tc"`
+	DestSc        string `json:"dest_sc"`
+	DataTimestamp string `json:"data_timestamp"`
+}
+
+type Stop struct {
+	Id            string `json:"id"`
+	Company       string `json:"company"`
+	Stop          string `json:"stop"`
+	NameEn        string `json:"name_en"`
+	NameTc        string `json:"name_tc"`
+	NameSc        string `json:"name_sc"`
+	Lat           string `json:"lat"`
+	Long          string `json:"long"`
+	DataTimestamp string `json:"data_timestamp"`
+}
+
+type RouteStop struct {
+	Company       string `json:"company"`
+	Route         string `json:"route"`
+	Direction     string `json:"direction"`
+	ServiceType   string `json:"service_type"`
+	Seq           string `json:"seq"`
+	Stop          string `json:"stop"`
+	DataTimestamp string `json:"data_timestamp"`
+}

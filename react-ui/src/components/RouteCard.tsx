@@ -4,7 +4,6 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 
 export const RouteCard: React.FC<RouteCardProps> = ({ route }) => {
   const { getHoverClass, getTextClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
-
   return (
     <div className={`px-6 py-4 transition-colors duration-300 ${getHoverClass()}`}>
       <div className="flex items-center justify-between">

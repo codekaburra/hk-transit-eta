@@ -1,7 +1,8 @@
 // Bus data interfaces
 export interface BusRoute {
+  company: string;
   route: string;
-  bound: string;
+  direction: string;
   service_type: string;
   orig_en: string;
   orig_tc: string;
@@ -10,6 +11,7 @@ export interface BusRoute {
 }
 
 export interface BusStop {
+  company: string;
   stop: string;
   name_en: string;
   name_tc: string;
@@ -18,8 +20,9 @@ export interface BusStop {
 }
 
 export interface RouteStop {
+  company: string;
   route: string;
-  bound: string;
+  direction: string;
   service_type: string;
   seq: string;
   stop: string;
@@ -42,6 +45,7 @@ export interface RouteCardProps {
 
 export interface StopCardProps {
   stop: BusStop;
+  onClick?: (stop: BusStop) => void;
 }
 
 export interface ResultsListProps {
@@ -49,4 +53,5 @@ export interface ResultsListProps {
   routes: BusRoute[];
   stops: BusStop[];
   searchTerm: string;
+  onStopClick?: (stop: BusStop) => void;
 } 

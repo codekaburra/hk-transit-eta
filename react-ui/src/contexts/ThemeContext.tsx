@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'custom-light';
+type ThemeMode = 'light' | 'dark' | 'custom-light' | 'warm';
 
 interface ThemeContextType {
   themeMode: ThemeMode;
@@ -27,7 +27,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     // Check localStorage for saved preference
     const saved = localStorage.getItem('themeMode');
-    if (saved && ['light', 'dark', 'custom-light'].includes(saved)) {
+    if (saved && ['light', 'dark', 'custom-light', 'warm'].includes(saved)) {
       return saved as ThemeMode;
     }
     // Check system preference
@@ -41,7 +41,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     localStorage.setItem('themeMode', themeMode);
     
     // Apply theme classes to document
-    document.documentElement.classList.remove('light', 'dark', 'custom-light');
+    document.documentElement.classList.remove('light', 'dark', 'custom-light', 'warm');
     document.documentElement.classList.add(themeMode);
   }, [themeMode]);
 
@@ -51,6 +51,8 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
         case 'light':
           return 'custom-light';
         case 'custom-light':
+          return 'warm';
+        case 'warm':
           return 'dark';
         case 'dark':
           return 'light';

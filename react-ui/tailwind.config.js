@@ -7,23 +7,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-        },
-        custom: {
-          dark1: '#2D4356',  // Darkest blue-gray
-          dark2: '#435B66',  // Medium blue-gray
-          dark3: '#A76F6F',  // Muted red-brown
-          dark4: '#EAB2A0',  // Light peach
-          light1: '#FCF8E8', // Cream white
-          light2: '#D4E2D4', // Sage green
-          light3: '#ECB390', // Warm orange
-          light4: '#DF7861', // Coral red
-        }
+        // Custom dark theme colors
+        'custom-dark1': '#2D4356',
+        'custom-dark2': '#435B66',
+        'custom-dark3': '#A76F6F',
+        'custom-dark4': '#EAB2A0',
+        
+        // Custom light theme colors
+        'custom-light1': '#FCF8E8',
+        'custom-light2': '#D4E2D4',
+        'custom-light3': '#ECB390',
+        'custom-light4': '#DF7861',
+        
+        // New warm theme colors
+        'warm1': '#65647C',
+        'warm2': '#8B7E74',
+        'warm3': '#C7BCA1',
+        'warm4': '#F1D3B3',
       }
     },
   },

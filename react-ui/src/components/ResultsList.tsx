@@ -9,9 +9,10 @@ interface ResultsListProps {
   routes: BusRoute[];
   stops: BusStop[];
   searchTerm: string;
+  onStopClick?: (stop: BusStop) => void;
 }
 
-export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, stops, searchTerm }) => {
+export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, stops, searchTerm, onStopClick }) => {
   const { getTextClass, getSecondaryTextClass } = useThemeStyles();
 
   const getHeaderText = () => {
@@ -58,13 +59,13 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
       {searchType === 'route' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {routes.map((route, index) => (
-            <RouteCard key={`${route.route}-${route.bound}-${route.service_type}-${index}`} route={route} />
+            <RouteCard key={`${route.route}-${route.direction}-${route.service_type}-${index}`} route={route} />
           ))}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {stops.map((stop, index) => (
-            <StopCard key={`${stop.stop}-${index}`} stop={stop} />
+            <StopCard key={`${stop.stop}-${index}`} stop={stop} onClick={onStopClick} />
           ))}
         </div>
       )}

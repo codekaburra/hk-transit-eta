@@ -1,10 +1,14 @@
+
 import { BusRoute, BusStop } from '../types';
 
-// Mock data for demonstration - in a real app, this would come from your Go backend
+// Mock data for 
+// company: 'KMB',demonstrati
+// company: 'KMB',on - in a real app, this would come from your Go backend
 export const mockRoutes: BusRoute[] = [
   {
+    company: 'KMB',
     route: '1',
-    bound: '1',
+    direction: '1',
     service_type: '1',
     orig_en: 'Tsim Sha Tsui Ferry',
     orig_tc: '尖沙咀碼頭',
@@ -12,8 +16,9 @@ export const mockRoutes: BusRoute[] = [
     dest_tc: '旺角'
   },
   {
+    company: 'KMB',
     route: '2',
-    bound: '1',
+    direction: '1',
     service_type: '1',
     orig_en: 'Star Ferry',
     orig_tc: '天星碼頭',
@@ -21,8 +26,9 @@ export const mockRoutes: BusRoute[] = [
     dest_tc: '旺角'
   },
   {
+    company: 'KMB',
     route: '6',
-    bound: '1',
+    direction: '1',
     service_type: '1',
     orig_en: 'Tsim Sha Tsui Ferry',
     orig_tc: '尖沙咀碼頭',
@@ -33,6 +39,7 @@ export const mockRoutes: BusRoute[] = [
 
 export const mockStops: BusStop[] = [
   {
+    company: 'KMB',
     stop: '001234',
     name_en: 'Tsim Sha Tsui Ferry',
     name_tc: '尖沙咀碼頭',
@@ -40,6 +47,7 @@ export const mockStops: BusStop[] = [
     long: '114.1741'
   },
   {
+    company: 'KMB',
     stop: '001235',
     name_en: 'Mong Kok',
     name_tc: '旺角',

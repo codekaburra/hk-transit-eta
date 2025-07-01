@@ -4,11 +4,11 @@ import { useThemeStyles } from './hooks/useThemeStyles';
 import { Header } from './components/Header';
 import { SearchBox } from './components/SearchBox';
 import { ResultsList } from './components/ResultsList';
-// import { AboutPage } from './components/AboutPage';
+import { StopDetails } from './components/StopDetails';
+import { AboutPage } from './components/AboutPage';
 import { BusRoute, BusStop } from './types';
 import { api } from './services/api';
 import './App.css';
-import { AboutPage } from './components/AboutPage';
 
 function AppContent() {
   const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
@@ -18,6 +18,7 @@ function AppContent() {
   const [stops, setStops] = useState<BusStop[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [selectedStop, setSelectedStop] = useState<BusStop | null>(null);
   const { getBackgroundClass, getTextClass, getSecondaryTextClass } = useThemeStyles();
 
   // Load initial data on component mount
@@ -43,18 +44,12 @@ function AppContent() {
     setInitialLoading(true);
     try {
       if (searchType === 'route') {
-        const kmbRoutes = await api.getKmbRoutes();
-        const citybusRoutes = await api.getCitybusRoutes();
-        // Combine and limit results to prevent overwhelming the UI
-        const allRoutes = [...kmbRoutes, ...citybusRoutes].slice(0, 100);
-        setRoutes(allRoutes);
+        const allRoutes = await api.getRoutes();
+        setRoutes(allRoutes.slice(0, 100));
         setStops([]);
       } else {
-        const kmbStops = await api.getKmbStops();
-        const citybusStops = await api.getCitybusStops();
-        // Combine and limit results to prevent overwhelming the UI
-        const allStops = [...kmbStops, ...citybusStops].slice(0, 100);
-        setStops(allStops);
+        const allStops = await api.getStops();
+        setStops(allStops.slice(0, 100));
         setRoutes([]);
       }
     } catch (error) {
@@ -83,88 +78,103 @@ function AppContent() {
     }
   };
 
+  const handleStopClick = (stop: BusStop) => {
+    setSelectedStop(stop);
+  };
+
+  const handleBackToSearch = () => {
+    setSelectedStop(null);
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Tab Navigation */}
-        <div className="flex mb-8 border-b">
-          <button
-            onClick={() => {
-              setActiveTab('search');
-              setSearchType('route');
-            }
-            }
-            className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === 'search' && searchType === 'route'
-                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🚌 路線 Routes
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('search');
-              setSearchType('stop');
-            }
-            }
-            className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === 'search' && searchType === 'stop'
-                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            🚏 巴士站 Stops
-          </button>
-          <button
-            onClick={() => setActiveTab('about')}
-            className={`px-6 py-3 font-medium transition-colors duration-300 ${
-              activeTab === 'about'
-                ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                : 'text-gray-500 hover:text-gray-700 '
-            }`}
-          >
-            ℹ️ About
-          </button>
-        </div>
-        {/* Tab Content */}
-        {(() => {
-          switch(activeTab) {
-            case 'search':
-              return (
-                <div className="space-y-6">
-                  <SearchBox
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    searchType={searchType}
-                    onSearchTypeChange={setSearchType}
-                  />
-                  
-                  {(loading || initialLoading) && (
-                    <div className="text-center py-8">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
-                        {initialLoading ? 'Loading data...' : 'Searching...'}
-                      </p>
+        {/* Show Stop Details if a stop is selected */}
+        {selectedStop ? (
+          <StopDetails stop={selectedStop} onBack={handleBackToSearch} />
+        ) : (
+          <>
+            {/* Tab Navigation */}
+            <div className="flex mb-8 border-b">
+              <button
+                onClick={() => {
+                  setActiveTab('search');
+                  setSearchType('route');
+                }}
+                className={`px-6 py-3 font-medium transition-colors duration-300 ${
+                  activeTab === 'search' && searchType === 'route'
+                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🚌 路線 Routes
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('search');
+                  setSearchType('stop');
+                }}
+                className={`px-6 py-3 font-medium transition-colors duration-300 ${
+                  activeTab === 'search' && searchType === 'stop'
+                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                🚏 巴士站 Stops
+              </button>
+              <button
+                onClick={() => setActiveTab('about')}
+                className={`px-6 py-3 font-medium transition-colors duration-300 ${
+                  activeTab === 'about'
+                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
+                    : 'text-gray-500 hover:text-gray-700 '
+                }`}
+              >
+                ℹ️ About
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            {(() => {
+              switch(activeTab) {
+                case 'search':
+                  return (
+                    <div className="space-y-6">
+                      <SearchBox
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                        searchType={searchType}
+                        onSearchTypeChange={setSearchType}
+                      />
+                      
+                      {(loading || initialLoading) && (
+                        <div className="text-center py-8">
+                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                          <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
+                            {initialLoading ? 'Loading data...' : 'Searching...'}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <ResultsList
+                        searchType={searchType}
+                        routes={routes}
+                        stops={stops}
+                        searchTerm={searchTerm}
+                        onStopClick={handleStopClick}
+                      />
                     </div>
-                  )}
-                  
-                  <ResultsList
-                    searchType={searchType}
-                    routes={routes}
-                    stops={stops}
-                    searchTerm={searchTerm}
-                  />
-                </div>
-              );
-            case 'about':
-              return <AboutPage />;
-            default:
-              return null;
-          }
-        })()}
+                  );
+                case 'about':
+                  return <AboutPage />;
+                default:
+                  return null;
+              }
+            })()}
+          </>
+        )}
       </main>
     </div>
   );

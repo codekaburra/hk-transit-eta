@@ -33,10 +33,9 @@ export const api = {
     }
   },
 
-  // Get KMB routes
-  getKmbRoutes: async (): Promise<BusRoute[]> => {
+  getRoutes: async (): Promise<BusRoute[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/kmb/routes`);
+      const response = await fetch(`${API_BASE_URL}/routes`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -47,10 +46,9 @@ export const api = {
     }
   },
 
-  // Get KMB stops
-  getKmbStops: async (): Promise<BusStop[]> => {
+  getStops: async (): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/kmb/stops`);
+      const response = await fetch(`${API_BASE_URL}/stops`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -61,59 +59,31 @@ export const api = {
     }
   },
 
-  // Get Citybus routes
-  getCitybusRoutes: async (): Promise<BusRoute[]> => {
+  getStopsByRoute: async (route: string): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/citybus/routes`);
+      const response = await fetch(`${API_BASE_URL}/stops-by-route?routeId=${route}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
-      console.error('Error fetching Citybus routes:', error);
+      console.error('Error fetching stops by route:', error);
       return [];
     }
   },
 
-  // Get Citybus stops
-  getCitybusStops: async (): Promise<BusStop[]> => {
+  getRoutesByStop: async (stopId: string): Promise<BusRoute[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/citybus/stops`);
+      const response = await fetch(`${API_BASE_URL}/routes-by-stop?stopId=${stopId}`);
+      console.log(response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
-      console.error('Error fetching Citybus stops:', error);
+      console.error('Error fetching routes by stop:', error);
       return [];
     }
   },
 
-  // Get KMB route stops
-  getKmbRouteStops: async (): Promise<RouteStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/kmb/route-stops`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching KMB route stops:', error);
-      return [];
-    }
-  },
-
-  // Get Citybus route stops
-  getCitybusRouteStops: async (): Promise<RouteStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/citybus/route-stops`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching Citybus route stops:', error);
-      return [];
-    }
-  }
 }; 

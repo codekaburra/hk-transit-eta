@@ -2,31 +2,39 @@ import React from 'react';
 import { StopCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
-export const StopCard: React.FC<StopCardProps> = ({ stop }) => {
-  const { getHoverClass, getTextClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
+export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
+  const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass } = useThemeStyles();
 
   return (
-    <div className={`px-6 py-4 transition-colors duration-300 ${getHoverClass()}`}>
+    <div 
+      className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
+      onClick={() => onClick && onClick(stop)}
+    >
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <div className="flex-shrink-0">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors duration-300 ${getAccentClass()}`}>
-              <span className="font-bold text-lg">🚏</span>
+        <div className="flex-1">
+          <div className="flex items-center mb-2">
+            <span className="text-2xl mr-3">🚏</span>
+            <div>
+              <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
+                {stop.name_tc}
+              </div>
+              <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                {stop.name_en}
+              </div>
             </div>
           </div>
+          <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+            ID: {stop.stop}
+          </div>
+          <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+            📍 {stop.lat}, {stop.long}
+          </div>
         </div>
-            <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-            {stop.name_tc}
-            </div>
-            <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
-              {stop.name_en}
-            </div>
-        {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              ID: {stop.stop}
+        <div className="text-gray-400 ml-4">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </div>
-        <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-          {stop.lat}, {stop.long}
-        </div> */}
       </div>
     </div>
   );
