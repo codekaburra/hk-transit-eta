@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -251,4 +252,61 @@ func getRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(routesWithDetails)
+}
+
+// getStopsNearby returns stops within ±0.001 latitude and ±0.001 longitude from a given stop
+func getStopsNearby(w http.ResponseWriter, r *http.Request) {
+	stopId := r.URL.Query().Get("stopId")
+	if stopId == "" {
+		http.Error(w, "Query parameter 'stopId' is required", http.StatusBadRequest)
+		return
+	}
+
+	// First get the latitude and longitude of the given stop
+	var targetLat, targetLong string
+	err := busDB.QueryRow("SELECT lat, long FROM stops WHERE stop = ?", stopId).Scan(&targetLat, &targetLong)
+	if err != nil {
+		http.Error(w, "Stop not found", http.StatusNotFound)
+		return
+	}
+
+	// Convert latitude and longitude to float for comparison
+	var latFloat, longFloat float64
+	_, err = fmt.Sscanf(targetLat, "%f", &latFloat)
+	if err != nil {
+		http.Error(w, "Invalid latitude format", http.StatusInternalServerError)
+		return
+	}
+	_, err = fmt.Sscanf(targetLong, "%f", &longFloat)
+	if err != nil {
+		http.Error(w, "Invalid longitude format", http.StatusInternalServerError)
+		return
+	}
+
+	// Find stops within ±0.001 latitude AND ±0.001 longitude range
+	rows, err := busDB.Query(`
+		SELECT company, stop, name_en, name_tc, name_sc, lat, long
+		FROM stops
+		WHERE CAST(lat AS REAL) BETWEEN ? AND ?
+		AND CAST(long AS REAL) BETWEEN ? AND ?
+		ORDER BY ABS(CAST(lat AS REAL) - ?) + ABS(CAST(long AS REAL) - ?), stop
+	`, latFloat-0.001, latFloat+0.001, longFloat-0.001, longFloat+0.001, latFloat, longFloat)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var nearbyStops []Stop
+	for rows.Next() {
+		var stop Stop
+		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
+		if err != nil {
+			continue
+		}
+		nearbyStops = append(nearbyStops, stop)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(nearbyStops)
 }

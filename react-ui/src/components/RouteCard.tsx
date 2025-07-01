@@ -3,9 +3,9 @@ import { RouteCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
 export const RouteCard: React.FC<RouteCardProps> = ({ route }) => {
-  const { getHoverClass, getTextClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
+  const { getHoverClass, getCardClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
   return (
-    <div className={`px-6 py-4 transition-colors duration-300 ${getHoverClass()}`}>
+    <div className={`rounded-lg px-6 py-4 transition-colors duration-300 ${getCardClass()} ${getHoverClass()}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="flex-shrink-0">

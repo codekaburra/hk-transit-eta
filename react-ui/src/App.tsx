@@ -86,6 +86,14 @@ function AppContent() {
     setSelectedStop(null);
   };
 
+  const tabOptionClass = (thisTab: string, thisSearchType: string) => {
+    return `px-6 py-3 font-medium transition-colors duration-300 ${
+                  activeTab === thisTab && searchType === thisSearchType
+                    ? `border-2 border-500 border-custom-light3 bg-custom-light rounded-lg text-600 ${getSecondaryTextClass()}`
+                    : 'text-gray-500 hover:text-gray-700'
+                }`;
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
@@ -97,17 +105,13 @@ function AppContent() {
         ) : (
           <>
             {/* Tab Navigation */}
-            <div className="flex mb-8 border-b">
+            <div className="flex mb-8 items-center justify-center text-3xl">
               <button
                 onClick={() => {
                   setActiveTab('search');
                   setSearchType('route');
                 }}
-                className={`px-6 py-3 font-medium transition-colors duration-300 ${
-                  activeTab === 'search' && searchType === 'route'
-                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={tabOptionClass('search', 'route')}
               >
                 🚌 路線 Routes
               </button>
@@ -116,21 +120,13 @@ function AppContent() {
                   setActiveTab('search');
                   setSearchType('stop');
                 }}
-                className={`px-6 py-3 font-medium transition-colors duration-300 ${
-                  activeTab === 'search' && searchType === 'stop'
-                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={tabOptionClass('search', 'stop')}
               >
                 🚏 巴士站 Stops
               </button>
               <button
                 onClick={() => setActiveTab('about')}
-                className={`px-6 py-3 font-medium transition-colors duration-300 ${
-                  activeTab === 'about'
-                    ? `border-2 border-500 text-600 ${getSecondaryTextClass()}`
-                    : 'text-gray-500 hover:text-gray-700 '
-                }`}
+                className={tabOptionClass('about', 'null')}
               >
                 ℹ️ About
               </button>

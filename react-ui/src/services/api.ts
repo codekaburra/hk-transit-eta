@@ -4,6 +4,22 @@ import { BusRoute, BusStop, RouteStop } from '../types';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
+// Type for routes by stop response
+interface RouteByStop {
+  company: string;
+  route: string;
+  direction: string;
+  service_type: string;
+  seq: string;
+  stop: string;
+  orig_en: string;
+  orig_tc: string;
+  orig_sc: string;
+  dest_en: string;
+  dest_tc: string;
+  dest_sc: string;
+}
+
 export const api = {
   // Search routes
   searchRoutes: async (query: string): Promise<BusRoute[]> => {
@@ -75,13 +91,25 @@ export const api = {
   getRoutesByStop: async (stopId: string): Promise<BusRoute[]> => {
     try {
       const response = await fetch(`${API_BASE_URL}/routes-by-stop?stopId=${stopId}`);
-      console.log(response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       return await response.json();
     } catch (error) {
       console.error('Error fetching routes by stop:', error);
+      return [];
+    }
+  },
+
+  getStopsNearby: async (stopId: string): Promise<BusStop[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stops-nearby?stopId=${stopId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching nearby stops:', error);
       return [];
     }
   },

@@ -18,7 +18,7 @@ func main() {
 	initDatabases()
 
 	// Fetch and store data (only if databases are empty)
-	if true && shouldFetchData() {
+	if false && shouldFetchData() {
 		fmt.Println("Fetching fresh data from APIs...")
 		FetchKmbData()
 		FetchCitybusData()
@@ -72,6 +72,7 @@ func startServer() {
 	// New relationship endpoints
 	api.HandleFunc("/stops-by-route", getStopsByRouteId).Methods("GET")
 	api.HandleFunc("/routes-by-stop", getRoutesByStopId).Methods("GET")
+	api.HandleFunc("/stops-nearby", getStopsNearby).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

@@ -172,6 +172,20 @@ export const useThemeStyles = () => {
     }
   };
 
+  const getAccentClass2 = () => {
+    switch (themeMode) {
+      // case 'light':
+      //   return 'bg-indigo-100 text-indigo-600';
+      default:
+      case 'custom-light':
+        return 'bg-custom-light text-custom-light4';
+      case 'warm':
+        return 'bg-warm2 text-warm4';
+      case 'dark':
+        return 'bg-custom-dark2 text-custom-dark4';
+    }
+  };
+
   return {
     getBackgroundClass,
     getHeaderClass,
@@ -184,5 +198,6 @@ export const useThemeStyles = () => {
     getButtonClass,
     getHoverClass,
     getAccentClass,
+    getAccentClass2,
   };
 }; 
