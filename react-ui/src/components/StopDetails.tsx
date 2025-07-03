@@ -4,6 +4,7 @@ import { BusStop, BusRoute } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { api } from '../services/api';
 import { Header } from './Header';
+import { StopCard } from './StopCard';
 
 export const StopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
@@ -228,60 +229,20 @@ export const StopDetails: React.FC = () => {
         {/* Nearby Stops Section */}
         <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
           <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
-            Nearby Stops ({nearbyStops.length})
+            鄰近巴士站 Nearby Stops ({nearbyStops.length})
           </h3>
-          <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+          {/* <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
             Stops within ±0.001 latitude and ±0.001 longitude (approximately ±111m × ±111m area)
-          </p>
+          </p> */}
           
-          {nearbyLoading && (
-            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              <div className="text-4xl mb-4">🔍</div>
-              <p>Finding nearby stops...</p>
-            </div>
-          )}
-
-          {nearbyError && (
-            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              <div className="text-4xl mb-4">❌</div>
-              <p>{nearbyError}</p>
-            </div>
-          )}
-
-          {!nearbyLoading && !nearbyError && nearbyStops.length === 0 && (
-            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              <div className="text-4xl mb-4">📍</div>
-              <p>No nearby stops found</p>
-              <p className="text-sm mt-2">This stop appears to be isolated</p>
-            </div>
-          )}
-
           {!nearbyLoading && !nearbyError && nearbyStops.length > 0 && (
             <div className="grid gap-3">
-              {nearbyStops.map((nearbyStop, index) => (
-                <div
+              {nearbyStops.map((nearbyStop: BusStop, index) => (
+                <StopCard
                   key={`${nearbyStop.stop}-${index}`}
-                  className={`p-3 rounded-lg border transition-colors duration-300 ${getBorderClass()} ${getHoverClass()}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className={`font-semibold transition-colors duration-300 ${getTextClass()}`}>
-                        {nearbyStop.name_tc}
-                      </div>
-                      <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        {nearbyStop.name_en}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      {/* <div className={`text-xs font-medium transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        ID: {nearbyStop.stop}
-                      </div> */}
-                      <div className={`text-xs transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        {nearbyStop.company}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  stop={nearbyStop}
+                  onClick={(stop) => navigate(`/stop/${stop.stop}`)}
+                />
               ))}
             </div>
           )}
