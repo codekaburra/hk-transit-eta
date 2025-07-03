@@ -1,24 +1,8 @@
 // API service for communicating with the Go backend
 
-import { BusRoute, BusStop, RouteStop } from '../types';
+import { BusRoute, BusStop } from '../types';
 
 const API_BASE_URL = 'http://localhost:8080/api';
-
-// Type for routes by stop response
-interface RouteByStop {
-  company: string;
-  route: string;
-  direction: string;
-  service_type: string;
-  seq: string;
-  stop: string;
-  orig_en: string;
-  orig_tc: string;
-  orig_sc: string;
-  dest_en: string;
-  dest_tc: string;
-  dest_sc: string;
-}
 
 export const api = {
   // Search routes
