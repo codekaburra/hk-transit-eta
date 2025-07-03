@@ -215,7 +215,7 @@ func getRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	}
 	// Get routes for the specified stop with route details
 	rows, err := busDB.Query(`
-		select r.id, r.company, r.route, 
+		select r.id, r.company, r.route, r.service_type, 
 		r.orig_en, r.orig_tc, r.orig_sc, 
 		r.dest_en, r.dest_tc, r.dest_sc 
 		from routes r where route in 
@@ -229,22 +229,23 @@ func getRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 
 	var routesWithDetails []Route
 	for rows.Next() {
-		var id, company, route, origEn, origTc, origSc, destEn, destTc, destSc string
-		err := rows.Scan(&id, &company, &route, &origEn, &origTc, &origSc, &destEn, &destTc, &destSc)
+		var id, company, route, serviceType, origEn, origTc, origSc, destEn, destTc, destSc string
+		err := rows.Scan(&id, &company, &route, &serviceType, &origEn, &origTc, &origSc, &destEn, &destTc, &destSc)
 		if err != nil {
 			continue
 		}
 
 		routeWithDetails := Route{
-			Id:      id,
-			Company: company,
-			Route:   route,
-			OrigEn:  origEn,
-			OrigTc:  origTc,
-			OrigSc:  origSc,
-			DestEn:  destEn,
-			DestTc:  destTc,
-			DestSc:  destSc,
+			Id:          id,
+			Company:     company,
+			Route:       route,
+			ServiceType: serviceType,
+			OrigEn:      origEn,
+			OrigTc:      origTc,
+			OrigSc:      origSc,
+			DestEn:      destEn,
+			DestTc:      destTc,
+			DestSc:      destSc,
 		}
 
 		routesWithDetails = append(routesWithDetails, routeWithDetails)

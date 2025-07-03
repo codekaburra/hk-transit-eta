@@ -5,18 +5,18 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 import { api } from '../services/api';
 import { Header } from './Header';
 import { StopCard } from './StopCard';
+import { RouteCard } from './RouteCard';
 
 export const StopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
   const navigate = useNavigate();
-  const { getCardClass, getTextClass, getSecondaryTextClass, getBorderClass, getHoverClass, getBackgroundClass } = useThemeStyles();
+  const { getCardClass, getTextClass, getSecondaryTextClass, getBackgroundClass } = useThemeStyles();
   const [stop, setStop] = useState<BusStop | null>(null);
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [nearbyStops, setNearbyStops] = useState<BusStop[]>([]);
   const [loading, setLoading] = useState(true);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [nearbyError, setNearbyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!stopId) {
@@ -144,18 +144,18 @@ export const StopDetails: React.FC = () => {
                 {stop.name_en}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                {/* <div>
                   <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
                     Stop ID:
                   </span>
                   <span className={`ml-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
                     {stop.stop}
                   </span>
-                </div>
+                </div> */}
                 <div>
-                  <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
+                  {/* <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
                     Company:
-                  </span>
+                  </span> */}
                   <span className={`ml-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
                     {stop.company}
                   </span>
@@ -177,75 +177,55 @@ export const StopDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* Routes Section */}
-        <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>
-          <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
-            Routes Serving This Stop ({sortedRoutes.length})
-          </h3>
-          
-          {!loading && !error && sortedRoutes.length === 0 && (
-            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              <div className="text-4xl mb-4">🚌</div>
-              <p>No routes found for this stop</p>
-            </div>
-          )}
+        {/* Routes and Nearby Stops in 2-Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Routes Section */}
+          <div className={`lg:col-span-2 rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
+            <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+              途經此站的巴士路線 Routes Serving This Stop ({sortedRoutes.length})
+            </h3>
+            
+            {!loading && !error && sortedRoutes.length === 0 && (
+              <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                <div className="text-4xl mb-4">🚌</div>
+                <p> - - - </p>
+              </div>
+            )}
 
-          {!loading && !error && sortedRoutes.length > 0 && (
-            <div className="grid gap-4">
-              {sortedRoutes.map((route, index) => (
-                <div
-                  key={`${route.route}-${route.direction}-${index}`}
-                  className={`p-4 rounded-lg border transition-colors duration-300 ${getBorderClass()} ${getHoverClass()}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className={`text-2xl font-bold px-3 py-1 rounded ${getSecondaryTextClass()}`}>
-                        {route.route}
-                      </div>
-                      <div className={`text-xs transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        {route.company}
-                      </div>
-                      <div className="flex-1">
-                        <div className={`font-semibold transition-colors duration-300 ${getTextClass()}`}>
-                          {route.orig_tc} → {route.dest_tc}
-                        </div>
-                        <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                          {route.orig_en} → {route.dest_en}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-sm font-medium transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        5 mins
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+            {!loading && !error && sortedRoutes.length > 0 && (
+              <div className="grid gap-4">
+                {sortedRoutes.map((route, index) => (
+                  <RouteCard
+                    key={`${route.route}-${route.direction}-${index}`}
+                    route={route}
+                    busStop={stop}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
 
-        {/* Nearby Stops Section */}
-        <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-          <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
-            鄰近巴士站 Nearby Stops ({nearbyStops.length})
-          </h3>
-          {/* <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-            Stops within ±0.001 latitude and ±0.001 longitude (approximately ±111m × ±111m area)
-          </p> */}
-          
-          {!nearbyLoading && !nearbyError && nearbyStops.length > 0 && (
-            <div className="grid gap-3">
-              {nearbyStops.map((nearbyStop: BusStop, index) => (
-                <StopCard
-                  key={`${nearbyStop.stop}-${index}`}
-                  stop={nearbyStop}
-                  onClick={(stop) => navigate(`/stop/${stop.stop}`)}
-                />
-              ))}
-            </div>
-          )}
+          {/* Nearby Stops Section */}
+          <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
+            <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+              鄰近巴士站 Nearby Stops ({nearbyStops.length})
+            </h3>
+            {/* <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+              Stops within ±0.001 latitude and ±0.001 longitude (approximately ±111m × ±111m area)
+            </p> */}
+            
+            {!nearbyLoading && nearbyStops.length > 0 && (
+              <div className="grid gap-3">
+                {nearbyStops.map((nearbyStop: BusStop, index) => (
+                  <StopCard
+                    key={`${nearbyStop.stop}-${index}`}
+                    stop={nearbyStop}
+                    onClick={(stop) => navigate(`/stop/${stop.stop}`)}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

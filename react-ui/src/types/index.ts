@@ -41,6 +41,7 @@ export interface SearchBoxProps {
 
 export interface RouteCardProps {
   route: BusRoute;
+  busStop?: BusStop;
 }
 
 export interface StopCardProps {

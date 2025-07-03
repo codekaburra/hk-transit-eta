@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StopCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
+import { api, ETAData } from '../services/api';
 
 export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
   const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
-
   return (
     <div 
       className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -23,12 +23,6 @@ export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
               </div>
             </div>
           </div>
-          {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-            ID: {stop.stop}
-          </div> */}
-          {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-            📍 {stop.lat}, {stop.long}
-          </div> */}
         </div>
         <div className="text-gray-400 ml-4">
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>

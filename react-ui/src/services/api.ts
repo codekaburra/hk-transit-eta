@@ -3,6 +3,23 @@
 import { BusRoute, BusStop } from '../types';
 
 const API_BASE_URL = 'http://localhost:8080/api';
+const CITYBUS_ETA_BASE_URL = 'https://rt.data.gov.hk/v2/transport/citybus/eta';
+
+// ETA data interface
+export interface ETAData {
+  co: string;
+  route: string;
+  dir: string;
+  service_type: number;
+  seq: number;
+  dest_tc: string;
+  dest_en: string;
+  eta_seq: number;
+  eta: string;
+  rmk_tc: string;
+  rmk_en: string;
+  data_timestamp: string;
+}
 
 export const api = {
   // Search routes
@@ -94,6 +111,35 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching nearby stops:', error);
+      return [];
+    }
+  },
+
+  getKmbETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+    try {
+      const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route.route}/${route.service_type}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data.data.map((item: any) => item.eta) || [];
+    } catch (error) {
+      console.error('Error fetching Citybus ETA:', error);
+      return [];
+    }
+  },
+
+  // Get real-time ETA data from Citybus API
+  getCitybusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+    try {
+      const response = await fetch(`${CITYBUS_ETA_BASE_URL}/ctb/${stopId}/${route.route}`);
+      if (!response.ok) {
+        return [];
+      }
+      const data = await response.json();
+      return data.data.map((item: any) => item.eta) || [];
+    } catch (error) {
+      console.error('Error fetching Citybus ETA:', error);
       return [];
     }
   },
