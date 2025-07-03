@@ -1,6 +1,6 @@
 // API service for communicating with the Go backend
 
-import { BusRoute, BusStop } from '../types';
+import { BusRoute, BusStop, RouteStop } from '../types';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 const CITYBUS_ETA_BASE_URL = 'https://rt.data.gov.hk/v2/transport/citybus/eta';
@@ -85,6 +85,30 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error fetching stops by route:', error);
+      return [];
+    }
+  },
+
+  getRouteStops: async (route: string, direction: string): Promise<RouteStop[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stops-by-route?routeId=${route}&direction=${direction}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      // Transform the data to match RouteStop interface
+      return data.map((item: any) => ({
+        company: item.company,
+        route: item.route,
+        direction: item.direction,
+        service_type: item.service_type,
+        seq: item.seq,
+        stop: item.stop, 
+        name_en: item.name_en,
+        name_tc: item.name_tc,
+      }));
+    } catch (error) {
+      console.error('Error fetching route stops:', error);
       return [];
     }
   },

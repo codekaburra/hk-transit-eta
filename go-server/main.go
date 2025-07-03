@@ -18,10 +18,9 @@ func main() {
 	initDatabases()
 
 	// Fetch and store data (only if databases are empty)
-	if false && shouldFetchData() {
-		fmt.Println("Fetching fresh data from APIs...")
+	if true && shouldFetchData() {
 		FetchKmbData()
-		FetchCitybusData()
+		// FetchCitybusData()
 	}
 
 	// Start HTTP server

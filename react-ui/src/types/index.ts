@@ -26,6 +26,8 @@ export interface RouteStop {
   service_type: string;
   seq: string;
   stop: string;
+  name_en: string;
+  name_tc: string;
 }
 
 // Theme types
@@ -42,6 +44,7 @@ export interface SearchBoxProps {
 export interface RouteCardProps {
   route: BusRoute;
   busStop?: BusStop;
+  onClick?: (route: BusRoute) => void;
 }
 
 export interface StopCardProps {

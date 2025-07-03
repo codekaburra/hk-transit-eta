@@ -73,7 +73,7 @@ func initBusDatabase() {
 		log.Fatal("Error creating route_stops table:", err)
 	}
 
-	fmt.Println("KMB database initialized successfully")
+	fmt.Println("database initialized successfully")
 }
 
 func QueryDatabase() {

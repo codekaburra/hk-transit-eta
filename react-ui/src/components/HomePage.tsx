@@ -4,7 +4,6 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 import { Header } from './Header';
 import { SearchBox } from './SearchBox';
 import { ResultsList } from './ResultsList';
-import { AboutPage } from './AboutPage';
 import { BusRoute, BusStop } from '../types';
 import { api } from '../services/api';
 
@@ -113,12 +112,6 @@ export const HomePage: React.FC = () => {
           >
             🚏 巴士站 Stops
           </button>
-          <button
-            onClick={() => setActiveTab('about')}
-            className={tabOptionClass('about', 'null')}
-          >
-            ℹ️ About
-          </button>
         </div>
 
         {/* Tab Content */}
@@ -152,8 +145,6 @@ export const HomePage: React.FC = () => {
                   />
                 </div>
               );
-            case 'about':
-              return <AboutPage />;
             default:
               return null;
           }

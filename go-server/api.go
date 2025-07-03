@@ -158,8 +158,13 @@ func searchStops(w http.ResponseWriter, r *http.Request) {
 // getStopsByRouteId returns all stops for a specific route
 func getStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 	routeId := r.URL.Query().Get("routeId")
+	direction := r.URL.Query().Get("direction")
 	if routeId == "" {
 		http.Error(w, "Query parameter 'routeId' is required", http.StatusBadRequest)
+		return
+	}
+	if direction == "" {
+		http.Error(w, "Query parameter 'direction' is required", http.StatusBadRequest)
 		return
 	}
 
@@ -170,8 +175,9 @@ func getStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 		FROM route_stops rs
 		JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
 		WHERE rs.route = ?
+		AND rs.direction = ?
 		ORDER BY rs.seq
-	`, routeId)
+	`, routeId, direction)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

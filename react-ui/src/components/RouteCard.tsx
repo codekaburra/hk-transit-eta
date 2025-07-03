@@ -3,7 +3,7 @@ import { RouteCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { ETAData, api } from '../services/api';
 
-export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop }) => {
+export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }) => {
 
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
@@ -59,7 +59,10 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop }) => {
 
   const { getHoverClass, getCardClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
   return (
-    <div className={`rounded-lg px-6 py-4 transition-colors duration-300 ${getCardClass()} ${getHoverClass()}`}>
+    <div 
+      className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
+      onClick={() => onClick?.(route)}
+    >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <div className="flex-shrink-0">
