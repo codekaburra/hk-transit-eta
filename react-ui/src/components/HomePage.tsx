@@ -123,7 +123,7 @@ export const HomePage: React.FC = () => {
                 onClick={() => setSearchType('route')}
                 className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'route')}`}
               >
-                🚌 路線 Routes
+                🚌 巴士路線 Bus Routes
               </button>
               <button
                 onClick={() => setSearchType('stop')}
