@@ -1,54 +1,96 @@
-# HK Bus Tool
+# HK Bus Tool 🚌🚐
 
-A comprehensive tool for fetching, storing, and managing Hong Kong bus data from KMB (Kowloon Motor Bus) and Citybus APIs. This project consists of a Go backend for data processing and a React frontend for user interface.
+A comprehensive web application for searching and managing Hong Kong public transport data, including buses (KMB, Citybus) and minibuses (GMB). This project features a Go backend with organized package structure and a modern React frontend with multi-transport search capabilities.
 
-## 🚌 Features
+## 🌟 Features
 
-- **KMB Data Integration**: Fetches and stores route, stop, and route-stop relationship data from KMB's official API
-- **Citybus Data Integration**: Fetches and stores route, stop, and route-stop relationship data from Citybus's official API
-- **SQLite Database Storage**: Local database storage for efficient data querying and management
-- **Multi-language Support**: Handles English, Traditional Chinese, and Simplified Chinese data
-- **React Frontend**: Modern web interface for data visualization and interaction
-- **Docker Support**: Containerized deployment with Docker Compose
+### 🚌 **Bus Services**
+- **KMB Integration**: Complete route, stop, and real-time ETA data from KMB's official API
+- **Citybus Integration**: Full route, stop, and real-time ETA data from Citybus's official API
+- **Real-time ETAs**: Live arrival times directly from KMB and Citybus public APIs
+
+### 🚐 **Minibus Services**
+- **GMB Data Integration**: Comprehensive minibus route, stop, and schedule data from three regions (HKI, KLN, NT)
+- **Multi-region Support**: Hong Kong Island, Kowloon, and New Territories minibus coverage
+- **Route Details**: Complete route information including headways, fare details, and stop sequences
+
+### 💾 **Data Management**
+- **SQLite Database**: Efficient local storage for all transport data
+- **Multi-language Support**: English, Traditional Chinese, and Simplified Chinese
+- **Modular Architecture**: Organized into `bus` and `minibus` packages for scalability
+
+### 🎨 **Modern Frontend**
+- **Multi-search Interface**: Search buses and minibuses with dedicated UI components
+- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
+- **Theme System**: Multiple color themes with smooth transitions
+- **Real-time Search**: Debounced search with instant results
 
 ## 📁 Project Structure
 
 ```
 hk-bus-tool/
 ├── go-server/                 # Go backend application
-│   ├── main.go               # Main application entry point
-│   ├── kmb.go                # KMB data fetching and processing
-│   ├── city-bus.go           # Citybus data fetching and processing
-│   ├── types.go              # Data structures and types
-│   ├── go.mod                # Go module dependencies
-│   ├── go.sum                # Go module checksums
-│   ├── routeList.json        # Route data export
-│   ├── stopList.json         # Stop data export
-│   └── ui/                   # UI-related files
+│   ├── main.go               # Main server entry point
+│   ├── bus/                  # Bus-related functionality
+│   │   ├── api.go           # Bus API endpoints
+│   │   ├── database.go      # Bus database operations
+│   │   ├── kmb.go           # KMB data fetching
+│   │   ├── city-bus.go      # Citybus data fetching
+│   │   ├── types.go         # Bus data structures
+│   │   └── utils.go         # Bus utility functions
+│   ├── minibus/              # Minibus-related functionality
+│   │   ├── api.go           # Minibus API endpoints
+│   │   ├── database.go      # Minibus database operations
+│   │   ├── fetch.go         # Minibus data fetching
+│   │   ├── types.go         # Minibus data structures
+│   │   └── utils.go         # Minibus utility functions
+│   ├── go.mod               # Go module dependencies
+│   └── go.sum               # Go module checksums
 ├── react-ui/                 # React frontend application
-│   ├── src/                  # Source code
-│   ├── public/               # Public assets
-│   ├── package.json          # Node.js dependencies
-│   └── tsconfig.json         # TypeScript configuration
+│   ├── src/
+│   │   ├── components/       # React components
+│   │   │   ├── bus/         # Bus-specific components
+│   │   │   │   ├── RouteCard.tsx
+│   │   │   │   ├── StopCard.tsx
+│   │   │   │   └── ...
+│   │   │   ├── minibus/     # Minibus-specific components
+│   │   │   │   ├── MinibusRouteCard.tsx
+│   │   │   │   ├── MinibusStopCard.tsx
+│   │   │   │   └── ...
+│   │   │   ├── HomePage.tsx  # Main search interface
+│   │   │   ├── SearchBox.tsx # Search input component
+│   │   │   └── ResultsList.tsx # Search results display
+│   │   ├── services/         # API services
+│   │   │   └── api.ts       # API communication layer
+│   │   ├── hooks/           # React hooks
+│   │   │   └── useThemeStyles.ts
+│   │   ├── contexts/        # React contexts
+│   │   │   └── ThemeContext.tsx
+│   │   └── types/           # TypeScript definitions
+│   │       └── index.ts
+│   ├── public/              # Static assets
+│   │   ├── KMB_300x200.png  # KMB logo
+│   │   ├── citybus.svg      # Citybus logo
+│   │   └── citybus_bg.svg   # Citybus logo with background
+│   ├── package.json         # Node.js dependencies
+│   └── tsconfig.json        # TypeScript configuration
 ├── docker-compose.yaml       # Docker Compose configuration
-├── kmb_routes.db            # KMB SQLite database
-├── citybus.db               # Citybus SQLite database
 └── README.md                # This file
 ```
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Go 1.23.4**: Main programming language
-- **SQLite**: Local database storage
-- **HTTP Client**: API data fetching
-- **JSON Processing**: Data parsing and serialization
+- **Go 1.23.4**: Main programming language with modular package structure
+- **SQLite**: Local database storage for all transport data
+- **Gorilla Mux**: HTTP routing and middleware
+- **Concurrent Processing**: Goroutines for non-blocking data fetching
 
 ### Frontend
-- **React 19.1.0**: UI framework
-- **TypeScript 4.9.5**: Type-safe JavaScript
-- **Tailwind CSS 4.1.11**: Utility-first CSS framework
-- **React Scripts**: Development and build tools
+- **React 18+**: Modern UI framework with hooks
+- **TypeScript**: Type-safe JavaScript development
+- **Tailwind CSS**: Utility-first responsive styling
+- **React Router**: Client-side routing for navigation
 
 ## 🚀 Getting Started
 
@@ -58,151 +100,163 @@ hk-bus-tool/
 - Node.js 16+ and npm
 - Docker and Docker Compose (optional)
 
-### Backend Setup
+### Quick Start with Docker
 
-1. **Navigate to the Go server directory:**
-   ```bash
-   cd go-server
-   ```
+```bash
+# Clone the repository
+git clone https://github.com/your-username/hk-bus-tool.git
+cd hk-bus-tool
 
-2. **Install Go dependencies:**
-   ```bash
-   go mod download
-   ```
+# Start all services
+docker-compose up
+```
 
-3. **Run the application:**
-   ```bash
-   go run .
-   ```
+### Manual Setup
 
-   This will:
-   - Fetch KMB data from the official API
-   - Store data in `kmb_routes.db`
-   - Query and display KMB data
-   - Fetch Citybus data from the official API
-   - Store data in `citybus.db`
+#### Backend Setup
 
-### Frontend Setup
+```bash
+# Navigate to the Go server directory
+cd go-server
 
-1. **Navigate to the React UI directory:**
-   ```bash
-   cd react-ui
-   ```
+# Install dependencies
+go mod download
 
-2. **Install Node.js dependencies:**
-   ```bash
-   npm install
-   ```
+# Start the server
+go run .
+```
 
-3. **Start the development server:**
-   ```bash
-   npm start
-   ```
+The server will:
+- 🚌 Fetch and store KMB/Citybus data
+- 🚐 Fetch and store Minibus data from all regions
+- 🌐 Start API server on `http://localhost:8080`
 
-   The React app will open at `http://localhost:3000`
+#### Frontend Setup
 
-### Docker Setup (Alternative)
+```bash
+# Navigate to the React UI directory
+cd react-ui
 
-1. **Navigate to the project root directory:**
-   ```bash
-   cd hk-bus-tool
-   ```
+# Install dependencies
+npm install
 
-2. **Run with Docker Compose:**
-   ```bash
-   docker-compose up
-   ```
+# Start the development server
+npm start
+```
 
-## 📊 Data Sources
+The React app will open at `http://localhost:3000`
 
-### KMB API Endpoints
-- **Routes**: `https://data.etabus.gov.hk/v1/transport/kmb/route/`
-- **Stops**: `https://data.etabus.gov.hk/v1/transport/kmb/stop/`
-- **Route-Stops**: `https://data.etabus.gov.hk/v1/transport/kmb/route-stop/`
+## 📊 API Endpoints
 
-### Citybus API Endpoints
-- **Company Info**: `https://data.etabus.gov.hk/v1/transport/citybus/company`
-- **Routes**: `https://data.etabus.gov.hk/v1/transport/citybus/route`
-- **Stops**: `https://data.etabus.gov.hk/v1/transport/citybus/stop`
-- **Route-Stops**: `https://data.etabus.gov.hk/v1/transport/citybus/route-stop`
+### 🚌 Bus API (`/api/bus/`)
+
+#### Core Endpoints
+- `GET /api/bus/routes` - List all bus routes
+- `GET /api/bus/stops` - List all bus stops
+- `GET /api/bus/route-stops` - Get stops for specific route
+- `GET /api/bus/stop-by-id?stopId={id}` - Get stop details
+
+#### Search Endpoints
+- `GET /api/bus/search/routes?q={query}` - Search bus routes
+- `GET /api/bus/search/stops?q={query}` - Search bus stops
+
+#### Relationship Endpoints
+- `GET /api/bus/stops-by-route?routeId={id}&direction={dir}` - Stops by route
+- `GET /api/bus/routes-by-stop?stopId={id}` - Routes by stop
+- `GET /api/bus/stops-nearby?stopId={id}` - Nearby stops
+
+### 🚐 Minibus API (`/api/minibus/`)
+
+#### Core Endpoints
+- `GET /api/minibus/routes?region={region}` - List minibus routes (optionally filtered by region)
+- `GET /api/minibus/stops` - List all minibus stops
+- `GET /api/minibus/route-stops?routeId={id}&routeSeq={seq}` - Get stops for route
+- `GET /api/minibus/stop-by-id?stopId={id}` - Get stop details
+
+#### Search Endpoints
+- `GET /api/minibus/search/routes?q={query}` - Search minibus routes
+- `GET /api/minibus/search/stops?q={query}` - Search minibus stops
+
+#### Relationship Endpoints
+- `GET /api/minibus/routes-by-stop?stopId={id}` - Routes serving a stop
+
+## 📈 Data Sources
+
+### 🚌 Bus Data APIs
+- **KMB API**: `https://data.etabus.gov.hk/v1/transport/kmb/`
+- **Citybus API**: `https://data.etabus.gov.hk/v1/transport/citybus/`
+- **Real-time ETA**: Live data from official APIs
+
+### 🚐 Minibus Data APIs
+- **GMB API**: `https://data.etagmb.gov.hk/`
+- **Regions**: HKI (Hong Kong Island), KLN (Kowloon), NT (New Territories)
 
 ## 🗄️ Database Schema
 
-### KMB Database (`kmb_routes.db`)
+### Bus Tables
+- **`route`**: Bus route information
+- **`stop`**: Bus stop details with coordinates
+- **`route_stop`**: Route-stop relationships
 
-#### Routes Table
-- `id`: Primary key
-- `route`: Route number
-- `bound`: Direction (inbound/outbound)
-- `service_type`: Service type
-- `orig_en/tc/sc`: Origin in English/Traditional Chinese/Simplified Chinese
-- `dest_en/tc/sc`: Destination in English/Traditional Chinese/Simplified Chinese
-- `created_at`: Timestamp
+### Minibus Tables
+- **`minibus_route`**: Minibus route information by region
+- **`minibus_stop`**: Minibus stop details with coordinates
+- **`minibus_route_stop`**: Route-stop sequences
+- **`minibus_headway`**: Service frequency and operating hours
 
-#### Stops Table
-- `id`: Primary key
-- `stop`: Stop ID
-- `name_en/tc/sc`: Stop name in English/Traditional Chinese/Simplified Chinese
-- `lat/long`: GPS coordinates
-- `created_at`: Timestamp
+## 🎨 Frontend Features
 
-#### Route_Stops Table
-- `id`: Primary key
-- `route`: Route number
-- `bound`: Direction
-- `service_type`: Service type
-- `seq`: Sequence number
-- `stop`: Stop ID
-- `created_at`: Timestamp
+### 🔍 **Search Interface**
+- **Multi-type Search**: Bus routes, bus stops, minibus routes, minibus stops
+- **Real-time Results**: Debounced search with instant feedback
+- **Responsive Design**: Mobile-optimized interface
 
-### Citybus Database (`citybus.db`)
+### 🎨 **Theme System**
+- **Multiple Themes**: Light, dark, warm, custom color schemes
+- **Smooth Transitions**: Animated theme switching
+- **Consistent Styling**: Theme-aware components
 
-#### Citybus_Company Table
-- `id`: Primary key
-- `co`: Company code
-- `name_en/tc/sc`: Company name in different languages
-- `url`: Company website
-- `data_timestamp`: Data timestamp
-- `created_at`: Timestamp
-
-#### Citybus_Routes Table
-- `id`: Primary key
-- `co`: Company code
-- `route`: Route number
-- `orig_en/tc/sc`: Origin in different languages
-- `dest_en/tc/sc`: Destination in different languages
-- `data_timestamp`: Data timestamp
-- `created_at`: Timestamp
-
-#### Citybus_Stops Table
-- `id`: Primary key
-- `stop`: Stop ID
-- `name_en/tc/sc`: Stop name in different languages
-- `lat/long`: GPS coordinates
-- `data_timestamp`: Data timestamp
-- `created_at`: Timestamp
-
-#### Citybus_Route_Stops Table
-- `id`: Primary key
-- `route`: Route number
-- `dir`: Direction
-- `seq`: Sequence number
-- `stop`: Stop ID
-- `data_timestamp`: Data timestamp
-- `created_at`: Timestamp
+### 🧩 **Component Architecture**
+- **Modular Design**: Separate components for bus and minibus
+- **Reusable Icons**: Standardized company logos and transport icons
+- **Type Safety**: Full TypeScript integration
 
 ## 🔧 Development
 
 ### Adding New Features
 
-1. **Backend Changes**: Modify the Go files in `go-server/`
-2. **Frontend Changes**: Modify the React components in `react-ui/src/`
-3. **Database Changes**: Update the schema in the respective Go files
+1. **Backend**: Add new endpoints in respective `api.go` files
+2. **Frontend**: Create new components in appropriate directories
+3. **Database**: Update schema in `database.go` files
 
-### Testing
+### Code Organization
 
-- **Backend**: Use Go's built-in testing framework
-- **Frontend**: Use React Testing Library and Jest
+- **Bus functionality**: `go-server/bus/` package
+- **Minibus functionality**: `go-server/minibus/` package
+- **Frontend components**: Organized by transport type
+
+## 🚀 Deployment
+
+### Production Build
+
+```bash
+# Build frontend
+cd react-ui
+npm run build
+
+# Build backend
+cd ../go-server
+go build -o hk-bus-tool
+
+# Run production server
+./hk-bus-tool
+```
+
+### Docker Deployment
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
 
 ## 📝 License
 
@@ -211,15 +265,21 @@ This project is open source and available under the [MIT License](LICENSE).
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## 📞 Support
 
 For questions or issues, please open an issue on the GitHub repository.
 
+## 🙏 Acknowledgments
+
+- Hong Kong Transport Department for providing public APIs
+- KMB, Citybus, and GMB operators for data access
+- Open source community for tools and libraries
+
 ---
 
-**Note**: This tool fetches data from official Hong Kong bus APIs. Please ensure compliance with the respective API terms of service and usage policies. 
+**Note**: This tool uses official Hong Kong transport APIs. Please ensure compliance with respective API terms of service and usage policies. All transport data is sourced from official government and operator APIs. 

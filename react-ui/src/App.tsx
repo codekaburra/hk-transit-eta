@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from './contexts/ThemeContext';
 import { StopDetails } from './components/bus/StopDetails';
 import { RouteDetails } from './components/bus/RouteDetails';
+import { MinibusRouteDetails } from './components/minibus/MinibusRouteDetails';
+import { MinibusStopDetails } from './components/minibus/MinibusStopDetails';
 import './App.css';
 import { HomePage } from './components/HomePage';
 
@@ -14,6 +16,8 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/stop/:stopId" element={<StopDetails />} />
           <Route path="/route/:routeId" element={<RouteDetails />} />
+          <Route path="/minibus/route/:routeId/:routeSeq" element={<MinibusRouteDetails />} />
+          <Route path="/minibus/stop/:stopId" element={<MinibusStopDetails />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

@@ -191,4 +191,97 @@ export const api = {
     }
   },
 
+  // Minibus API functions
+  getMinibusRoutes: async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/routes`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching minibus routes:', error);
+      return [];
+    }
+  },
+
+  getMinibusStops: async (): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/stops`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching minibus stops:', error);
+      return [];
+    }
+  },
+
+  searchMinibusRoutes: async (query: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/search/routes?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error searching minibus routes:', error);
+      return [];
+    }
+  },
+
+  searchMinibusStops: async (query: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/search/stops?q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error searching minibus stops:', error);
+      return [];
+    }
+  },
+
+  getMinibusStopById: async (stopId: string): Promise<any | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/stop-by-id?stopId=${stopId}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching minibus stop by id:', error);
+      return null;
+    }
+  },
+
+  getMinibusRoutesByStop: async (stopId: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/routes-by-stop?stopId=${stopId}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching minibus routes by stop:', error);
+      return [];
+    }
+  },
+
+  getMinibusRouteStops: async (routeId: string, routeSeq: string): Promise<any[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/minibus/route-stops?routeId=${routeId}&routeSeq=${routeSeq}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching minibus route stops:', error);
+      return [];
+    }
+  },
+
 }; 

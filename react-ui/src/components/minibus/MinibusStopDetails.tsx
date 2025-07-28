@@ -1,88 +1,133 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MinibusStop, MinibusRoute } from '../../types';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
-import { MinibusStopCard } from './MinibusStopCard';
 import { MinibusRouteCard } from './MinibusRouteCard';
+import { api } from '../../services/api';
 
 export const MinibusStopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
   const navigate = useNavigate();
-  const { getCardClass, getTextClass, getSecondaryTextClass, getBackgroundClass } = useThemeStyles();
-  const [stop, setStop] = useState<MinibusStop | null>(null);
-  const [routes, setRoutes] = useState<MinibusRoute[]>([]);
-  const [nearbyStops, setNearbyStops] = useState<MinibusStop[]>([]);
+  const [stop, setStop] = useState<any>(null);
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [etaData, setEtaData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [nearbyLoading, setNearbyLoading] = useState(true);
+  const [etaLoading, setEtaLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const {
+    getBackgroundClass,
+    getTextClass,
+    getSecondaryTextClass,
+    getCardClass,
+    getButtonClass,
+    getHoverClass,
+    getAccentClass
+  } = useThemeStyles();
+
   useEffect(() => {
-    if (!stopId) {
-      setError('No stop ID provided');
-      setLoading(false);
-      return;
+    if (stopId) {
+      fetchStopDetails();
     }
-
-    const fetchStopData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Mock data for now - replace with actual API call
-        const mockStop: MinibusStop = {
-          stop_id: stopId,
-          stop_namee: `Minibus Stop ${stopId}`,
-          stop_namec: `小巴站 ${stopId}`,
-          district_code: 'Central',
-          lat: '22.2787',
-          long: '114.1747'
-        };
-        
-        setStop(mockStop);
-        
-        // Mock routes data
-        const mockRoutes: MinibusRoute[] = [
-          {
-            route_id: 'MB1',
-            route_namee: 'Central - Mid-Levels',
-            route_namec: '中環 - 半山',
-            company_code: 'MB',
-            min_fare: '4.50',
-            max_fare: '8.00',
-            full_fare: '8.00',
-            service_mode: 'Fixed Route'
-          }
-        ];
-        
-        // Mock nearby stops
-        const mockNearbyStops: MinibusStop[] = [
-          {
-            stop_id: 'MB002',
-            stop_namee: 'Nearby Stop 1',
-            stop_namec: '附近站點 1',
-            district_code: 'Central',
-            lat: '22.2790',
-            long: '114.1750'
-          }
-        ];
-        
-        setRoutes(mockRoutes);
-        setNearbyStops(mockNearbyStops);
-        
-      } catch (err) {
-        setError('Failed to load stop data');
-        console.error('Error fetching stop data:', err);
-      } finally {
-        setLoading(false);
-        setNearbyLoading(false);
-      }
-    };
-
-    fetchStopData();
   }, [stopId]);
 
-  const handleBackToSearch = () => {
+  const fetchStopDetails = async () => {
+    if (!stopId) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Fetch stop details and routes serving this stop in parallel
+      const [stopData, routesData] = await Promise.all([
+        api.getMinibusStopById(stopId),
+        api.getMinibusRoutesByStop(stopId)
+      ]);
+
+      setStop(stopData);
+      setRoutes(routesData || []);
+      
+      // Start fetching ETA data
+      fetchETAData();
+    } catch (err) {
+      console.error('Error fetching stop details:', err);
+      setError('Failed to load stop details');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchETAData = useCallback(async () => {
+    if (!stopId) return;
+
+    setEtaLoading(true);
+
+    try {
+      const url = `https://data.etagmb.gov.hk/eta/stop/${stopId}`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseData = await response.json();
+
+      // Handle the GMB stop ETA API response structure
+      if (responseData.data && Array.isArray(responseData.data)) {
+        setEtaData(responseData.data);
+      } else {
+        setEtaData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching stop ETA:', error);
+      setEtaData([]);
+    } finally {
+      setEtaLoading(false);
+    }
+  }, [stopId]);
+
+  // Auto-refresh ETA data every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchETAData();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchETAData]);
+
+  // Format minibus ETA with additional info
+  const formatMinibusETA = (etaItem: any) => {
+    try {
+      const timestamp = etaItem.timestamp;
+      const diff = etaItem.diff;
+      const remarksTC = etaItem.remarks_tc;
+      
+      if (diff <= 0) return '即將到達 Arriving';
+      if (diff < 60) return `${diff}分鐘 ${diff}m`;
+      
+      // Also show the actual time
+      const etaDate = new Date(timestamp);
+      const timeString = etaDate.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
+      
+      if (remarksTC && remarksTC !== '') {
+        return `${timeString} - ${diff}m (${remarksTC})`;
+      }
+      
+      return `${timeString} - ${diff}m`;
+    } catch {
+      return '';
+    }
+  };
+
+  // Get route information for ETA display
+  const getRouteInfo = (routeId: number) => {
+    return routes.find(route => route.route_id === routeId);
+  };
+
+  const handleRouteClick = (route: any) => {
+    navigate(`/minibus/route/${route.route_id}/${route.route_seq}`);
+  };
+
+  const handleBackClick = () => {
     navigate('/');
   };
 
@@ -92,8 +137,10 @@ export const MinibusStopDetails: React.FC = () => {
         <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-8">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
-            <p className={`mt-2 ${getTextClass()}`}>Loading minibus stop details...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
+              Loading stop details...
+            </p>
           </div>
         </main>
       </div>
@@ -106,7 +153,7 @@ export const MinibusStopDetails: React.FC = () => {
         <Header />
         <main className="container mx-auto px-4 py-8">
           <button
-            onClick={handleBackToSearch}
+            onClick={handleBackClick}
             className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
           >
             ← Back to Search
@@ -127,7 +174,7 @@ export const MinibusStopDetails: React.FC = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <button
-          onClick={handleBackToSearch}
+          onClick={handleBackClick}
           className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
         >
           ← Back to Search
@@ -138,38 +185,54 @@ export const MinibusStopDetails: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
-                {stop.stop_namec}
+                {stop.name_tc || `Stop ${stopId}`}
               </h1>
               <h2 className={`text-xl mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {stop.stop_namee}
+                {stop.name_en || `Minibus Stop ${stopId}`}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <span className={`text-sm font-medium ${getTextClass()}`}>District: </span>
-                  <span className={`text-sm ${getSecondaryTextClass()}`}>{stop.district_code}</span>
+                  <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
+                    Stop ID:
+                  </span>
+                  <span className={`ml-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                    {stopId}
+                  </span>
                 </div>
-                <div>
-                  <span className={`text-sm font-medium ${getTextClass()}`}>Stop ID: </span>
-                  <span className={`text-sm ${getSecondaryTextClass()}`}>{stop.stop_id}</span>
-                </div>
+                {stop.enabled !== undefined && (
+                  <div>
+                    <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
+                      Status:
+                    </span>
+                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      stop.enabled 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {stop.enabled ? '✓ Active' : '✗ Inactive'}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="w-64 h-48 ml-4">
-              <iframe
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${stop.lat},${stop.long}&zoom=15`}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title={`Map showing ${stop.stop_namee}`}
-              />
-            </div>
+            {stop.latitude && stop.longitude && (
+              <div className="w-64 h-48 ml-4">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&q=${stop.latitude},${stop.longitude}&zoom=15`}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={`Map showing ${stop.name_en || 'Minibus Stop'}`}
+                />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Routes and Nearby Stops in 2-Column Layout */}
+        {/* Routes and ETA in 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Routes Section */}
           <div className={`lg:col-span-2 rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
@@ -177,40 +240,103 @@ export const MinibusStopDetails: React.FC = () => {
               途經此站的小巴路線 Minibus Routes Serving This Stop ({routes.length})
             </h3>
             
-            {!loading && !error && routes.length === 0 && (
+            {routes.length === 0 && (
               <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
                 <div className="text-4xl mb-4">🚐</div>
-                <p>No minibus routes found</p>
+                <p>No minibus routes serve this stop</p>
               </div>
             )}
 
-            {!loading && !error && routes.length > 0 && (
+            {routes.length > 0 && (
               <div className="grid gap-4">
                 {routes.map((route, index) => (
                   <MinibusRouteCard
-                    key={`${route.route_id}-${index}`}
+                    key={`${route.route_id}-${route.route_seq}-${index}`}
                     route={route}
+                    onClick={handleRouteClick}
                   />
                 ))}
               </div>
             )}
           </div>
 
-          {/* Nearby Stops Section */}
+          {/* Live ETA Section */}
           <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-            <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
-              鄰近小巴站 Nearby Minibus Stops ({nearbyStops.length})
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-xl font-bold transition-colors duration-300 ${getTextClass()}`}>
+                即時到站預報 Live Arrivals
+              </h3>
+              {etaLoading && (
+                <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+              )}
+            </div>
             
-            {!nearbyLoading && nearbyStops.length > 0 && (
-              <div className="grid gap-3">
-                {nearbyStops.map((nearbyStop: MinibusStop, index) => (
-                  <MinibusStopCard
-                    key={`${nearbyStop.stop_id}-${index}`}
-                    stop={nearbyStop}
-                    onClick={(stop) => navigate(`/minibus/stop/${stop.stop_id}`)}
-                  />
-                ))}
+            {etaData.length > 0 ? (
+              <div className="space-y-4 max-h-96 overflow-y-auto">
+                {etaData.map((routeETA, index) => {
+                  const routeInfo = getRouteInfo(routeETA.route_id);
+                  
+                  return (
+                    <div
+                      key={`${routeETA.route_id}-${routeETA.route_seq}-${index}`}
+                      className={`border rounded-lg p-3 transition-colors duration-300`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${getAccentClass()}`}>
+                            {routeInfo?.route_code || `${routeETA.route_id}`}
+                          </div>
+                          <div>
+                            <p className={`text-xs font-medium ${getTextClass()}`}>
+                              Dir {routeETA.route_seq}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="text-right">
+                          {routeETA.enabled ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              ✗
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ETA Display */}
+                      {routeETA.enabled && routeETA.eta && routeETA.eta.length > 0 ? (
+                        <div className="space-y-1">
+                          {routeETA.eta.slice(0, 2).map((eta: any, etaIndex: number) => (
+                            <div key={`eta-${etaIndex}`} className="flex items-center justify-between">
+                              <span className={`text-xs ${getSecondaryTextClass()}`}>
+                                {eta.eta_seq}
+                              </span>
+                              <span className={`text-xs font-medium ${getTextClass()}`}>
+                                {formatMinibusETA(eta)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : routeETA.enabled && (!routeETA.eta || routeETA.eta.length === 0) ? (
+                        <p className={`text-xs ${getSecondaryTextClass()}`}>
+                          No ETA
+                        </p>
+                      ) : (
+                        <div className={`text-xs ${getSecondaryTextClass()}`}>
+                          Service unavailable
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                <div className="text-4xl mb-4">⏱️</div>
+                <p>{etaLoading ? 'Loading...' : 'No ETA data'}</p>
               </div>
             )}
           </div>

@@ -15,21 +15,35 @@ func SetDatabase(db *sql.DB) {
 }
 
 func InitMinibusDatabase() {
-	// Create minibus_route table with detailed route information
-	createMinibusRouteTableSQL := `
+	fmt.Println("Initializing minibus database...")
+
+	// Create Minibus Routes table with direction-specific fields
+	createMinibusRouteTable := `
 	CREATE TABLE IF NOT EXISTS minibus_route (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		region TEXT NOT NULL,
 		route_code TEXT NOT NULL,
 		route_id INTEGER NOT NULL,
+		route_seq INTEGER NOT NULL,
 		description_tc TEXT,
 		description_sc TEXT,
 		description_en TEXT,
+		orig_tc TEXT,
+		orig_sc TEXT,
+		orig_en TEXT,
+		dest_tc TEXT,
+		dest_sc TEXT,
+		dest_en TEXT,
+		remarks_tc TEXT,
+		remarks_sc TEXT,
+		remarks_en TEXT,
+		direction_data_timestamp TEXT,
 		data_timestamp TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(region, route_code, route_id)
+		UNIQUE(region, route_code, route_id, route_seq)
 	);`
-	_, err := minibusDB.Exec(createMinibusRouteTableSQL)
+
+	_, err := minibusDB.Exec(createMinibusRouteTable)
 	if err != nil {
 		log.Fatal("Error creating minibus_route table:", err)
 	}
@@ -135,10 +149,12 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		return fmt.Errorf("error clearing existing minibus route stops for region %s: %v", region, err)
 	}
 
-	// Insert new routes
+	// Insert new routes (each direction as a separate record)
 	insertRouteSQL := `INSERT INTO minibus_route 
-		(region, route_code, route_id, description_tc, description_sc, description_en, data_timestamp) 
-		VALUES (?, ?, ?, ?, ?, ?, ?)`
+		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+		 direction_data_timestamp, data_timestamp) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	routeStmt, err := minibusDB.Prepare(insertRouteSQL)
 	if err != nil {
@@ -175,25 +191,48 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 	insertedRouteStops := 0
 
 	for _, route := range routes {
-		// Insert route
-		_, err := routeStmt.Exec(
-			route.Region,
-			route.RouteCode,
-			route.RouteID,
-			route.DescriptionTC,
-			route.DescriptionSC,
-			route.DescriptionEN,
-			route.DataTimestamp,
-		)
-		if err != nil {
-			log.Printf("Error inserting minibus route %s/%d for region %s: %v", route.RouteCode, route.RouteID, region, err)
-			continue
-		}
-		insertedRoutes++
-
-		// Insert headways and fetch route stops for each direction
+		// For each route, insert each direction as a separate record
 		for _, direction := range route.Directions {
-			// Insert headways
+			// Convert pointer fields to strings for database insertion
+			var remarksTC, remarksSC, remarksEN string
+			if direction.RemarksTC != nil {
+				remarksTC = *direction.RemarksTC
+			}
+			if direction.RemarksSC != nil {
+				remarksSC = *direction.RemarksSC
+			}
+			if direction.RemarksEN != nil {
+				remarksEN = *direction.RemarksEN
+			}
+
+			// Insert route record for this direction
+			_, err := routeStmt.Exec(
+				route.Region,
+				route.RouteCode,
+				route.RouteID,
+				direction.RouteSeq,
+				route.DescriptionTC,
+				route.DescriptionSC,
+				route.DescriptionEN,
+				direction.OrigTC,
+				direction.OrigSC,
+				direction.OrigEN,
+				direction.DestTC,
+				direction.DestSC,
+				direction.DestEN,
+				remarksTC,
+				remarksSC,
+				remarksEN,
+				direction.DataTimestamp,
+				route.DataTimestamp,
+			)
+			if err != nil {
+				log.Printf("Error inserting minibus route %s/%d/%d for region %s: %v", route.RouteCode, route.RouteID, direction.RouteSeq, region, err)
+				continue
+			}
+			insertedRoutes++
+
+			// Insert headways for this direction
 			for _, headway := range direction.Headways {
 				// Convert weekdays array to individual boolean fields
 				var weekdays [7]bool
@@ -261,7 +300,7 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		}
 	}
 
-	fmt.Printf("Successfully inserted %d detailed minibus routes, %d headways, and %d route stops for region %s\n",
+	fmt.Printf("Successfully inserted %d detailed minibus route directions, %d headways, and %d route stops for region %s\n",
 		insertedRoutes, insertedHeadways, insertedRouteStops, region)
 	return nil
 }

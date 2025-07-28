@@ -35,7 +35,7 @@ func main() {
 
 func initDatabases() {
 	var err error
-	database, err = sql.Open("sqlite3", "../bus.db")
+	database, err = sql.Open("sqlite3", "../transport.db")
 	if err != nil {
 		log.Fatal("Error opening Bus Database:", err)
 	}

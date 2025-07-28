@@ -67,8 +67,8 @@ export type ThemeMode = 'light' | 'dark' | 'custom-light';
 export interface SearchBoxProps {
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  searchType: 'bus-route' | 'bus-stop';
-  onSearchTypeChange: (type: 'bus-route' | 'bus-stop') => void;
+  searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop';
+  onSearchTypeChange: (type: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop') => void;
 }
 
 export interface StopCardProps {
@@ -77,9 +77,12 @@ export interface StopCardProps {
 }
 
 export interface ResultsListProps {
-  searchType: 'bus-route' | 'bus-stop';
+  searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop';
   routes: BusRoute[];
   stops: BusStop[];
+  minibusRoutes: any[];
+  minibusStops: any[];
   searchTerm: string;
   onStopClick?: (stop: BusStop) => void;
+  onMinibusStopClick?: (stop: any) => void;
 } 

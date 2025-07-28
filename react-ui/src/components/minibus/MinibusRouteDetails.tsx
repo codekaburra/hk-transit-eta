@@ -1,104 +1,70 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Header } from '../Header';
-import { MinibusRoute, MinibusRouteStop } from '../../types';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { Header } from '../Header';
 import { MinibusRouteStopCard } from './MinibusRouteStopCard';
+import { api } from '../../services/api';
 
 export const MinibusRouteDetails: React.FC = () => {
-  const { routeId } = useParams<{ routeId: string }>();
+  const { routeId, routeSeq } = useParams<{ routeId: string; routeSeq: string }>();
   const navigate = useNavigate();
-  const [route, setRoute] = useState<MinibusRoute | null>(null);
+  const [route, setRoute] = useState<any>(null);
+  const [routeStops, setRouteStops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [routeStops, setRouteStops] = useState<MinibusRouteStop[]>([]);
-  const [loadingStops, setLoadingStops] = useState(false);
-  const [stopsError, setStopsError] = useState<string | null>(null);
   
   const { 
-    getBackgroundClass,
-    getCardClass, 
+    getBackgroundClass, 
     getTextClass, 
     getSecondaryTextClass, 
-    getAccentClass, 
+    getCardClass, 
+    getButtonClass, 
     getHoverClass 
   } = useThemeStyles();
 
   useEffect(() => {
-    const fetchRoute = async () => {
-      if (!routeId) {
-        setError('Route ID is required');
-        setLoading(false);
-        return;
-      }
+    if (routeId && routeSeq) {
+      fetchRouteDetails();
+    }
+  }, [routeId, routeSeq]);
 
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Mock data for now - replace with actual API call
-        const mockRoute: MinibusRoute = {
-          route_id: routeId,
-          route_namee: `Minibus Route ${routeId}`,
-          route_namec: `小巴路線 ${routeId}`,
-          company_code: 'MB',
-          min_fare: '4.50',
-          max_fare: '8.00',
-          full_fare: '8.00',
-          service_mode: 'Fixed Route'
-        };
-        
-        setRoute(mockRoute);
-      } catch (err) {
-        setError('Failed to load route');
-        console.error('Error fetching route:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRoute();
-  }, [routeId]);
-
-  const fetchRouteStops = useCallback(async () => {
-    if (!route) return;
-    setLoadingStops(true);
-    setStopsError(null);
+  const fetchRouteDetails = async () => {
+    if (!routeId || !routeSeq) return;
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Mock data for now - replace with actual API call
-      const mockStops: MinibusRouteStop[] = [
-        {
-          route_id: route.route_id,
-          route_seq: '1',
-          stop_id: 'MB001',
-          stop_namee: 'Central Pier',
-          stop_namec: '中環碼頭',
-          fare: '4.50'
-        },
-        {
-          route_id: route.route_id,
-          route_seq: '2',
-          stop_id: 'MB002',
-          stop_namee: 'Admiralty Station',
-          stop_namec: '金鐘站',
-          fare: '5.00'
-        }
-      ];
-      setRouteStops(mockStops);
-    } catch (error) {
-      setStopsError('Failed to load route stops');
+      // Fetch route information and route stops in parallel
+      const [routeData, stopsData] = await Promise.all([
+        fetchRouteInfo(),
+        api.getMinibusRouteStops(routeId, routeSeq)
+      ]);
+      
+      setRoute(routeData);
+      setRouteStops(stopsData || []);
+    } catch (err) {
+      console.error('Error fetching route details:', err);
+      setError('Failed to load route details');
     } finally {
-      setLoadingStops(false);
+      setLoading(false);
     }
-  }, [route]);
+  };
 
-  useEffect(() => {
-    if (route) {
-      fetchRouteStops();
-    }
-  }, [route, fetchRouteStops]);
+  const fetchRouteInfo = async () => {
+    // Get route information from the routes API
+    const allRoutes = await api.getMinibusRoutes();
+    return allRoutes.find(r => 
+      r.route_id.toString() === routeId && 
+      r.route_seq.toString() === routeSeq
+    );
+  };
 
-  const handleClose = () => {
+  const handleStopClick = (stop: any) => {
+    navigate(`/minibus/stop/${stop.stop_id}`);
+  };
+
+  const handleBackClick = () => {
     navigate('/');
   };
 
@@ -106,9 +72,14 @@ export const MinibusRouteDetails: React.FC = () => {
     return (
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
-        <div className="text-center">
-          <p className={`text-lg ${getTextClass()}`}>Loading minibus route details...</p>
-        </div>
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-8">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
+              Loading route details...
+            </p>
+          </div>
+        </main>
       </div>
     );
   }
@@ -117,17 +88,18 @@ export const MinibusRouteDetails: React.FC = () => {
     return (
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <p className={`text-lg text-red-500 mb-4`}>{error || 'Route not found'}</p>
-            <button
-              onClick={handleClose}
-              className={`px-4 py-2 rounded-lg transition-colors duration-300 bg-blue-500 text-white hover:bg-blue-600`}
-            >
-              Back to Home
-            </button>
+        <main className="container mx-auto px-4 py-8">
+          <button
+            onClick={handleBackClick}
+            className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
+          >
+            ← Back to Search
+          </button>
+          <div className={`text-center py-8 ${getTextClass()}`}>
+            <div className="text-4xl mb-4">❌</div>
+            <p>{error || 'Route not found'}</p>
           </div>
-        </div>
+        </main>
       </div>
     );
   }
@@ -139,8 +111,8 @@ export const MinibusRouteDetails: React.FC = () => {
       <main className="container mx-auto px-4 py-8">
         {/* Back Button */}
         <button
-          onClick={handleClose}
-          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} ${getHoverClass()}`}
+          onClick={handleBackClick}
+          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
         >
           ← Back to Search
         </button>
@@ -149,36 +121,44 @@ export const MinibusRouteDetails: React.FC = () => {
         <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center space-x-4 mb-4">
-                <div className="w-16 h-16 rounded-lg bg-green-100 text-green-600 flex items-center justify-center">
-                  <span className="font-bold text-2xl">🚐</span>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className={`w-16 h-16 rounded-lg bg-yellow-400 flex items-center justify-center`}>
+                  <span className="font-bold text-2xl text-black">🚐</span>
                 </div>
                 <div>
                   <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
-                    {route.route_namee}
+                    Route {route.route_code}
                   </h1>
-                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {route.route_namec}
-                  </h2>
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <span className={`text-sm font-medium ${getTextClass()}`}>Company: </span>
-                      <span className={`text-sm ${getSecondaryTextClass()}`}>{route.company_code}</span>
-                    </div>
-                    <div>
-                      <span className={`text-sm font-medium ${getTextClass()}`}>Service: </span>
-                      <span className={`text-sm ${getSecondaryTextClass()}`}>{route.service_mode}</span>
-                    </div>
-                    <div>
-                      <span className={`text-sm font-medium ${getTextClass()}`}>Fare Range: </span>
-                      <span className={`text-sm ${getSecondaryTextClass()}`}>${route.min_fare} - ${route.max_fare}</span>
-                    </div>
-                    <div>
-                      <span className={`text-sm font-medium ${getTextClass()}`}>Full Fare: </span>
-                      <span className={`text-sm ${getSecondaryTextClass()}`}>${route.full_fare}</span>
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">
+                      {route.region}
+                    </span>
+                    <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                      Direction {route.route_seq}
+                    </span>
                   </div>
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <p className={`text-lg font-medium transition-colors duration-300 ${getTextClass()}`}>
+                  {route.description_tc || route.description_en}
+                </p>
+                
+                <div className={`transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                  {route.orig_tc} → {route.dest_tc}
+                </div>
+                {route.orig_en && route.dest_en && (
+                  <div className={`transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                    {route.orig_en} → {route.dest_en}
+                  </div>
+                )}
+                
+                {route.remarks_tc && (
+                  <div className={`text-sm italic transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                    {route.remarks_tc}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -186,19 +166,35 @@ export const MinibusRouteDetails: React.FC = () => {
 
         {/* Route Stops */}
         <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-          <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>小巴路線站點 Minibus Route Stops</h3>
-          {loadingStops ? (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
-          ) : stopsError ? (
-            <p className={`text-sm text-red-500`}>{stopsError}</p>
-          ) : routeStops.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {routeStops.sort((a, b) => parseInt(a.route_seq) - parseInt(b.route_seq)).map((routeStop, index) => (
-                <MinibusRouteStopCard key={index} routeStop={routeStop} onClick={() => navigate(`/minibus/stop/${routeStop.stop_id}`)} />
-              ))}
+          <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+            小巴路線站點 Route Stops ({routeStops.length})
+          </h3>
+          
+          {routeStops.length > 0 ? (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {routeStops.map((stop, index) => {
+                // Enhance stop data with route information for ETA fetching
+                const enhancedStop = {
+                  ...stop,
+                  route_id: route.route_id,
+                  route_seq: route.route_seq
+                };
+                
+                return (
+                  <MinibusRouteStopCard
+                    key={`${stop.stop_id}-${stop.stop_seq}`}
+                    routeStop={enhancedStop}
+                    index={index + 1}
+                    onClick={() => handleStopClick(stop)}
+                  />
+                );
+              })}
             </div>
           ) : (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
+            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+              <div className="text-4xl mb-4">🚐</div>
+              <p>No stops available for this route</p>
+            </div>
           )}
         </div>
       </main>

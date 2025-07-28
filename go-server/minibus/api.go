@@ -14,10 +14,16 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	var args []interface{}
 
 	if region != "" {
-		query = "SELECT region, route_code, route_id, description_tc, description_sc, description_en, data_timestamp FROM minibus_route WHERE region = ? ORDER BY route_code"
+		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+				direction_data_timestamp, data_timestamp 
+				FROM minibus_route WHERE region = ? ORDER BY route_code, route_seq`
 		args = append(args, region)
 	} else {
-		query = "SELECT region, route_code, route_id, description_tc, description_sc, description_en, data_timestamp FROM minibus_route ORDER BY region, route_code"
+		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+				direction_data_timestamp, data_timestamp 
+				FROM minibus_route ORDER BY region, route_code, route_seq`
 	}
 
 	rows, err := minibusDB.Query(query, args...)
@@ -30,10 +36,14 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	var routes []map[string]interface{}
 	for rows.Next() {
 		var route map[string]interface{} = make(map[string]interface{})
-		var region, routeCode, descTC, descSC, descEN, dataTimestamp string
-		var routeID int
+		var region, routeCode, descTC, descSC, descEN string
+		var origTC, origSC, origEN, destTC, destSC, destEN string
+		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
+		var routeID, routeSeq int
 
-		err := rows.Scan(&region, &routeCode, &routeID, &descTC, &descSC, &descEN, &dataTimestamp)
+		err := rows.Scan(&region, &routeCode, &routeID, &routeSeq, &descTC, &descSC, &descEN,
+			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
+			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -42,9 +52,20 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		route["region"] = region
 		route["route_code"] = routeCode
 		route["route_id"] = routeID
+		route["route_seq"] = routeSeq
 		route["description_tc"] = descTC
 		route["description_sc"] = descSC
 		route["description_en"] = descEN
+		route["orig_tc"] = origTC
+		route["orig_sc"] = origSC
+		route["orig_en"] = origEN
+		route["dest_tc"] = destTC
+		route["dest_sc"] = destSC
+		route["dest_en"] = destEN
+		route["remarks_tc"] = remarksTC
+		route["remarks_sc"] = remarksSC
+		route["remarks_en"] = remarksEN
+		route["direction_data_timestamp"] = directionDataTimestamp
 		route["data_timestamp"] = dataTimestamp
 
 		routes = append(routes, route)
@@ -197,13 +218,17 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	searchQuery := `SELECT region, route_code, route_id, description_tc, description_sc, description_en, data_timestamp 
+	searchQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+					orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+					direction_data_timestamp, data_timestamp 
 					FROM minibus_route 
-					WHERE route_code LIKE ? OR description_tc LIKE ? OR description_sc LIKE ? OR description_en LIKE ?
-					ORDER BY region, route_code`
+					WHERE route_code LIKE ? OR description_tc LIKE ? OR description_sc LIKE ? OR description_en LIKE ? 
+					OR orig_tc LIKE ? OR orig_sc LIKE ? OR orig_en LIKE ? OR dest_tc LIKE ? OR dest_sc LIKE ? OR dest_en LIKE ?
+					ORDER BY region, route_code, route_seq`
 
 	searchTerm := "%" + query + "%"
-	rows, err := minibusDB.Query(searchQuery, searchTerm, searchTerm, searchTerm, searchTerm)
+	rows, err := minibusDB.Query(searchQuery, searchTerm, searchTerm, searchTerm, searchTerm,
+		searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -213,10 +238,14 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	var routes []map[string]interface{}
 	for rows.Next() {
 		var route map[string]interface{} = make(map[string]interface{})
-		var region, routeCode, descTC, descSC, descEN, dataTimestamp string
-		var routeID int
+		var region, routeCode, descTC, descSC, descEN string
+		var origTC, origSC, origEN, destTC, destSC, destEN string
+		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
+		var routeID, routeSeq int
 
-		err := rows.Scan(&region, &routeCode, &routeID, &descTC, &descSC, &descEN, &dataTimestamp)
+		err := rows.Scan(&region, &routeCode, &routeID, &routeSeq, &descTC, &descSC, &descEN,
+			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
+			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -225,9 +254,20 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		route["region"] = region
 		route["route_code"] = routeCode
 		route["route_id"] = routeID
+		route["route_seq"] = routeSeq
 		route["description_tc"] = descTC
 		route["description_sc"] = descSC
 		route["description_en"] = descEN
+		route["orig_tc"] = origTC
+		route["orig_sc"] = origSC
+		route["orig_en"] = origEN
+		route["dest_tc"] = destTC
+		route["dest_sc"] = destSC
+		route["dest_en"] = destEN
+		route["remarks_tc"] = remarksTC
+		route["remarks_sc"] = remarksSC
+		route["remarks_en"] = remarksEN
+		route["direction_data_timestamp"] = directionDataTimestamp
 		route["data_timestamp"] = dataTimestamp
 
 		routes = append(routes, route)
