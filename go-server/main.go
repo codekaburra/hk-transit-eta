@@ -6,12 +6,15 @@ import (
 	"log"
 	"net/http"
 
+	"hk-bus-tool/bus"
+	"hk-bus-tool/minibus"
+
 	"github.com/gorilla/mux"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/rs/cors"
 )
 
-var busDB *sql.DB
+var database *sql.DB
 
 func main() {
 	// Initialize databases
@@ -19,8 +22,11 @@ func main() {
 
 	if true && shouldFetchData() {
 		// Run data fetches in background goroutines so server starts immediately
-		go FetchKmbData()
-		go FetchCitybusData()
+		go bus.FetchKmbData()
+		go bus.FetchCitybusData()
+	}
+	if true && minibus.ShouldFetchMinibusData() {
+		go minibus.FetchMinibusRoutes()
 	}
 
 	// Start HTTP server
@@ -29,28 +35,16 @@ func main() {
 
 func initDatabases() {
 	var err error
-	busDB, err = sql.Open("sqlite3", "../bus.db")
+	database, err = sql.Open("sqlite3", "../bus.db")
 	if err != nil {
 		log.Fatal("Error opening Bus Database:", err)
 	}
-	initBusDatabase()
-}
+	// Set the database connection for both packages
+	bus.SetDatabase(database)
+	bus.InitBusDatabase()
 
-func shouldFetchData() bool {
-	// Check if KMB database has data
-	var count int
-	err := busDB.QueryRow("SELECT COUNT(*) FROM kmb_routes").Scan(&count)
-	if err != nil || count == 0 {
-		return true
-	}
-
-	// Check if Citybus database has data
-	err = busDB.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&count)
-	if err != nil || count == 0 {
-		return true
-	}
-
-	return false
+	minibus.SetDatabase(database)
+	minibus.InitMinibusDatabase()
 }
 
 func startServer() {
@@ -60,19 +54,28 @@ func startServer() {
 	api := r.PathPrefix("/api").Subrouter()
 
 	// KMB routes
-	api.HandleFunc("/routes", getRoutes).Methods("GET")
-	api.HandleFunc("/stops", getStops).Methods("GET")
-	api.HandleFunc("/route-stops", getRouteStops).Methods("GET")
+	api.HandleFunc("/routes", bus.GetRoutes).Methods("GET")
+	api.HandleFunc("/stops", bus.GetStops).Methods("GET")
+	api.HandleFunc("/route-stops", bus.GetRouteStops).Methods("GET")
 
 	// Search routes
-	api.HandleFunc("/search/routes", searchRoutes).Methods("GET")
-	api.HandleFunc("/search/stops", searchStops).Methods("GET")
+	api.HandleFunc("/search/routes", bus.SearchRoutes).Methods("GET")
+	api.HandleFunc("/search/stops", bus.SearchStops).Methods("GET")
 
 	// New relationship endpoints
-	api.HandleFunc("/stops-by-route", getStopsByRouteId).Methods("GET")
-	api.HandleFunc("/routes-by-stop", getRoutesByStopId).Methods("GET")
-	api.HandleFunc("/stops-nearby", getStopsNearby).Methods("GET")
-	api.HandleFunc("/stop-by-id", getStopByStopId).Methods("GET")
+	api.HandleFunc("/stops-by-route", bus.GetStopsByRouteId).Methods("GET")
+	api.HandleFunc("/routes-by-stop", bus.GetRoutesByStopId).Methods("GET")
+	api.HandleFunc("/stops-nearby", bus.GetStopsNearby).Methods("GET")
+	api.HandleFunc("/stop-by-id", bus.GetStopByStopId).Methods("GET")
+
+	// Minibus API endpoints
+	api.HandleFunc("/minibus/routes", minibus.GetMinibusRoutes).Methods("GET")
+	api.HandleFunc("/minibus/stops", minibus.GetMinibusStops).Methods("GET")
+	api.HandleFunc("/minibus/route-stops", minibus.GetMinibusRouteStops).Methods("GET")
+	api.HandleFunc("/minibus/search/routes", minibus.SearchMinibusRoutes).Methods("GET")
+	api.HandleFunc("/minibus/search/stops", minibus.SearchMinibusStops).Methods("GET")
+	api.HandleFunc("/minibus/stop-by-id", minibus.GetMinibusStopById).Methods("GET")
+	api.HandleFunc("/minibus/routes-by-stop", minibus.GetMinibusRoutesByStopId).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{
@@ -85,4 +88,21 @@ func startServer() {
 
 	fmt.Println("Server starting on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", handler))
+}
+
+func shouldFetchData() bool {
+	// Check if KMB database has data
+	var count int
+	err := database.QueryRow("SELECT COUNT(*) FROM kmb_routes").Scan(&count)
+	if err != nil || count == 0 {
+		return true
+	}
+
+	// Check if Citybus database has data
+	err = database.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&count)
+	if err != nil || count == 0 {
+		return true
+	}
+
+	return false
 }

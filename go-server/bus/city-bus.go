@@ -1,4 +1,4 @@
-package main
+package bus
 
 import (
 	"encoding/json"
@@ -40,7 +40,7 @@ func FetchCitybusData() {
 	}
 
 	// Get unique stops from route_stops table to fetch stop details
-	routeStopsInDb, err := busDB.Query("SELECT DISTINCT stop FROM route_stops where company = ?", DatabaseCompany_CityBus)
+	routeStopsInDb, err := database.Query("SELECT DISTINCT stop FROM route_stops where company = ?", DatabaseCompany_CityBus)
 	if err != nil {
 		log.Fatal("Error querying citybus route_stops:", err)
 	}
@@ -71,7 +71,7 @@ func fetchCitybusRoutes() ([]Route, error) {
 	var _routes []CitybusRoute
 
 	apiURL := "https://rt.data.gov.hk/v2/transport/citybus/route/ctb"
-	apiResponse, err := fetchAPI(apiURL)
+	apiResponse, err := FetchAPI(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func fetchCitybusStops(stopIds []string) ([]Stop, error) {
 		var _stop CitybusStop
 		fmt.Printf("🖍️ Stop %d / %d - %s\n", i+1, stopCount, stopId)
 		apiURL := "https://rt.data.gov.hk/v2/transport/citybus/stop/" + stopId
-		apiResponse, err := fetchAPI(apiURL)
+		apiResponse, err := FetchAPI(apiURL)
 		if err != nil {
 			return stops, err
 		}
@@ -134,7 +134,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 		fmt.Printf("💬 Citybus RouteStop %s %s \n", route, dir)
 		_apiURL := apiURL + "/" + dir
 		var _routeStops []CitybusRouteStop
-		apiResponse, err := fetchAPI(_apiURL)
+		apiResponse, err := FetchAPI(_apiURL)
 		if err != nil {
 			return nil, err
 		}
@@ -157,19 +157,19 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 
 // func queryCitybusDatabase() {
 // 	var companyCount, routeCount, stopCount, routeStopCount int
-// 	err := busDB.QueryRow("SELECT COUNT(*) FROM citybus_company").Scan(&companyCount)
+// 	err := database.QueryRow("SELECT COUNT(*) FROM citybus_company").Scan(&companyCount)
 // 	if err != nil {
 // 		log.Fatal("Error querying company count:", err)
 // 	}
-// 	err = busDB.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&routeCount)
+// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&routeCount)
 // 	if err != nil {
 // 		log.Fatal("Error querying route count:", err)
 // 	}
-// 	err = busDB.QueryRow("SELECT COUNT(*) FROM citybus_stops").Scan(&stopCount)
+// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_stops").Scan(&stopCount)
 // 	if err != nil {
 // 		log.Fatal("Error querying stop count:", err)
 // 	}
-// 	err = busDB.QueryRow("SELECT COUNT(*) FROM citybus_route_stops").Scan(&routeStopCount)
+// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_route_stops").Scan(&routeStopCount)
 // 	if err != nil {
 // 		log.Fatal("Error querying route-stop count:", err)
 // 	}
@@ -181,7 +181,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 // 	fmt.Printf("Total route-stop relationships in database: %d\n\n", routeStopCount)
 
 // 	fmt.Println("=== Citybus Company Information ===")
-// 	rows, err := busDB.Query(`
+// 	rows, err := database.Query(`
 // 		SELECT co, name_en, name_tc, name_sc, url, data_timestamp
 // 		FROM citybus_company
 // 		ORDER BY co
@@ -205,7 +205,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 // 	}
 
 // 	fmt.Println("\n=== Sample Citybus Routes ===")
-// 	routeRows, err := busDB.Query(`
+// 	routeRows, err := database.Query(`
 // 		SELECT route, orig_tc, dest_tc, orig_en, dest_en
 // 		FROM citybus_routes
 // 		ORDER BY route
@@ -230,7 +230,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 // 	}
 
 // 	fmt.Println("\n=== Sample Citybus Stops ===")
-// 	stopRows, err := busDB.Query(`
+// 	stopRows, err := database.Query(`
 // 		SELECT stop, name_tc, lat, long
 // 		FROM citybus_stops
 // 		ORDER BY name_tc
@@ -255,7 +255,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 // 	}
 
 // 	fmt.Println("\n=== Sample Citybus Route-Stop Relationships ===")
-// 	routeStopRows, err := busDB.Query(`
+// 	routeStopRows, err := database.Query(`
 // 		SELECT rs.route, rs.dir, rs.seq, s.name_tc
 // 		FROM citybus_route_stops rs
 // 		JOIN citybus_stops s ON rs.stop = s.stop

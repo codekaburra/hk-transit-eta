@@ -1,4 +1,4 @@
-package main
+package bus
 
 import (
 	"encoding/json"
@@ -66,7 +66,7 @@ func fetchKmbRouteData() ([]Route, error) {
 	var _routes []KmbRoute
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/route/"
 
-	apiResponse, err := fetchAPI(apiURL)
+	apiResponse, err := FetchAPI(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +96,7 @@ func fetchKmbRouteData() ([]Route, error) {
 func fetchKmbStopData() ([]Stop, error) {
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/stop/"
 
-	apiResponse, err := fetchAPI(apiURL)
+	apiResponse, err := FetchAPI(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func fetchKmbStopData() ([]Stop, error) {
 func fetchKmbRouteStopData() ([]RouteStop, error) {
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/route-stop/"
 
-	apiResponse, err := fetchAPI(apiURL)
+	apiResponse, err := FetchAPI(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +150,7 @@ func fetchKmbRouteStopData() ([]RouteStop, error) {
 
 // func storeKmbRoutes(routes []Route) error {
 // 	// Begin transaction
-// 	tx, err := busDB.Begin()
+// 	tx, err := database.Begin()
 // 	if err != nil {
 // 		return fmt.Errorf("error beginning transaction: %v", err)
 // 	}
@@ -198,7 +198,7 @@ func fetchKmbRouteStopData() ([]RouteStop, error) {
 
 // func storeKmbStops(stops []Stop) error {
 // 	// Begin transaction
-// 	tx, err := busDB.Begin()
+// 	tx, err := database.Begin()
 // 	if err != nil {
 // 		return fmt.Errorf("error beginning transaction: %v", err)
 // 	}
@@ -243,7 +243,7 @@ func fetchKmbRouteStopData() ([]RouteStop, error) {
 
 // func storeKmbRouteStops(routeStops []RouteStop) error {
 // 	// Begin transaction
-// 	tx, err := busDB.Begin()
+// 	tx, err := database.Begin()
 // 	if err != nil {
 // 		return fmt.Errorf("error beginning transaction: %v", err)
 // 	}

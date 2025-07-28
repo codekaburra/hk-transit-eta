@@ -1,4 +1,4 @@
-package main
+package minibus
 
 import (
 	"encoding/json"
@@ -6,6 +6,13 @@ import (
 	"io"
 	"net/http"
 )
+
+type APICommon struct {
+	Type               string          `json:"type"`
+	Version            string          `json:"version"`
+	GeneratedTimestamp string          `json:"generated_timestamp"`
+	Data               json.RawMessage `json:"data"`
+}
 
 func fetchAPI(apiURL string) (*APICommon, error) {
 	response, err := http.Get(apiURL)

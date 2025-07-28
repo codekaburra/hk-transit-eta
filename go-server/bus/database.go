@@ -1,14 +1,39 @@
-package main
+package bus
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 )
 
+var database *sql.DB
+
+// SetDatabase sets the database connection for the bus package
+func SetDatabase(db *sql.DB) {
+	database = db
+}
+
 const DatabaseCompany_KowloonBus = "KMB"
 const DatabaseCompany_CityBus = "CTB"
 
-func initBusDatabase() {
+func ShouldFetchBusData() bool {
+	// Check if KMB database has data
+	var count int
+	err := database.QueryRow("SELECT COUNT(*) FROM kmb_routes").Scan(&count)
+	if err != nil || count == 0 {
+		return true
+	}
+
+	// Check if Citybus database has data
+	err = database.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&count)
+	if err != nil || count == 0 {
+		return true
+	}
+
+	return false
+}
+
+func InitBusDatabase() {
 	var err error
 	// Create routes table
 	createRoutesTableSQL := `
@@ -28,7 +53,7 @@ func initBusDatabase() {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
-	_, err = busDB.Exec(createRoutesTableSQL)
+	_, err = database.Exec(createRoutesTableSQL)
 	if err != nil {
 		log.Fatal("Error creating routes table:", err)
 	}
@@ -48,7 +73,7 @@ func initBusDatabase() {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);`
 
-	_, err = busDB.Exec(createStopsTableSQL)
+	_, err = database.Exec(createStopsTableSQL)
 	if err != nil {
 		log.Fatal("Error creating stops table:", err)
 	}
@@ -68,7 +93,7 @@ func initBusDatabase() {
 		UNIQUE(route, direction, service_type, seq)
 	);`
 
-	_, err = busDB.Exec(createRouteStopsTableSQL)
+	_, err = database.Exec(createRouteStopsTableSQL)
 	if err != nil {
 		log.Fatal("Error creating route_stops table:", err)
 	}
@@ -79,21 +104,21 @@ func initBusDatabase() {
 func QueryDatabase() {
 	// Query routes count
 	var routeCount int
-	err := busDB.QueryRow("SELECT COUNT(*) FROM routes").Scan(&routeCount)
+	err := database.QueryRow("SELECT COUNT(*) FROM routes").Scan(&routeCount)
 	if err != nil {
 		log.Fatal("Error querying routes count:", err)
 	}
 
 	// Query stops count
 	var stopCount int
-	err = busDB.QueryRow("SELECT COUNT(*) FROM stops").Scan(&stopCount)
+	err = database.QueryRow("SELECT COUNT(*) FROM stops").Scan(&stopCount)
 	if err != nil {
 		log.Fatal("Error querying stops count:", err)
 	}
 
 	// Query route-stops count
 	var routeStopCount int
-	err = busDB.QueryRow("SELECT COUNT(*) FROM route_stops").Scan(&routeStopCount)
+	err = database.QueryRow("SELECT COUNT(*) FROM route_stops").Scan(&routeStopCount)
 	if err != nil {
 		log.Fatal("Error querying route-stops count:", err)
 	}
@@ -105,7 +130,7 @@ func QueryDatabase() {
 
 	// Query sample routes
 	fmt.Println("=== Sample Routes ===")
-	routeRows, err := busDB.Query(`
+	routeRows, err := database.Query(`
 		SELECT company, route, direction, service_type, orig_tc, dest_tc 
 		FROM routes 
 		ORDER BY route, direction 
@@ -134,7 +159,7 @@ func QueryDatabase() {
 
 	// Query sample stops
 	fmt.Println("\n=== Sample Stops ===")
-	stopRows, err := busDB.Query(`
+	stopRows, err := database.Query(`
 		SELECT company, stop, name_tc, lat, long 
 		FROM stops 
 		ORDER BY name_tc 
@@ -163,7 +188,7 @@ func QueryDatabase() {
 
 	// Query sample route-stops with stop names
 	fmt.Println("\n=== Sample Route-Stop Relationships ===")
-	routeStopRows, err := busDB.Query(`
+	routeStopRows, err := database.Query(`
 		SELECT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, s.name_tc
 		FROM route_stops rs
 		JOIN stops s ON rs.stop = s.stop
@@ -193,12 +218,12 @@ func QueryDatabase() {
 	}
 
 	// Close the KMB database connection
-	busDB.Close()
+	database.Close()
 }
 
 func storeRoutes(routes []Route) error {
 
-	tx, err := busDB.Begin()
+	tx, err := database.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
 	}
@@ -238,7 +263,7 @@ func storeRoutes(routes []Route) error {
 }
 
 func storeStops(stops []Stop) error {
-	tx, err := busDB.Begin()
+	tx, err := database.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
 	}
@@ -276,7 +301,7 @@ func storeStops(stops []Stop) error {
 
 func storeRouteStops(routeStops []RouteStop) error {
 	fmt.Printf("💾 Storing %d route stops\n", len(routeStops))
-	tx, err := busDB.Begin()
+	tx, err := database.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
 	}
