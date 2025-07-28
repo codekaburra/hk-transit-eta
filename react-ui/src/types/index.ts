@@ -41,12 +41,6 @@ export interface SearchBoxProps {
   onSearchTypeChange: (type: 'route' | 'stop') => void;
 }
 
-export interface RouteCardProps {
-  route: BusRoute;
-  busStop?: BusStop;
-  onClick?: (route: BusRoute) => void;
-}
-
 export interface StopCardProps {
   stop: BusStop;
   onClick?: (stop: BusStop) => void;

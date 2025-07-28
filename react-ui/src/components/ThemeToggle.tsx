@@ -63,7 +63,7 @@ export const ThemeToggle: React.FC = () => {
       aria-label="Toggle theme"
       title="Toggle theme"
     >
-        {getThemeIcon()} {themeMode}
+        {getThemeIcon()}
     </button>
   );
 }; 

@@ -51,6 +51,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
             <RouteCard 
               key={`${route.route}-${route.direction}-${route.service_type}-${index}`} 
               route={route} 
+              shouldBusCompanyIcon={true}
             />
           ))}
         </div>

@@ -6,6 +6,7 @@ import { api } from '../services/api';
 import { Header } from './Header';
 import { StopCard } from './StopCard';
 import { RouteCard } from './RouteCard';
+import { BusCompanyIcon } from './BusCompanyIcon';
 
 export const StopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
@@ -154,7 +155,7 @@ export const StopDetails: React.FC = () => {
                     Company:
                   </span> */}
                   <span className={`ml-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {stop.company}
+                    <BusCompanyIcon company={stop.company} />
                   </span>
                 </div>
               </div>
@@ -194,6 +195,7 @@ export const StopDetails: React.FC = () => {
                 {sortedRoutes.map((route, index) => (
                   <RouteCard
                     key={`${route.route}-${route.direction}-${index}`}
+                    shouldBusCompanyIcon={false}
                     route={route}
                     busStop={stop}
                   />

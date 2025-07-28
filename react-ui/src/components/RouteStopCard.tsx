@@ -1,17 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { RouteStop } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
-import { api } from '../services/api';
 import { formatETA } from '../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
 export interface RouteStopCardProps {
   routeStop: RouteStop;
+  shouldBusCompanyIcon?: boolean;
   onClick?: (routeStop: RouteStop) => void;
 }
 
-export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick }) => {
+export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
   const [etaError, setEtaError] = useState<string | null>(null);
@@ -71,7 +71,7 @@ export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick
         <p className={`text-sm font-medium ${getTextClass()}`}>{routeStop.name_en}</p>
       </div>
       <div className="flex items-center space-x-2">
-        <BusCompanyIcon company={routeStop.company} />
+        {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
       </div>
       <div className="flex flex-col">
         {etaData.map((eta, index) => {

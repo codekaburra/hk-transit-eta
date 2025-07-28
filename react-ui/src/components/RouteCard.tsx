@@ -1,12 +1,19 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RouteCardProps } from '../types';
+import { BusRoute, BusStop } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { ETAData, api } from '../services/api';
 import { formatETA } from '../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
-export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }) => {
+export interface RouteCardProps {
+  route: BusRoute;
+  shouldBusCompanyIcon?: boolean;
+  busStop?: BusStop;
+  onClick?: (route: BusRoute) => void;
+}
+
+export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, shouldBusCompanyIcon = true }) => {
   const navigate = useNavigate();
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
@@ -80,7 +87,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }
           })}
         </div>
         <div className="w-1/5 flex items-center">
-          <BusCompanyIcon company={route.company} className="ml-auto" />
+          {shouldBusCompanyIcon && <BusCompanyIcon company={route.company} className="ml-auto" />}
         </div>
       </div>
     </div>
