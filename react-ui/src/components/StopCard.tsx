@@ -1,6 +1,7 @@
 import React, {  } from 'react';
 import { StopCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
+import { BusCompanyIcon } from './BusCompanyIcon';
 
 export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
   const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
@@ -25,7 +26,7 @@ export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
         </div>
         <div className="text-gray-400 ml-4">
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-             {stop.company}
+             <BusCompanyIcon company={stop.company} />
           </div>
         </div>
         <div className="text-gray-400 ml-4">

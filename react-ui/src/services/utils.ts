@@ -8,7 +8,7 @@
       const diffMs = etaDate.getTime() - now.getTime();
       const diffMins = Math.round(diffMs / 60000);
       
-      if (diffMins <= 0) return 'Arriving';
+      if (diffMins <= 0) return '即將到達 Arriving';
       if (diffMins < 60) return `${etaDateString} - ${diffMins}m`;
       const hours = Math.floor(diffMins / 60);
       const mins = diffMins % 60;
