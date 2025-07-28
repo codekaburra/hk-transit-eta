@@ -15,7 +15,15 @@ export const HomePage: React.FC = () => {
   const [stops, setStops] = useState<BusStop[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const { getBackgroundClass, getTextClass, getSecondaryTextClass } = useThemeStyles();
+  const { 
+    getBackgroundClass, 
+    getTextClass, 
+    getSecondaryTextClass, 
+    getCardClass, 
+    getButtonClass, 
+    getHoverClass, 
+    getBorderClass 
+  } = useThemeStyles();
   const navigate = useNavigate();
 
   // Load initial data on component mount
@@ -80,11 +88,8 @@ export const HomePage: React.FC = () => {
   };
 
   const tabOptionClass = (thisTab: string, thisSearchType: string) => {
-    return `px-6 py-3 font-medium transition-colors duration-300 ${
-      activeTab === thisTab && searchType === thisSearchType
-        ? `border-2 border-500 border-custom-light3 bg-custom-light rounded-lg text-600 ${getSecondaryTextClass()}`
-        : 'text-gray-500 hover:text-gray-700'
-    }`;
+    const isActive = activeTab === thisTab && searchType === thisSearchType;
+    return `px-6 py-3 font-medium rounded-md transition-colors duration-300 ${getButtonClass(isActive)}`;
   };
 
   return (
@@ -92,27 +97,43 @@ export const HomePage: React.FC = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Tab Navigation */}
-        <div className="flex mb-8 items-center justify-center text-3xl">
-          <button
-            onClick={() => {
-              setActiveTab('search');
-              setSearchType('route');
-            }}
-            className={tabOptionClass('search', 'route')}
-          >
-            🚌 路線 Routes
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('search');
-              setSearchType('stop');
-            }}
-            className={tabOptionClass('search', 'stop')}
-          >
-            🚏 巴士站 Stops
-          </button>
-        </div>
+        {/* Tab navigation */}
+        {/* <div className="flex justify-center mb-8">
+          <div className={`flex space-x-1 rounded-lg p-1 ${getCardClass()}`}>
+            <button
+              onClick={() => setActiveTab('search')}
+              className={`px-6 py-3 font-medium rounded-md transition-colors duration-300 ${getButtonClass(activeTab === 'search')}`}
+            >
+              🔍 Search
+            </button>
+            <button
+              onClick={() => setActiveTab('about')}
+              className={`px-6 py-3 font-medium rounded-md transition-colors duration-300 ${getButtonClass(activeTab === 'about')}`}
+            >
+              ℹ️ About
+            </button>
+          </div>
+        </div> */}
+
+        {/* Search Type Selection - only show when on search tab */}
+        {activeTab === 'search' && (
+          <div className="flex mb-8 items-center justify-center">
+            <div className={`flex space-x-1 rounded-lg p-1 ${getCardClass()}`}>
+              <button
+                onClick={() => setSearchType('route')}
+                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'route')}`}
+              >
+                🚌 路線 Routes
+              </button>
+              <button
+                onClick={() => setSearchType('stop')}
+                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'stop')}`}
+              >
+                🚏 巴士站 Stops
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         {(() => {
@@ -143,6 +164,38 @@ export const HomePage: React.FC = () => {
                     searchTerm={searchTerm}
                     onStopClick={handleStopClick}
                   />
+                </div>
+              );
+            case 'about':
+              return (
+                <div className="max-w-4xl mx-auto">
+                  <div className={`rounded-lg shadow-lg p-8 ${getCardClass()}`}>
+                    <h2 className={`text-3xl font-bold mb-6 transition-colors duration-300 ${getTextClass()}`}>
+                      About HK Bus Tool
+                    </h2>
+                    <div className="space-y-4">
+                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                        HK Bus Tool is a web application designed to help users find bus routes and stops in Hong Kong.
+                        It provides a user-friendly interface to search for bus routes by name or number,
+                        and to locate bus stops by their name or identifier.
+                      </p>
+                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                        The application uses real-time data from the Hong Kong Transport Department's API,
+                        ensuring that all route and stop information is up-to-date.
+                      </p>
+                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                        You can search for routes by entering the route name or number, and for stops by entering
+                        the stop name or identifier. The search results will show you the relevant routes or stops,
+                        along with their details and locations on the map.
+                      </p>
+                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                        For more information about the Hong Kong bus system, please visit the official website:
+                        <a href="https://www.td.gov.hk/en/index.html" target="_blank" rel="noopener noreferrer" className={`ml-2 underline transition-colors duration-300 ${getTextClass()} ${getHoverClass()}`}>
+                          Transport Department of Hong Kong
+                        </a>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               );
             default:

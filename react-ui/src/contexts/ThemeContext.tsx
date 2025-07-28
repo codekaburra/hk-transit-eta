@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'custom-light' | 'warm';
+type ThemeMode = 'light' | 'dark' | 'custom-light' | 'warm' | 'red';
 
 interface ThemeContextType {
   themeMode: ThemeMode;
@@ -46,20 +46,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   }, [themeMode]);
 
   const toggleTheme = () => {
-    setThemeMode(current => {
-      switch (current) {
-        case 'light':
-          return 'custom-light';
-        case 'custom-light':
-          return 'warm';
-        case 'warm':
-          return 'dark';
-        case 'dark':
-          return 'light';
-        default:
-          return 'light';
-      }
-    });
+    const modes: ThemeMode[] = ['light', 'custom-light', 'warm', 'red', 'dark'];
+    const currentIndex = modes.indexOf(themeMode);
+    const nextIndex = (currentIndex + 1) % modes.length;
+    setThemeMode(modes[nextIndex]);
   };
 
   return (

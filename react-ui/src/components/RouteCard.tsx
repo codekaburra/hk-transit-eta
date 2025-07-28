@@ -4,6 +4,7 @@ import { RouteCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { ETAData, api } from '../services/api';
 import { formatETA } from '../services/utils';
+import { BusCompanyIcon } from './BusCompanyIcon';
 
 export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }) => {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }
       }}
     >
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex-1 flex items-center space-x-4">
           <div className="flex-shrink-0">
             <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors duration-300 ${getAccentClass()}`}>
               <span className="font-bold text-lg">{route.route}</span>
@@ -69,15 +70,18 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }
         {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
           Service Type: {route.service_type}
         </div> */}
-          <div className="flex flex-col">
-          {etaData.map((eta) => {
+        <div className="flex flex-col">
+          {etaData.map((eta, idx) => {
             return (
-              <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
                 {formatETA(eta)}
               </div>
             )
           })}
-          </div>
+        </div>
+        <div className="w-1/5 flex items-center">
+          <BusCompanyIcon company={route.company} className="ml-auto" />
+        </div>
       </div>
     </div>
   );

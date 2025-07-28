@@ -4,6 +4,7 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 import { api } from '../services/api';
 import { RouteStopCard } from './RouteStopCard';
 import { useNavigate } from 'react-router-dom';
+import { BusCompanyIcon } from './BusCompanyIcon';
 
 export interface RouteDetailsProps {
   route: BusRoute;
@@ -35,14 +36,14 @@ export const RouteDetails: React.FC<RouteDetailsProps> = ({ route, onClose }) =>
     fetchRouteStops();
   }, [fetchRouteStops]);
 
-  const { 
+  const {
     getBackgroundClass,
-    getCardClass, 
-    getTextClass, 
-    getSecondaryTextClass, 
-    getAccentClass, 
+    getCardClass,
+    getTextClass,
+    getSecondaryTextClass,
+    getAccentClass,
     getBorderClass,
-    getHoverClass 
+    getHoverClass
   } = useThemeStyles();
   const navigate = useNavigate();
 
@@ -51,57 +52,57 @@ export const RouteDetails: React.FC<RouteDetailsProps> = ({ route, onClose }) =>
       <div className={`w-full max-w-6xl mx-auto p-4 ${getCardClass()}`}>
         {/* Header */}
         <div className={`px-6 py-4 border-b ${getBorderClass()} ${getCardClass()}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${getAccentClass()}`}>
-              <span className="font-bold text-2xl">{route.route}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${getAccentClass()}`}>
+                <span className="font-bold text-2xl">{route.route}</span>
+              </div>
+              <div>
+                <p className={`text-sm ${getSecondaryTextClass()}`}>
+                  {route.orig_en} → {route.dest_en}
+                </p>
+                <p className={`text-sm ${getSecondaryTextClass()}`}>
+                  {route.orig_tc} → {route.dest_tc}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className={`text-xl font-bold ${getTextClass()}`}>
-                {route.company}
-              </h2>
-              <p className={`text-sm ${getSecondaryTextClass()}`}>
-                {route.orig_en} → {route.dest_en}
-              </p>
-              <p className={`text-sm ${getSecondaryTextClass()}`}>
-                {route.orig_tc} → {route.dest_tc}
-              </p>
+            <div className="flex items-center space-x-2">
+              <BusCompanyIcon company={route.company} />
             </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className={`p-2 rounded-lg transition-colors duration-300 ${getHoverClass()}`}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-lg transition-colors duration-300 ${getHoverClass()}`}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="p-6 space-y-6">
-        {/* Route Stops */}
-        <div className={`p-4 rounded-lg border ${getBorderClass()}`}>
-          <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>路線途經巴士站 Route Stops</h3>
-          {loadingStops ? (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
-          ) : stopsError ? (
-            <p className={`text-sm text-red-500`}>{stopsError}</p>
-          ) : routeStops.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
-                <RouteStopCard key={index} routeStop={routeStop} onClick={() => navigate(`/stop/${routeStop.stop}`)} />
-              ))}
-            </div>
-          ) : (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
-          )}
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Route Stops */}
+          <div className={`p-4 rounded-lg border ${getBorderClass()}`}>
+            <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>路線途經巴士站 Route Stops</h3>
+            {loadingStops ? (
+              <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
+            ) : stopsError ? (
+              <p className={`text-sm text-red-500`}>{stopsError}</p>
+            ) : routeStops.length > 0 ? (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
+                  <RouteStopCard key={index} routeStop={routeStop} onClick={() => navigate(`/stop/${routeStop.stop}`)} />
+                ))}
+              </div>
+            ) : (
+              <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
+            )}
+          </div>
         </div>
       </div>
-    </div>
     </div>
   );
 }; 
