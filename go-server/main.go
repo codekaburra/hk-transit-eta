@@ -53,20 +53,20 @@ func startServer() {
 	// API Routes
 	api := r.PathPrefix("/api").Subrouter()
 
-	// KMB routes
-	api.HandleFunc("/routes", bus.GetRoutes).Methods("GET")
-	api.HandleFunc("/stops", bus.GetStops).Methods("GET")
-	api.HandleFunc("/route-stops", bus.GetRouteStops).Methods("GET")
+	// Bus API endpoints
+	api.HandleFunc("/bus/routes", bus.GetRoutes).Methods("GET")
+	api.HandleFunc("/bus/stops", bus.GetStops).Methods("GET")
+	api.HandleFunc("/bus/route-stops", bus.GetRouteStops).Methods("GET")
 
 	// Search routes
-	api.HandleFunc("/search/routes", bus.SearchRoutes).Methods("GET")
-	api.HandleFunc("/search/stops", bus.SearchStops).Methods("GET")
+	api.HandleFunc("/bus/search/routes", bus.SearchRoutes).Methods("GET")
+	api.HandleFunc("/bus/search/stops", bus.SearchStops).Methods("GET")
 
 	// New relationship endpoints
-	api.HandleFunc("/stops-by-route", bus.GetStopsByRouteId).Methods("GET")
-	api.HandleFunc("/routes-by-stop", bus.GetRoutesByStopId).Methods("GET")
-	api.HandleFunc("/stops-nearby", bus.GetStopsNearby).Methods("GET")
-	api.HandleFunc("/stop-by-id", bus.GetStopByStopId).Methods("GET")
+	api.HandleFunc("/bus/stops-by-route", bus.GetStopsByRouteId).Methods("GET")
+	api.HandleFunc("/bus/routes-by-stop", bus.GetRoutesByStopId).Methods("GET")
+	api.HandleFunc("/bus/stops-nearby", bus.GetStopsNearby).Methods("GET")
+	api.HandleFunc("/bus/stop-by-id", bus.GetStopByStopId).Methods("GET")
 
 	// Minibus API endpoints
 	api.HandleFunc("/minibus/routes", minibus.GetMinibusRoutes).Methods("GET")

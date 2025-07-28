@@ -63,7 +63,7 @@ export const RouteDetails: React.FC = () => {
     setLoadingStops(true);
     setStopsError(null);
     try {
-      const stops = await api.getRouteStops(route.route, route.direction);
+      const stops = await api.getBusRouteStops(route.route, route.direction);
       setRouteStops(stops);
     } catch (error) {
       setStopsError('Failed to load route stops');

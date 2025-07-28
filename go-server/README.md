@@ -33,132 +33,23 @@ Run the application:
 ```bash
 go run .
 ```
-
-The application will:
-1. Initialize a SQLite database (`kmb_routes.db`)
-2. Fetch route data from the KMB Route API
-3. Store all routes in the database
-4. Fetch stop data from the KMB Stop API
-5. Store all stops in the database
-6. Fetch route-stop relationship data from the KMB Route-Stop API
-7. Store all route-stop relationships in the database
-8. Display a comprehensive summary and sample data for all three data types
-
-## Database Schema
-
-The application creates three tables:
-
-### Routes Table
-```sql
-CREATE TABLE routes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    route TEXT NOT NULL,
-    bound TEXT NOT NULL,
-    service_type TEXT NOT NULL,
-    orig_en TEXT NOT NULL,
-    orig_tc TEXT NOT NULL,
-    orig_sc TEXT NOT NULL,
-    dest_en TEXT NOT NULL,
-    dest_tc TEXT NOT NULL,
-    dest_sc TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Stops Table
-```sql
-CREATE TABLE stops (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stop TEXT NOT NULL UNIQUE,
-    name_en TEXT NOT NULL,
-    name_tc TEXT NOT NULL,
-    name_sc TEXT NOT NULL,
-    lat TEXT NOT NULL,
-    long TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-### Route-Stops Table
-```sql
-CREATE TABLE route_stops (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    route TEXT NOT NULL,
-    bound TEXT NOT NULL,
-    service_type TEXT NOT NULL,
-    seq TEXT NOT NULL,
-    stop TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(route, bound, service_type, seq)
-);
-```
-
-## Data Fields
-
-### Route Data
-- `route`: Bus route number (e.g., "1", "1A", "2")
-- `bound`: Direction ("O" for outbound, "I" for inbound)
-- `service_type`: Service type identifier
-- `orig_en/tc/sc`: Origin in English/Traditional Chinese/Simplified Chinese
-- `dest_en/tc/sc`: Destination in English/Traditional Chinese/Simplified Chinese
-
-### Stop Data
-- `stop`: Unique stop identifier
-- `name_en/tc/sc`: Stop name in English/Traditional Chinese/Simplified Chinese
-- `lat`: Latitude coordinate
-- `long`: Longitude coordinate
-
-### Route-Stop Data
-- `route`: Bus route number
-- `bound`: Direction ("O" for outbound, "I" for inbound)
-- `service_type`: Service type identifier
-- `seq`: Sequence number of the stop in the route
-- `stop`: Stop identifier (foreign key to stops table)
-
-## API Sources
-
-This application uses the Hong Kong Transport Department's open data APIs:
-
-### Route API
-- **URL**: https://data.etabus.gov.hk/v1/transport/kmb/route/
-- **Format**: JSON
-- **Update Frequency**: Real-time
-
-### Stop API
-- **URL**: https://data.etabus.gov.hk/v1/transport/kmb/stop/
-- **Format**: JSON
-- **Update Frequency**: Real-time
-
-### Route-Stop API
-- **URL**: https://data.etabus.gov.hk/v1/transport/kmb/route-stop/
-- **Format**: JSON
-- **Update Frequency**: Real-time
-
-## Sample Output
-
-The application provides a comprehensive summary including:
-- Total number of routes, stops, and route-stop relationships in the database
-- Sample route data showing route numbers, directions, and destinations
-- Sample stop data showing stop IDs, names, and coordinates
-- Sample route-stop relationships showing the sequence of stops for specific routes
-
-## Data Relationships
-
-The three tables are related as follows:
-- `route_stops.route` → `routes.route`
-- `route_stops.stop` → `stops.stop`
-- `route_stops.bound` → `routes.bound`
-- `route_stops.service_type` → `routes.service_type`
-
-This allows for complex queries such as:
-- Finding all stops along a specific route
-- Determining the sequence of stops for any route
-- Analyzing route patterns and stop usage
-
-## Dependencies
-
-- `github.com/mattn/go-sqlite3`: SQLite driver for Go
-
-## License
-
-This project is open source and available under the MIT License. 
+🚌 Bus API Endpoints (Updated):
+Base URL: http://localhost:8080/api/bus/
+GET /bus/routes - List all bus routes
+GET /bus/stops - List all bus stops
+GET /bus/route-stops - Get stops for specific route
+GET /bus/search/routes - Search bus routes
+GET /bus/search/stops - Search bus stops
+GET /bus/stops-by-route - Get stops by route ID
+GET /bus/routes-by-stop - Get routes by stop ID
+GET /bus/stops-nearby - Get nearby stops
+GET /bus/stop-by-id - Get specific stop details
+🚐 Minibus API Endpoints (Unchanged):
+Base URL: http://localhost:8080/api/minibus/
+GET /minibus/routes - List all minibus routes
+GET /minibus/stops - List all minibus stops
+GET /minibus/route-stops - Get stops for specific route
+GET /minibus/search/routes - Search minibus routes
+GET /minibus/search/stops - Search minibus stops
+GET /minibus/stop-by-id - Get specific stop details
+GET /minibus/routes-by-stop - Get routes by stop ID

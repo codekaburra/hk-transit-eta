@@ -25,7 +25,7 @@ export const api = {
   // Search routes
   searchRoutes: async (query: string): Promise<BusRoute[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/search/routes?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/bus/search/routes?q=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -39,7 +39,7 @@ export const api = {
   // Search stops
   searchStops: async (query: string): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/search/stops?q=${encodeURIComponent(query)}`);
+      const response = await fetch(`${API_BASE_URL}/bus/search/stops?q=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -50,9 +50,9 @@ export const api = {
     }
   },
 
-  getRoutes: async (): Promise<BusRoute[]> => {
+  getBusRoutes: async (): Promise<BusRoute[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/routes`);
+      const response = await fetch(`${API_BASE_URL}/bus/routes`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -63,9 +63,9 @@ export const api = {
     }
   },
 
-  getStops: async (): Promise<BusStop[]> => {
+  getBusStops: async (): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stops`);
+      const response = await fetch(`${API_BASE_URL}/bus/stops`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -76,9 +76,9 @@ export const api = {
     }
   },
 
-  getStopsByRoute: async (route: string): Promise<BusStop[]> => {
+  getBusStopsByRoute: async (route: string): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stops-by-route?routeId=${route}`);
+      const response = await fetch(`${API_BASE_URL}/bus/stops-by-route?routeId=${route}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -89,9 +89,9 @@ export const api = {
     }
   },
 
-  getRouteStops: async (route: string, direction: string): Promise<RouteStop[]> => {
+  getBusRouteStops: async (route: string, direction: string): Promise<RouteStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stops-by-route?routeId=${route}&direction=${direction}`);
+      const response = await fetch(`${API_BASE_URL}/bus/stops-by-route?routeId=${route}&direction=${direction}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -113,9 +113,9 @@ export const api = {
     }
   },
 
-  getRoutesByStop: async (stopId: string): Promise<BusRoute[]> => {
+  getBusRoutesByStop: async (stopId: string): Promise<BusRoute[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/routes-by-stop?stopId=${stopId}`);
+      const response = await fetch(`${API_BASE_URL}/bus/routes-by-stop?stopId=${stopId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -126,9 +126,9 @@ export const api = {
     }
   },
 
-  getStopsNearby: async (stopId: string): Promise<BusStop[]> => {
+  getBusStopsNearby: async (stopId: string): Promise<BusStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stops-nearby?stopId=${stopId}`);
+      const response = await fetch(`${API_BASE_URL}/bus/stops-nearby?stopId=${stopId}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -139,9 +139,9 @@ export const api = {
     }
   },
 
-  getStopById: async (stopId: string): Promise<BusStop | null> => {
+  getBusStopById: async (stopId: string): Promise<BusStop | null> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/stop-by-id?stopId=${stopId}`);
+      const response = await fetch(`${API_BASE_URL}/bus/stop-by-id?stopId=${stopId}`);
       if (!response.ok) {
         if (response.status === 404) return null;
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -153,16 +153,16 @@ export const api = {
     }
   },
 
-  getETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+  getBusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
     if (route.company === 'CTB') {
-      return await api.getCitybusETA(stopId, route);
+      return await api.getBusCitybusETA(stopId, route);
     } else if (route.company === 'KMB') {
-      return await api.getKmbETA(stopId, route);
+      return await api.getBusKmbETA(stopId, route);
     }
     return [];
   },
 
-  getKmbETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+  getBusKmbETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
     try {
       const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route.route}/${route.service_type}`);
       if (!response.ok) {
@@ -176,8 +176,8 @@ export const api = {
     }
   },
 
-  // Get real-time ETA data from Citybus API
-  getCitybusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+  // GetBus real-time ETA data from Citybus API
+  getBusCitybusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
     try {
       const response = await fetch(`${CITYBUS_ETA_BASE_URL}/ctb/${stopId}/${route.route}`);
       if (!response.ok) {

@@ -32,7 +32,7 @@ export const StopDetails: React.FC = () => {
         setError(null);
         
         // First, get the stop details using the new endpoint
-        const foundStop = await api.getStopById(stopId);
+        const foundStop = await api.getBusStopById(stopId);
         if (!foundStop) {
           setError('Stop not found');
           setLoading(false);
@@ -42,8 +42,8 @@ export const StopDetails: React.FC = () => {
         
         // Then fetch routes and nearby stops
         const [routesData, nearbyData] = await Promise.all([
-          api.getRoutesByStop(stopId),
-          api.getStopsNearby(stopId)
+          api.getBusRoutesByStop(stopId),
+          api.getBusStopsNearby(stopId)
         ]);
         
         setRoutes(routesData);

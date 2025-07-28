@@ -49,11 +49,11 @@ export const HomePage: React.FC = () => {
     setInitialLoading(true);
     try {
       if (searchType === 'bus-route') {
-        const allRoutes = await api.getRoutes();
+        const allRoutes = await api.getBusRoutes();
         setRoutes(allRoutes.slice(0, 100));
         setStops([]);
       } else {
-        const allStops = await api.getStops();
+        const allStops = await api.getBusStops();
         setStops(allStops.slice(0, 100));
         setRoutes([]);
       }

@@ -25,7 +25,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
     setLoadingETA(true);
     setEtaError(null);
     try {
-      const etaResults = await api.getETA(busStop.stop, route);
+      const etaResults = await api.getBusETA(busStop.stop, route);
       setEtaData(etaResults);
     } catch (error) {
       setEtaError('Failed to load ETA data');
