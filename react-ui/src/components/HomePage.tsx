@@ -10,7 +10,7 @@ import { api } from '../services/api';
 export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchType, setSearchType] = useState<'route' | 'stop'>('route');
+  const [searchType, setSearchType] = useState<'bus-route' | 'bus-stop'>('bus-route');
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [stops, setStops] = useState<BusStop[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,7 @@ export const HomePage: React.FC = () => {
   const loadInitialData = async () => {
     setInitialLoading(true);
     try {
-      if (searchType === 'route') {
+      if (searchType === 'bus-route') {
         const allRoutes = await api.getRoutes();
         setRoutes(allRoutes.slice(0, 100));
         setStops([]);
@@ -67,7 +67,7 @@ export const HomePage: React.FC = () => {
   const performSearch = async () => {
     setLoading(true);
     try {
-      if (searchType === 'route') {
+      if (searchType === 'bus-route') {
         const results = await api.searchRoutes(searchTerm);
         setRoutes(results);
         setStops([]);
@@ -120,14 +120,14 @@ export const HomePage: React.FC = () => {
           <div className="flex mb-8 items-center justify-center">
             <div className={`flex space-x-1 rounded-lg p-1 ${getCardClass()}`}>
               <button
-                onClick={() => setSearchType('route')}
-                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'route')}`}
+                onClick={() => setSearchType('bus-route')}
+                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'bus-route')}`}
               >
                 🚌 巴士路線 Bus Routes
               </button>
               <button
-                onClick={() => setSearchType('stop')}
-                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'stop')}`}
+                onClick={() => setSearchType('bus-stop')}
+                className={`px-6 py-3 font-medium text-xl rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'bus-stop')}`}
               >
                 🚏 巴士站 Stops
               </button>

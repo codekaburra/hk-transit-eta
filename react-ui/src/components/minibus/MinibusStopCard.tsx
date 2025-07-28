@@ -1,10 +1,15 @@
-import React, {  } from 'react';
-import { StopCardProps } from '../types';
-import { useThemeStyles } from '../hooks/useThemeStyles';
-import { BusCompanyIcon } from './BusCompanyIcon';
+import React from 'react';
+import { MinibusStop } from '../../types';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
-export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
+export interface MinibusStopCardProps {
+  stop: MinibusStop;
+  onClick?: (stop: MinibusStop) => void;
+}
+
+export const MinibusStopCard: React.FC<MinibusStopCardProps> = ({ stop, onClick }) => {
+  const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass } = useThemeStyles();
+  
   return (
     <div 
       className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -13,20 +18,22 @@ export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <div className="flex items-center mb-2">
-            <span className={`text-2xl mr-3 w-12 h-12 rounded-lg flex items-center justify-center transition-colors duration-300 ${getAccentClass2()}`}>🚏</span>
+            <span className="text-2xl mr-3 w-12 h-12 rounded-lg bg-green-100 text-green-600 flex items-center justify-center transition-colors duration-300">
+              🚐
+            </span>
             <div>
               <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
-                {stop.name_tc}
+                {stop.stop_namec}
               </div>
               <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {stop.name_en}
+                {stop.stop_namee}
               </div>
             </div>
           </div>
         </div>
         <div className="text-gray-400 ml-4">
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-             <BusCompanyIcon company={stop.company} />
+            {stop.district_code}
           </div>
         </div>
         <div className="text-gray-400 ml-4">

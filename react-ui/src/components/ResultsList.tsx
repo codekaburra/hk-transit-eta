@@ -1,11 +1,11 @@
 import React from 'react';
-import { RouteCard } from './RouteCard';
-import { StopCard } from './StopCard';
+import { RouteCard } from './bus/RouteCard';
+import { StopCard } from './bus/StopCard';
 import { BusRoute, BusStop } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
 interface ResultsListProps {
-  searchType: 'route' | 'stop';
+  searchType: 'bus-route' | 'bus-stop';
   routes: BusRoute[];
   stops: BusStop[];
   searchTerm: string;
@@ -16,7 +16,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
   const { getTextClass, getSecondaryTextClass } = useThemeStyles();
 
   const getResultsText = () => {
-    if (searchType === 'route') {
+    if (searchType === 'bus-route') {
       const count = routes.length;
       if (searchTerm.trim()) {
         return `${count} route${count !== 1 ? 's' : ''} found`;
@@ -45,7 +45,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
       </div>
 
       {/* Results */}
-      {searchType === 'route' ? (
+      {searchType === 'bus-route' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {routes.map((route, index) => (
             <RouteCard 
@@ -64,7 +64,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
       )}
 
       {/* No results message */}
-      {searchType === 'route' && routes.length === 0  && (
+      {searchType === 'bus-route' && routes.length === 0  && (
         <div className="text-center py-8">
           <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
           沒有找到相關巴士路線。請嘗試刷新頁面。 No routes available. Please try refreshing the page.
@@ -72,7 +72,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
         </div>
       )}
 
-      {searchType === 'stop' && stops.length === 0  && (
+      {searchType === 'bus-stop' && stops.length === 0  && (
         <div className="text-center py-8">
           <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
           沒有找到相關巴士站。請嘗試刷新頁面。 No stops available. Please try refreshing the page.

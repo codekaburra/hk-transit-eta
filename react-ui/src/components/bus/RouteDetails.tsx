@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Header } from './Header';
-import { BusRoute, RouteStop } from '../types';
-import { api } from '../services/api';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { Header } from '../Header';
+import { BusRoute, RouteStop } from '../../types';
+import { api } from '../../services/api';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { RouteStopCard } from './RouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 

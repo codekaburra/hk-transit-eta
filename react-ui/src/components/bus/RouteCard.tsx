@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BusRoute, BusStop } from '../types';
-import { useThemeStyles } from '../hooks/useThemeStyles';
-import { ETAData, api } from '../services/api';
-import { formatETA } from '../services/utils';
+import { BusRoute, BusStop } from '../../types';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { ETAData, api } from '../../services/api';
+import { formatETA } from '../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
 export interface RouteCardProps {

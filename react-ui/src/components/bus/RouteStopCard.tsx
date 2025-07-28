@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { RouteStop } from '../types';
-import { useThemeStyles } from '../hooks/useThemeStyles';
-import { formatETA } from '../services/utils';
+import { RouteStop } from '../../types';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { formatETA } from '../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
 

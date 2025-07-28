@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { StopDetails } from './components/StopDetails';
-import { RouteDetails } from './components/RouteDetails';
+import { StopDetails } from './components/bus/StopDetails';
+import { RouteDetails } from './components/bus/RouteDetails';
 import './App.css';
 import { HomePage } from './components/HomePage';
 
