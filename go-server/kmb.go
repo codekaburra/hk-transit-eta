@@ -142,6 +142,7 @@ func fetchKmbRouteStopData() ([]RouteStop, error) {
 		routeStop.Direction = _routeStop.Bound
 		routeStop.Seq = _routeStop.Seq
 		routeStop.Stop = _routeStop.Stop
+		routeStop.ServiceType = _routeStop.ServiceType
 		routeStops = append(routeStops, routeStop)
 	}
 	return routeStops, nil

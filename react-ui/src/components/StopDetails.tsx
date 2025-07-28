@@ -30,16 +30,13 @@ export const StopDetails: React.FC = () => {
         setLoading(true);
         setError(null);
         
-        // First, get the stop details
-        const allStops = await api.getStops();
-        const foundStop = allStops.find(s => s.stop === stopId);
-        
+        // First, get the stop details using the new endpoint
+        const foundStop = await api.getStopById(stopId);
         if (!foundStop) {
           setError('Stop not found');
           setLoading(false);
           return;
         }
-        
         setStop(foundStop);
         
         // Then fetch routes and nearby stops

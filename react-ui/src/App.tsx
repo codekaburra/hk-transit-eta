@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { StopDetails } from './components/StopDetails';
+import { RouteDetailsPage } from './components/RouteDetailsPage';
 import './App.css';
 import { HomePage } from './components/HomePage';
 
@@ -12,6 +13,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/stop/:stopId" element={<StopDetails />} />
+          <Route path="/route/:routeId" element={<RouteDetailsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, {  } from 'react';
 import { StopCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
-import { api, ETAData } from '../services/api';
 
 export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
   const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();

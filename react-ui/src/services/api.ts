@@ -139,6 +139,29 @@ export const api = {
     }
   },
 
+  getStopById: async (stopId: string): Promise<BusStop | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/stop-by-id?stopId=${stopId}`);
+      if (!response.ok) {
+        if (response.status === 404) return null;
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching stop by id:', error);
+      return null;
+    }
+  },
+
+  getETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
+    if (route.company === 'CTB') {
+      return await api.getCitybusETA(stopId, route);
+    } else if (route.company === 'KMB') {
+      return await api.getKmbETA(stopId, route);
+    }
+    return [];
+  },
+
   getKmbETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
     try {
       const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route.route}/${route.service_type}`);
@@ -148,7 +171,7 @@ export const api = {
       const data = await response.json();
       return data.data.map((item: any) => item.eta) || [];
     } catch (error) {
-      console.error('Error fetching Citybus ETA:', error);
+      console.error('Error fetching KMB ETA:', error);
       return [];
     }
   },

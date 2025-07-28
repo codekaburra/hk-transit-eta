@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { RouteCard } from './RouteCard';
 import { StopCard } from './StopCard';
-import { RouteDetails } from './RouteDetails';
 import { BusRoute, BusStop } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
@@ -14,16 +13,7 @@ interface ResultsListProps {
 }
 
 export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, stops, searchTerm, onStopClick }) => {
-  const [selectedRoute, setSelectedRoute] = useState<BusRoute | null>(null);
   const { getTextClass, getSecondaryTextClass } = useThemeStyles();
-
-  const handleRouteClick = (route: BusRoute) => {
-    setSelectedRoute(route);
-  };
-
-  const handleCloseRouteDetails = () => {
-    setSelectedRoute(null);
-  };
 
   const getResultsText = () => {
     if (searchType === 'route') {
@@ -61,7 +51,6 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
             <RouteCard 
               key={`${route.route}-${route.direction}-${route.service_type}-${index}`} 
               route={route} 
-              onClick={handleRouteClick}
             />
           ))}
         </div>
@@ -88,14 +77,6 @@ export const ResultsList: React.FC<ResultsListProps> = ({ searchType, routes, st
           沒有找到相關巴士站。請嘗試刷新頁面。 No stops available. Please try refreshing the page.
           </p>
         </div>
-      )}
-
-      {/* Route Details Modal */}
-      {selectedRoute && (
-        <RouteDetails 
-          route={selectedRoute} 
-          onClose={handleCloseRouteDetails}
-        />
       )}
     </div>
   );

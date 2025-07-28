@@ -17,10 +17,10 @@ func main() {
 	// Initialize databases
 	initDatabases()
 
-	// Fetch and store data (only if databases are empty)
 	if true && shouldFetchData() {
-		FetchKmbData()
-		// FetchCitybusData()
+		// Run data fetches in background goroutines so server starts immediately
+		go FetchKmbData()
+		go FetchCitybusData()
 	}
 
 	// Start HTTP server
@@ -72,6 +72,7 @@ func startServer() {
 	api.HandleFunc("/stops-by-route", getStopsByRouteId).Methods("GET")
 	api.HandleFunc("/routes-by-stop", getRoutesByStopId).Methods("GET")
 	api.HandleFunc("/stops-nearby", getStopsNearby).Methods("GET")
+	api.HandleFunc("/stop-by-id", getStopByStopId).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

@@ -275,6 +275,7 @@ func storeStops(stops []Stop) error {
 }
 
 func storeRouteStops(routeStops []RouteStop) error {
+	fmt.Printf("💾 Storing %d route stops\n", len(routeStops))
 	tx, err := busDB.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
@@ -289,7 +290,7 @@ func storeRouteStops(routeStops []RouteStop) error {
 	}
 	defer stmt.Close()
 	for _, rs := range routeStops {
-		fmt.Printf("💾 RouteStop %s %s %s %s %s %s\n", rs.Company, rs.Route, rs.Direction, rs.ServiceType, rs.Seq, rs.Stop)
+		fmt.Printf("💾 RouteStop %s %s %s %s %s %s\n", rs.Company, rs.Route, rs.Direction, rs.Seq, rs.Stop, rs.ServiceType)
 		_, err = stmt.Exec(
 			rs.Company,
 			rs.Route,

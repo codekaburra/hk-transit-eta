@@ -317,3 +317,32 @@ func getStopsNearby(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(nearbyStops)
 }
+
+// getStopByStopId returns the stop details for a specific stopId
+func getStopByStopId(w http.ResponseWriter, r *http.Request) {
+	stopId := r.URL.Query().Get("stopId")
+	if stopId == "" {
+		http.Error(w, "Query parameter 'stopId' is required", http.StatusBadRequest)
+		return
+	}
+
+	row := busDB.QueryRow(`
+		SELECT id, company, stop, name_en, name_tc, name_sc, lat, long, data_timestamp
+		FROM stops
+		WHERE stop = ?
+	`, stopId)
+
+	var stop Stop
+	err := row.Scan(&stop.Id, &stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long, &stop.DataTimestamp)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			http.Error(w, "Stop not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stop)
+}

@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RouteCardProps } from '../types';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { ETAData, api } from '../services/api';
+import { formatETA } from '../services/utils';
 
 export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }) => {
-
+  const navigate = useNavigate();
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
   const [etaError, setEtaError] = useState<string | null>(null);
@@ -15,13 +17,8 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }
     setLoadingETA(true);
     setEtaError(null);
     try {
-      if (busStop.company === 'CTB') {
-        const etaResults = await api.getCitybusETA(busStop.stop, route);
-        setEtaData(etaResults);
-      } else if (busStop.company === 'KMB') {
-        const etaResults = await api.getKmbETA(busStop.stop, route);
-        setEtaData(etaResults);
-      }
+      const etaResults = await api.getETA(busStop.stop, route);
+      setEtaData(etaResults);
     } catch (error) {
       setEtaError('Failed to load ETA data');
       console.error('Error fetching ETA:', error);
@@ -37,31 +34,18 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick }
       return () => clearInterval(interval);
   }, [fetchETA]);
   
-  // Format ETA time
-  const formatETA = (etaString: string) => {
-    try {
-      const etaDate = new Date(etaString);
-      const etaDateString = etaDate.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const now = new Date();
-      const diffMs = etaDate.getTime() - now.getTime();
-      const diffMins = Math.round(diffMs / 60000);
-      
-      if (diffMins <= 0) return 'Arriving';
-      if (diffMins < 60) return `${etaDateString} - ${diffMins}m`;
-      const hours = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      return `${etaDateString} ${hours}h ${mins}m`;
-    } catch {
-      return '';
-    }
-  };
-  
 
   const { getHoverClass, getCardClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
-      onClick={() => onClick?.(route)}
+      onClick={() => {
+        if (onClick) {
+          onClick(route);
+        } else {
+          navigate(`/route/${route.route}`);
+        }
+      }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
