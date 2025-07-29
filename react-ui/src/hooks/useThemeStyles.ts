@@ -109,13 +109,13 @@ export const useThemeStyles = () => {
     switch (themeMode) {
       default:
       case 'light':
-        return 'bg-light1 border-light3 text-light4 placeholder-light4/60 focus:border-light4';
+        return 'bg-light1/80 border-light3 text-light4 placeholder-light4/60 focus:border-light4';
       case 'warm':
-        return 'bg-warm1 border-warm3 text-warm4 placeholder-warm4/60 focus:border-warm4';
+        return 'bg-warm1/80 border-warm3 text-warm4 placeholder-warm4/60 focus:border-warm4';
       case 'red':
-        return 'bg-red1 border-red2 text-red3 placeholder-red3/60 focus:border-red3';
+        return 'bg-red1/80 border-red2 text-red3 placeholder-red3/60 focus:border-red3';
       case 'dark':
-        return 'bg-dark4 border-dark2 text-dark1 placeholder-dark1/60 focus:border-dark2';
+        return 'bg-dark4/80 border-dark2 text-dark1 placeholder-dark1/60 focus:border-dark2';
     }
   };
 

@@ -4,12 +4,12 @@ import { Header } from '../Header';
 import { BusRoute, RouteStop } from '../../types';
 import { api } from '../../services/api';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { RouteStopCard } from './RouteStopCard';
+import { BusRouteStopCard } from './BusRouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
 import { MainNavigation } from '../MainNavigation';
 
-export const RouteDetails: React.FC = () => {
+export const BusRouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
   const navigate = useNavigate();
   const [route, setRoute] = useState<BusRoute | null>(null);
@@ -184,7 +184,7 @@ export const RouteDetails: React.FC = () => {
             ) : routeStops.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
-                  <RouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/bus/stop/${routeStop.stop}`)} />
+                  <BusRouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/bus/stop/${routeStop.stop}`)} />
                 ))}
               </div>
             ) : (

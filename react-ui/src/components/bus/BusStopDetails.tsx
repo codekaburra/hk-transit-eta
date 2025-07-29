@@ -4,12 +4,12 @@ import { BusStop, BusRoute } from '../../types';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { api } from '../../services/api';
 import { Header } from '../Header';
-import { StopCard } from './StopCard';
-import { RouteCard } from './RouteCard';
+import { BusStopCard } from './BusStopCard';
+import { BusRouteCard } from './BusRouteCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { MainNavigation } from '../MainNavigation';
 
-export const StopDetails: React.FC = () => {
+export const BusStopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
   const navigate = useNavigate();
   const { getCardClass, getTextClass, getSecondaryTextClass, getBackgroundClass } = useThemeStyles();
@@ -184,7 +184,7 @@ export const StopDetails: React.FC = () => {
             {!loading && !error && sortedRoutes.length > 0 && (
               <div className="grid gap-4">
                 {sortedRoutes.map((route, index) => (
-                  <RouteCard
+                  <BusRouteCard
                     key={`${route.route}-${route.direction}-${index}`}
                     shouldBusCompanyIcon={false}
                     route={route}
@@ -207,7 +207,7 @@ export const StopDetails: React.FC = () => {
             {!nearbyLoading && nearbyStops.length > 0 && (
               <div className="grid gap-3">
                 {nearbyStops.map((nearbyStop: BusStop, index) => (
-                  <StopCard
+                  <BusStopCard
                     key={`${nearbyStop.stop}-${index}`}
                     stop={nearbyStop}
                     onClick={(stop) => navigate(`/bus/stop/${stop.stop}`)}

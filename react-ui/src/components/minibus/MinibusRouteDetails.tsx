@@ -20,8 +20,7 @@ export const MinibusRouteDetails: React.FC = () => {
     getTextClass, 
     getSecondaryTextClass, 
     getCardClass, 
-    getButtonClass, 
-    getHoverClass 
+    getTitleClass,
   } = useThemeStyles();
 
   useEffect(() => {
@@ -127,20 +126,20 @@ export const MinibusRouteDetails: React.FC = () => {
                   <span className="font-bold text-2xl text-white">{route.route_code}</span>
                 </div>
                 <div>
-                  <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
+                  {/* <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
                     <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium mr-2">
                       {route.region}
                     </span>
                     <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
                       Direction {route.route_seq}
                     </span>
-                  </h1>
-                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                  </h1> */}
+                  <h2 className={`text-lg transition-colors duration-300 ${getTitleClass()}`}>
+                    {route.orig_tc} → {route.dest_tc}
+                  </h2>
+                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getTitleClass()}`}>
                     {route.orig_en && route.dest_en ? `${route.orig_en} → ${route.dest_en}` : (route.description_en || '')}
                   </h2>
-                  <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {route.orig_tc} → {route.dest_tc}
-                  </p>
                 </div>
               </div>
             </div>

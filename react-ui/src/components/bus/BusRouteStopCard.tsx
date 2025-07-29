@@ -12,7 +12,7 @@ export interface RouteStopCardProps {
   onClick?: (routeStop: RouteStop) => void;
 }
 
-export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
+export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
   const [etaError, setEtaError] = useState<string | null>(null);

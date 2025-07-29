@@ -3,7 +3,7 @@ import { StopCardProps } from '../../types';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
-export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
+export const BusStopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
   const { getCardClass, getTextClass, getSecondaryTextClass, getGrayTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
   return (
     <div 

@@ -1,6 +1,6 @@
 import React from 'react';
-import { RouteCard } from './bus/RouteCard';
-import { StopCard } from './bus/StopCard';
+import { BusRouteCard } from './bus/BusRouteCard';
+import { BusStopCard } from './bus/BusStopCard';
 import { MinibusRouteCard } from './minibus/MinibusRouteCard';
 import { MinibusStopCard } from './minibus/MinibusStopCard';
 import { BusRoute, BusStop } from '../types';
@@ -29,7 +29,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   onMinibusStopClick,
   onMinibusRouteClick
 }) => {
-  const { getTextClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
+  const { getTitleClass, getSecondaryTextClass } = useThemeStyles();
 
   const getResultsText = () => {
     switch (searchType) {
@@ -74,7 +74,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
     <div className="space-y-4">
       {/* Header */}
       <div className="text-center">
-        <p className={`text-lg transition-colors duration-300 ${getGrayTextClass()}`}>
+        <p className={`text-lg transition-colors duration-300 ${getTitleClass()}`}>
           {getResultsText()}
         </p>
       </div>
@@ -83,7 +83,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
       {searchType === 'bus-route' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {routes.map((route, index) => (
-            <RouteCard 
+            <BusRouteCard 
               key={`${route.route}-${route.direction}-${route.service_type}-${index}`} 
               route={route} 
               shouldBusCompanyIcon={true}
@@ -95,7 +95,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
       {searchType === 'bus-stop' && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {stops.map((stop, index) => (
-            <StopCard key={`${stop.stop}-${index}`} stop={stop} onClick={onStopClick} />
+            <BusStopCard key={`${stop.stop}-${index}`} stop={stop} onClick={onStopClick} />
           ))}
         </div>
       )}

@@ -1,8 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { StopDetails } from './components/bus/StopDetails';
-import { RouteDetails } from './components/bus/RouteDetails';
+import { BusStopDetails } from './components/bus/BusStopDetails';
+import { BusRouteDetails } from './components/bus/BusRouteDetails';
 import { MinibusRouteDetails } from './components/minibus/MinibusRouteDetails';
 import { MinibusStopDetails } from './components/minibus/MinibusStopDetails';
 import './App.css';
@@ -14,8 +14,8 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/bus/stop/:stopId" element={<StopDetails />} />
-          <Route path="/bus/route/:routeId" element={<RouteDetails />} />
+          <Route path="/bus/stop/:stopId" element={<BusStopDetails />} />
+          <Route path="/bus/route/:routeId" element={<BusRouteDetails />} />
           <Route path="/minibus/route/:routeId/:routeSeq" element={<MinibusRouteDetails />} />
           <Route path="/minibus/stop/:stopId" element={<MinibusStopDetails />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -5,6 +5,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { ETAData, api, getBusETA } from '../../services/api';
 import { formatETA } from '../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
+import { RouteCodeIcon } from '../RouteCodeIcon';
 
 export interface RouteCardProps {
   route: BusRoute;
@@ -13,7 +14,7 @@ export interface RouteCardProps {
   onClick?: (route: BusRoute) => void;
 }
 
-export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, shouldBusCompanyIcon = true }) => {
+export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, shouldBusCompanyIcon = true }) => {
   const navigate = useNavigate();
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
@@ -58,9 +59,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
       <div className="flex items-center justify-between">
         <div className="flex-1 flex items-center space-x-4">
           <div className="flex-shrink-0">
-            <div className={`w-12 h-12 rounded-lg flex items-center justify-center transition-colors duration-300 ${getAccentClass()}`}>
-              <span className="font-bold text-lg">{route.route}</span>
-            </div>
+            <RouteCodeIcon routeCode={route.route} type={route.company as 'KMB' | 'CTB'} size="md" />
           </div>
           <div>
             {/* <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
