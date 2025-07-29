@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
 import { MinibusRouteStopCard } from './MinibusRouteStopCard';
+import { RouteMapCard, convertMinibusRouteStopsToMapStops } from '../RouteMapCard';
 import { api } from '../../services/api';
 
 export const MinibusRouteDetails: React.FC = () => {
@@ -197,6 +198,11 @@ export const MinibusRouteDetails: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Route Map */}
+        {routeStops.length > 0 && (
+          <RouteMapCard routeStops={convertMinibusRouteStopsToMapStops(routeStops)} />
+        )}
       </main>
     </div>
   );

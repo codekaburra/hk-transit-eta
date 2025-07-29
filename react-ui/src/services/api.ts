@@ -91,11 +91,25 @@ export const api = {
 
   getBusRouteStops: async (route: string, direction: string): Promise<RouteStop[]> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/bus/stops-by-route?routeId=${route}&direction=${direction}`);
+      // Validate parameters
+      if (!route || !direction) {
+        throw new Error(`Missing required parameters: route=${route}, direction=${direction}`);
+      }
+      
+      // Properly encode URL parameters
+      const url = `${API_BASE_URL}/bus/stops-by-route?routeId=${encodeURIComponent(route)}&direction=${encodeURIComponent(direction)}`;
+      console.log('API URL:', url);
+      console.log('Parameters:', { route, direction });
+      
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('API Error Response:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
       const data = await response.json();
+      console.log('API Response data:', data);
+      
       // Transform the data to match RouteStop interface
       return data.map((item: any) => ({
         company: item.company,
@@ -106,6 +120,8 @@ export const api = {
         stop: item.stop, 
         name_en: item.name_en,
         name_tc: item.name_tc,
+        lat: item.lat,
+        long: item.long,
       }));
     } catch (error) {
       console.error('Error fetching route stops:', error);

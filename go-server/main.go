@@ -20,12 +20,12 @@ func main() {
 	// Initialize databases
 	initDatabases()
 
-	if true && shouldFetchData() {
+	if false && shouldFetchData() {
 		// Run data fetches in background goroutines so server starts immediately
 		go bus.FetchKmbData()
 		go bus.FetchCitybusData()
 	}
-	if true && minibus.ShouldFetchMinibusData() {
+	if false && minibus.ShouldFetchMinibusData() {
 		go minibus.FetchMinibusRoutes()
 	}
 

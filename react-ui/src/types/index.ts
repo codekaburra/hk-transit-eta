@@ -28,6 +28,8 @@ export interface RouteStop {
   stop: string;
   name_en: string;
   name_tc: string;
+  lat?: string;
+  long?: string;
 }
 
 // Minibus data interfaces

@@ -159,12 +159,15 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 	routeId := r.URL.Query().Get("routeId")
 	direction := r.URL.Query().Get("direction")
+
+	fmt.Printf("API GetStopsByRouteId called with: routeId='%s', direction='%s'\n", routeId, direction)
+
 	if routeId == "" {
 		http.Error(w, "Query parameter 'routeId' is required", http.StatusBadRequest)
 		return
 	}
 	if direction == "" {
-		http.Error(w, "Query parameter 'direction' is required", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Query parameter 'direction' is required. Received: routeId='%s', direction='%s'", routeId, direction), http.StatusBadRequest)
 		return
 	}
 

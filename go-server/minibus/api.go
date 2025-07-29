@@ -403,11 +403,13 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT DISTINCT mr.region, mr.route_code, mr.route_id, mr.description_tc, mr.description_sc, mr.description_en
+	query := `SELECT DISTINCT mr.region, mr.route_code, mr.route_id, mr.route_seq, mr.description_tc, mr.description_sc, mr.description_en,
+			  mr.orig_tc, mr.orig_sc, mr.orig_en, mr.dest_tc, mr.dest_sc, mr.dest_en, 
+			  mr.remarks_tc, mr.remarks_sc, mr.remarks_en, mr.direction_data_timestamp, mr.data_timestamp
 			  FROM minibus_route mr
-			  JOIN minibus_route_stop rs ON mr.route_id = rs.route_id
+			  JOIN minibus_route_stop rs ON mr.route_id = rs.route_id AND mr.route_seq = rs.route_seq
 			  WHERE rs.stop_id = ?
-			  ORDER BY mr.region, mr.route_code`
+			  ORDER BY mr.region, mr.route_code, mr.route_seq`
 
 	rows, err := minibusDB.Query(query, stopId)
 	if err != nil {
@@ -420,9 +422,13 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var route map[string]interface{} = make(map[string]interface{})
 		var region, routeCode, descTC, descSC, descEN string
-		var routeID int
+		var origTC, origSC, origEN, destTC, destSC, destEN string
+		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
+		var routeID, routeSeq int
 
-		err := rows.Scan(&region, &routeCode, &routeID, &descTC, &descSC, &descEN)
+		err := rows.Scan(&region, &routeCode, &routeID, &routeSeq, &descTC, &descSC, &descEN,
+			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
+			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -431,9 +437,21 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 		route["region"] = region
 		route["route_code"] = routeCode
 		route["route_id"] = routeID
+		route["route_seq"] = routeSeq
 		route["description_tc"] = descTC
 		route["description_sc"] = descSC
 		route["description_en"] = descEN
+		route["orig_tc"] = origTC
+		route["orig_sc"] = origSC
+		route["orig_en"] = origEN
+		route["dest_tc"] = destTC
+		route["dest_sc"] = destSC
+		route["dest_en"] = destEN
+		route["remarks_tc"] = remarksTC
+		route["remarks_sc"] = remarksSC
+		route["remarks_en"] = remarksEN
+		route["direction_data_timestamp"] = directionDataTimestamp
+		route["data_timestamp"] = dataTimestamp
 
 		routes = append(routes, route)
 	}

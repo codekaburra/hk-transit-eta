@@ -6,6 +6,7 @@ import { api } from '../../services/api';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { RouteStopCard } from './RouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
+import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
 
 export const RouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
@@ -60,13 +61,40 @@ export const RouteDetails: React.FC = () => {
 
   const fetchRouteStops = useCallback(async () => {
     if (!route) return;
+    
+    // Validate route parameter
+    if (!route.route) {
+      setStopsError(`Missing route parameter: ${route.route}`);
+      return;
+    }
+    
     setLoadingStops(true);
     setStopsError(null);
     try {
-      const stops = await api.getBusRouteStops(route.route, route.direction);
+      let effectiveDirection = route.direction;
+      
+      // If direction is empty or invalid, try to find available directions
+      if (!effectiveDirection || effectiveDirection.trim() === '') {
+        const allRoutes = await api.searchRoutes(route.route);
+        const routesWithDirection = allRoutes.filter(r => r.route === route.route && r.direction && r.direction.trim() !== '');
+        
+        if (routesWithDirection.length > 0) {
+          effectiveDirection = routesWithDirection[0].direction;
+          console.log('Found route with direction:', effectiveDirection);
+          
+          // Update the route object with the found direction
+          setRoute({...route, direction: effectiveDirection});
+        } else {
+          setStopsError('No valid direction found for this route');
+          return;
+        }
+      }
+      
+      const stops = await api.getBusRouteStops(route.route, effectiveDirection);
       setRouteStops(stops);
     } catch (error) {
-      setStopsError('Failed to load route stops');
+      console.error('Error fetching route stops:', error);
+      setStopsError(`Failed to load route stops: ${error}`);
     } finally {
       setLoadingStops(false);
     }
@@ -166,6 +194,11 @@ export const RouteDetails: React.FC = () => {
             <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
           )}
         </div>
+
+        {/* Route Map */}
+        {routeStops.length > 0 && (
+          <RouteMapCard routeStops={convertBusRouteStopsToMapStops(routeStops)} />
+        )}
       </main>
     </div>
   );
