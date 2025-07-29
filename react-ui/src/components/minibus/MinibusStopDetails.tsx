@@ -4,6 +4,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
 import { MinibusRouteCard } from './MinibusRouteCard';
 import { api } from '../../services/api';
+import { MainNavigation } from '../MainNavigation';
 
 export const MinibusStopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
@@ -152,12 +153,7 @@ export const MinibusStopDetails: React.FC = () => {
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <button
-            onClick={handleBackClick}
-            className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-          >
-            ← Back to Search
-          </button>
+          <MainNavigation currentType="minibus-stop" />
           <div className={`text-center py-8 ${getTextClass()}`}>
             <div className="text-4xl mb-4">❌</div>
             <p>{error || 'Stop not found'}</p>
@@ -172,13 +168,8 @@ export const MinibusStopDetails: React.FC = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={handleBackClick}
-          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-        >
-          ← Back to Search
-        </button>
+        {/* Main Navigation */}
+        <MainNavigation currentType="minibus-stop" />
 
         {/* Stop Header */}
         <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>

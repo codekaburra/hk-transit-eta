@@ -4,6 +4,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { formatETA } from '../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
+import { getBusETA } from '../../services/api';
 
 export interface RouteStopCardProps {
   routeStop: RouteStop;
@@ -23,20 +24,14 @@ export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick
     setLoadingETA(true);
     setEtaError(null);
     try {
-      let url = '';
-      if (routeStop.company === 'KMB') {
-        // Fetch from KMB public API directly
-        url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${routeStop.stop}/${routeStop.route}/${routeStop.service_type}`;
-      } else if (routeStop.company === 'CTB') {
-        // Fetch from Citybus public API directly
-        url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/${routeStop.stop}/${routeStop.route}`;
-      }
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch Citybus ETA');
-      const data = await response.json();
-      const etaList = (data.data || []).filter((item: any) => routeStop.direction === item.dir).map((item: any) => item.eta);
+      const etaList = await getBusETA(
+        routeStop.company,
+        routeStop.stop,
+        routeStop.route,
+        routeStop.service_type,
+        routeStop.direction
+      );
       setEtaData(etaList);
-      
     } catch (error) {
       setEtaError('Failed to load ETA data');
       console.error('Error fetching ETA:', error);

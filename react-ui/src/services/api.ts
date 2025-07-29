@@ -21,283 +21,279 @@ export interface ETAData {
   data_timestamp: string;
 }
 
-export const api = {
-  // Search routes
-  searchRoutes: async (query: string): Promise<BusRoute[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/search/routes?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error searching routes:', error);
-      return [];
+// Search routes
+export const searchRoutes = async (query: string): Promise<BusRoute[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/search/routes?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
-
-  // Search stops
-  searchStops: async (query: string): Promise<BusStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/search/stops?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error searching stops:', error);
-      return [];
-    }
-  },
-
-  getBusRoutes: async (): Promise<BusRoute[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/routes`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching KMB routes:', error);
-      return [];
-    }
-  },
-
-  getBusStops: async (): Promise<BusStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/stops`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching KMB stops:', error);
-      return [];
-    }
-  },
-
-  getBusStopsByRoute: async (route: string): Promise<BusStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/stops-by-route?routeId=${route}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching stops by route:', error);
-      return [];
-    }
-  },
-
-  getBusRouteStops: async (route: string, direction: string): Promise<RouteStop[]> => {
-    try {
-      // Validate parameters
-      if (!route || !direction) {
-        throw new Error(`Missing required parameters: route=${route}, direction=${direction}`);
-      }
-      
-      // Properly encode URL parameters
-      const url = `${API_BASE_URL}/bus/stops-by-route?routeId=${encodeURIComponent(route)}&direction=${encodeURIComponent(direction)}`;
-      console.log('API URL:', url);
-      console.log('Parameters:', { route, direction });
-      
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Error Response:', errorText);
-        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-      }
-      const data = await response.json();
-      console.log('API Response data:', data);
-      
-      // Transform the data to match RouteStop interface
-      return data.map((item: any) => ({
-        company: item.company,
-        route: item.route,
-        direction: item.direction,
-        service_type: item.service_type,
-        seq: item.seq,
-        stop: item.stop, 
-        name_en: item.name_en,
-        name_tc: item.name_tc,
-        lat: item.lat,
-        long: item.long,
-      }));
-    } catch (error) {
-      console.error('Error fetching route stops:', error);
-      return [];
-    }
-  },
-
-  getBusRoutesByStop: async (stopId: string): Promise<BusRoute[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/routes-by-stop?stopId=${stopId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching routes by stop:', error);
-      return [];
-    }
-  },
-
-  getBusStopsNearby: async (stopId: string): Promise<BusStop[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/stops-nearby?stopId=${stopId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching nearby stops:', error);
-      return [];
-    }
-  },
-
-  getBusStopById: async (stopId: string): Promise<BusStop | null> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/bus/stop-by-id?stopId=${stopId}`);
-      if (!response.ok) {
-        if (response.status === 404) return null;
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching stop by id:', error);
-      return null;
-    }
-  },
-
-  getBusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
-    if (route.company === 'CTB') {
-      return await api.getBusCitybusETA(stopId, route);
-    } else if (route.company === 'KMB') {
-      return await api.getBusKmbETA(stopId, route);
-    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error searching routes:', error);
     return [];
-  },
+  }
+};
 
-  getBusKmbETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
-    try {
-      const response = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route.route}/${route.service_type}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.data.map((item: any) => item.eta) || [];
-    } catch (error) {
-      console.error('Error fetching KMB ETA:', error);
-      return [];
+// Search stops
+export const searchStops = async (query: string): Promise<BusStop[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/search/stops?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error searching stops:', error);
+    return [];
+  }
+};
 
-  // GetBus real-time ETA data from Citybus API
-  getBusCitybusETA: async (stopId: string, route: BusRoute): Promise<string[]> => {
-    try {
-      const response = await fetch(`${CITYBUS_ETA_BASE_URL}/ctb/${stopId}/${route.route}`);
-      if (!response.ok) {
-        return [];
-      }
-      const data = await response.json();
-      return data.data.map((item: any) => item.eta) || [];
-    } catch (error) {
-      console.error('Error fetching Citybus ETA:', error);
-      return [];
+export const getBusRoutes = async (): Promise<BusRoute[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/routes`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching KMB routes:', error);
+    return [];
+  }
+};
 
-  // Minibus API functions
-  getMinibusRoutes: async (): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/routes`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching minibus routes:', error);
-      return [];
+export const getBusStops = async (): Promise<BusStop[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/stops`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching KMB stops:', error);
+    return [];
+  }
+};
 
-  getMinibusStops: async (): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/stops`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching minibus stops:', error);
-      return [];
+export const getBusStopsByRoute = async (route: string): Promise<BusStop[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/stops-by-route?routeId=${route}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching stops by route:', error);
+    return [];
+  }
+};
 
-  searchMinibusRoutes: async (query: string): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/search/routes?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error searching minibus routes:', error);
-      return [];
+export const getBusRouteStops = async (route: string, direction: string): Promise<RouteStop[]> => {
+  try {
+    // Validate parameters
+    if (!route || !direction) {
+      throw new Error(`Missing required parameters: route=${route}, direction=${direction}`);
     }
-  },
-
-  searchMinibusStops: async (query: string): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/search/stops?q=${encodeURIComponent(query)}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error searching minibus stops:', error);
-      return [];
+    
+    // Properly encode URL parameters
+    const url = `${API_BASE_URL}/bus/stops-by-route?routeId=${encodeURIComponent(route)}&direction=${encodeURIComponent(direction)}`;
+    console.log('API URL:', url);
+    console.log('Parameters:', { route, direction });
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
-  },
+    const data = await response.json();
+    console.log('API Response data:', data);
+    
+    // Transform the data to match RouteStop interface
+    return data.map((item: any) => ({
+      company: item.company,
+      route: item.route,
+      direction: item.direction,
+      service_type: item.service_type,
+      seq: item.seq,
+      stop: item.stop, 
+      name_en: item.name_en,
+      name_tc: item.name_tc,
+      lat: item.lat,
+      long: item.long,
+    }));
+  } catch (error) {
+    console.error('Error fetching route stops:', error);
+    return [];
+  }
+};
 
-  getMinibusStopById: async (stopId: string): Promise<any | null> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/stop-by-id?stopId=${stopId}`);
-      if (!response.ok) {
-        if (response.status === 404) return null;
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching minibus stop by id:', error);
-      return null;
+export const getBusRoutesByStop = async (stopId: string): Promise<BusRoute[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/routes-by-stop?stopId=${stopId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching routes by stop:', error);
+    return [];
+  }
+};
 
-  getMinibusRoutesByStop: async (stopId: string): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/routes-by-stop?stopId=${stopId}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching minibus routes by stop:', error);
-      return [];
+export const getBusStopsNearby = async (stopId: string): Promise<BusStop[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/stops-nearby?stopId=${stopId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching nearby stops:', error);
+    return [];
+  }
+};
 
-  getMinibusRouteStops: async (routeId: string, routeSeq: string): Promise<any[]> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/minibus/route-stops?routeId=${routeId}&routeSeq=${routeSeq}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching minibus route stops:', error);
-      return [];
+export const getBusStopById = async (stopId: string): Promise<BusStop | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/bus/stop-by-id?stopId=${stopId}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-  },
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching stop by id:', error);
+    return null;
+  }
+};
 
+export const getBusETA = async (company: string, stopId: string, route: string, service_type: string, direction: string): Promise<string[]> => {
+  let url = '';
+  if (company === 'KMB') {
+    // Fetch from KMB public API directly
+    url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route}/${service_type}`;
+  } else if (company === 'CTB') {
+    // Fetch from Citybus public API directly
+    url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/${stopId}/${route}`;
+  }
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Failed to fetch Citybus ETA');
+  const data = await response.json();
+  const etaList = (data.data || []).filter((item: any) => direction === item.dir).map((item: any) => item.eta);
+  return etaList;
+};
+
+// Minibus API functions
+export const getMinibusRoutes = async (): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/routes`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus routes:', error);
+    return [];
+  }
+};
+
+export const getMinibusStops = async (): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/stops`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus stops:', error);
+    return [];
+  }
+};
+
+export const searchMinibusRoutes = async (query: string): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/search/routes?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error searching minibus routes:', error);
+    return [];
+  }
+};
+
+export const searchMinibusStops = async (query: string): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/search/stops?q=${encodeURIComponent(query)}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error searching minibus stops:', error);
+    return [];
+  }
+};
+
+export const getMinibusStopById = async (stopId: string): Promise<any | null> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/stop-by-id?stopId=${stopId}`);
+    if (!response.ok) {
+      if (response.status === 404) return null;
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus stop by id:', error);
+    return null;
+  }
+};
+
+export const getMinibusRoutesByStop = async (stopId: string): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/routes-by-stop?stopId=${stopId}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus routes by stop:', error);
+    return [];
+  }
+};
+
+export const getMinibusRouteStops = async (routeId: string, routeSeq: string): Promise<any[]> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/route-stops?routeId=${routeId}&routeSeq=${routeSeq}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus route stops:', error);
+    return [];
+  }
+};
+
+// Legacy api object for backward compatibility (can be removed after updating all imports)
+export const api = {
+  searchRoutes,
+  searchStops,
+  getBusRoutes,
+  getBusStops,
+  getBusStopsByRoute,
+  getBusRouteStops,
+  getBusRoutesByStop,
+  getBusStopsNearby,
+  getBusStopById,
+  getBusETA,
+  getMinibusRoutes,
+  getMinibusStops,
+  searchMinibusRoutes,
+  searchMinibusStops,
+  getMinibusStopById,
+  getMinibusRoutesByStop,
+  getMinibusRouteStops,
 }; 

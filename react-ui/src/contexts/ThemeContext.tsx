@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { THEME_MODES } from '../hooks/useThemeStyles';
 
-type ThemeMode = 'light' | 'dark' | 'custom-light' | 'warm' | 'red';
+type ThemeMode = typeof THEME_MODES[number];
 
 interface ThemeContextType {
   themeMode: ThemeMode;
@@ -27,7 +28,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
     // Check localStorage for saved preference
     const saved = localStorage.getItem('themeMode');
-    if (saved && ['light', 'dark', 'custom-light', 'warm'].includes(saved)) {
+    if (saved && THEME_MODES.includes(saved as ThemeMode)) {
       return saved as ThemeMode;
     }
     // Check system preference
@@ -41,15 +42,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     localStorage.setItem('themeMode', themeMode);
     
     // Apply theme classes to document
-    document.documentElement.classList.remove('light', 'dark', 'custom-light', 'warm');
+    document.documentElement.classList.remove(...THEME_MODES);
     document.documentElement.classList.add(themeMode);
   }, [themeMode]);
 
   const toggleTheme = () => {
-    const modes: ThemeMode[] = ['light', 'custom-light', 'warm', 'red', 'dark'];
-    const currentIndex = modes.indexOf(themeMode);
-    const nextIndex = (currentIndex + 1) % modes.length;
-    setThemeMode(modes[nextIndex]);
+    const currentIndex = THEME_MODES.indexOf(themeMode);
+    const nextIndex = (currentIndex + 1) % THEME_MODES.length;
+    setThemeMode(THEME_MODES[nextIndex]);
   };
 
   return (

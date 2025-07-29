@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 import { Header } from './Header';
 import { SearchBox } from './SearchBox';
@@ -27,6 +27,17 @@ export const HomePage: React.FC = () => {
     getBorderClass 
   } = useThemeStyles();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Handle navigation state for search type
+  useEffect(() => {
+    const state = location.state as { searchType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' };
+    if (state?.searchType) {
+      setSearchType(state.searchType);
+      // Clear the state
+      navigate('/', { replace: true });
+    }
+  }, [location.state, navigate]);
 
   // Load initial data on component mount
   useEffect(() => {

@@ -4,7 +4,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
 export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
+  const { getCardClass, getTextClass, getSecondaryTextClass, getGrayTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -15,10 +15,10 @@ export const StopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
           <div className="flex items-center mb-2">
             <span className={`text-2xl mr-3 w-12 h-12 rounded-lg flex items-center justify-center transition-colors duration-300 ${getAccentClass2()}`}>🚏</span>
             <div>
-              <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
+              <div className={`text-sm font-medium transition-colors duration-300 ${getGrayTextClass()}`}>
                 {stop.name_tc}
               </div>
-              <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+              <div className={`text-sm transition-colors duration-300 ${getGrayTextClass()}`}>
                 {stop.name_en}
               </div>
             </div>

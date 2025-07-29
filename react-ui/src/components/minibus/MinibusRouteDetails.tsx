@@ -4,6 +4,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
 import { MinibusRouteStopCard } from './MinibusRouteStopCard';
 import { RouteMapCard, convertMinibusRouteStopsToMapStops } from '../RouteMapCard';
+import { MainNavigation } from '../MainNavigation';
 import { api } from '../../services/api';
 
 export const MinibusRouteDetails: React.FC = () => {
@@ -65,8 +66,17 @@ export const MinibusRouteDetails: React.FC = () => {
     navigate(`/minibus/stop/${stop.stop_id}`);
   };
 
-  const handleBackClick = () => {
-    navigate('/');
+  // Function to get background color based on region
+  const getCompanyBackgroundClass = (region: string) => {
+    switch (region) {
+      case 'HKI': // Hong Kong Island - CTB territory
+        return 'bg-yellow-400';
+      case 'KLN': // Kowloon - KMB territory
+      case 'NT':  // New Territories - KMB territory
+        return 'bg-red-500';
+      default:
+        return 'bg-yellow-400'; // Default to yellow
+    }
   };
 
   if (loading) {
@@ -90,12 +100,7 @@ export const MinibusRouteDetails: React.FC = () => {
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <button
-            onClick={handleBackClick}
-            className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-          >
-            ← Back to Search
-          </button>
+          <MainNavigation currentType="minibus-route" />
           <div className={`text-center py-8 ${getTextClass()}`}>
             <div className="text-4xl mb-4">❌</div>
             <p>{error || 'Route not found'}</p>
@@ -109,100 +114,82 @@ export const MinibusRouteDetails: React.FC = () => {
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={handleBackClick}
-          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-        >
-          ← Back to Search
-        </button>
+              <main className="container mx-auto px-4 py-8">
+        {/* Main Navigation */}
+        <MainNavigation currentType="minibus-route" />
 
         {/* Route Header */}
         <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className={`w-16 h-16 rounded-lg bg-yellow-400 flex items-center justify-center`}>
-                  <span className="font-bold text-2xl text-black">🚐</span>
+              <div className="flex items-center space-x-4 mb-4">
+                <div className={`w-16 h-16 rounded-lg ${getCompanyBackgroundClass(route.region)} flex items-center justify-center`}>
+                  <span className="font-bold text-2xl text-white">{route.route_code}</span>
                 </div>
                 <div>
                   <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
-                    Route {route.route_code}
-                  </h1>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">
+                    <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium mr-2">
                       {route.region}
                     </span>
                     <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
                       Direction {route.route_seq}
                     </span>
-                  </div>
+                  </h1>
+                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                    {route.orig_en && route.dest_en ? `${route.orig_en} → ${route.dest_en}` : (route.description_en || '')}
+                  </h2>
+                  <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                    {route.orig_tc} → {route.dest_tc}
+                  </p>
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <p className={`text-lg font-medium transition-colors duration-300 ${getTextClass()}`}>
-                  {route.description_tc || route.description_en}
-                </p>
-                
-                <div className={`transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                  {route.orig_tc} → {route.dest_tc}
-                </div>
-                {route.orig_en && route.dest_en && (
-                  <div className={`transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {route.orig_en} → {route.dest_en}
-                  </div>
-                )}
-                
-                {route.remarks_tc && (
-                  <div className={`text-sm italic transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {route.remarks_tc}
-                  </div>
-                )}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Route Stops */}
-        <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-          <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
-            小巴路線站點 Route Stops ({routeStops.length})
-          </h3>
-          
-          {routeStops.length > 0 ? (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {routeStops.map((stop, index) => {
-                // Enhance stop data with route information for ETA fetching
-                const enhancedStop = {
-                  ...stop,
-                  route_id: route.route_id,
-                  route_seq: route.route_seq
-                };
-                
-                return (
-                  <MinibusRouteStopCard
-                    key={`${stop.stop_id}-${stop.stop_seq}`}
-                    routeStop={enhancedStop}
-                    index={index + 1}
-                    onClick={() => handleStopClick(stop)}
-                  />
-                );
-              })}
-            </div>
-          ) : (
-            <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-              <div className="text-4xl mb-4">🚐</div>
-              <p>No stops available for this route</p>
-            </div>
-          )}
-        </div>
+        {/* Two-column layout: Route Stops and Map */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Route Stops - Left Column */}
+          <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
+            <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+              小巴路線站點 Route Stops ({routeStops.length})
+            </h3>
+            
+            {routeStops.length > 0 ? (
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {routeStops.map((stop, index) => {
+                  // Enhance stop data with route information for ETA fetching
+                  const enhancedStop = {
+                    ...stop,
+                    route_id: route.route_id,
+                    route_seq: route.route_seq
+                  };
+                  
+                  return (
+                    <MinibusRouteStopCard
+                      key={`${stop.stop_id}-${stop.stop_seq}`}
+                      routeStop={enhancedStop}
+                      index={index + 1}
+                      onClick={() => handleStopClick(stop)}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                <div className="text-4xl mb-4">🚐</div>
+                <p>No stops available for this route</p>
+              </div>
+            )}
+          </div>
 
-        {/* Route Map */}
-        {routeStops.length > 0 && (
-          <RouteMapCard routeStops={convertMinibusRouteStopsToMapStops(routeStops)} />
-        )}
+          {/* Route Map - Right Column */}
+          <div className="lg:sticky lg:top-6 lg:h-fit">
+            {routeStops.length > 0 && (
+              <RouteMapCard routeStops={convertMinibusRouteStopsToMapStops(routeStops)} />
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

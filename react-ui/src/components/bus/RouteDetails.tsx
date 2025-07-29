@@ -7,6 +7,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { RouteStopCard } from './RouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
+import { MainNavigation } from '../MainNavigation';
 
 export const RouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
@@ -22,6 +23,7 @@ export const RouteDetails: React.FC = () => {
     getBackgroundClass,
     getCardClass, 
     getTextClass, 
+    getGrayTextClass,
     getSecondaryTextClass, 
     getAccentClass, 
     getHoverClass 
@@ -107,9 +109,7 @@ export const RouteDetails: React.FC = () => {
     }
   }, [route, fetchRouteStops]);
 
-  const handleClose = () => {
-    navigate('/');
-  };
+
 
   if (loading) {
     return (
@@ -130,7 +130,7 @@ export const RouteDetails: React.FC = () => {
           <div className="text-center">
             <p className={`text-lg text-red-500 mb-4`}>{error || 'Route not found'}</p>
             <button
-              onClick={handleClose}
+              onClick={() => navigate('/')}
               className={`px-4 py-2 rounded-lg transition-colors duration-300 bg-blue-500 text-white hover:bg-blue-600`}
             >
               Back to Home
@@ -145,14 +145,9 @@ export const RouteDetails: React.FC = () => {
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
       
-      <main className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={handleClose}
-          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} ${getHoverClass()}`}
-        >
-          ← Back to Search
-        </button>
+              <main className="container mx-auto px-4 py-8">
+        {/* Main Navigation */}
+        <MainNavigation currentType="bus-route" />
 
         {/* Route Header */}
         <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>
@@ -166,10 +161,10 @@ export const RouteDetails: React.FC = () => {
                   <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
                     <BusCompanyIcon company={route.company} />
                   </h1>
-                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getGrayTextClass()}`}>
                     {route.orig_en} → {route.dest_en}
                   </h2>
-                  <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                  <p className={`text-lg transition-colors duration-300 ${getGrayTextClass()}`}>
                     {route.orig_tc} → {route.dest_tc}
                   </p>
                 </div>
@@ -177,28 +172,33 @@ export const RouteDetails: React.FC = () => {
             </div>
           </div>
         </div>
-        {/* Route Stops */}
-        <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-          <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>路線途經巴士站 Route Stops</h3>
-          {loadingStops ? (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
-          ) : stopsError ? (
-            <p className={`text-sm text-red-500`}>{stopsError}</p>
-          ) : routeStops.length > 0 ? (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
-                <RouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/stop/${routeStop.stop}`)} />
-              ))}
-            </div>
-          ) : (
-            <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
-          )}
-        </div>
+        {/* Two-column layout: Route Stops and Map */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Route Stops - Left Column */}
+          <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
+            <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>路線途經巴士站 Route Stops</h3>
+            {loadingStops ? (
+              <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
+            ) : stopsError ? (
+              <p className={`text-sm text-red-500`}>{stopsError}</p>
+            ) : routeStops.length > 0 ? (
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
+                  <RouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/stop/${routeStop.stop}`)} />
+                ))}
+              </div>
+            ) : (
+              <p className={`text-sm ${getSecondaryTextClass()}`}>No stops data available</p>
+            )}
+          </div>
 
-        {/* Route Map */}
-        {routeStops.length > 0 && (
-          <RouteMapCard routeStops={convertBusRouteStopsToMapStops(routeStops)} />
-        )}
+          {/* Route Map - Right Column */}
+          <div className="lg:sticky lg:top-6 lg:h-fit">
+            {routeStops.length > 0 && (
+              <RouteMapCard routeStops={convertBusRouteStopsToMapStops(routeStops)} />
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

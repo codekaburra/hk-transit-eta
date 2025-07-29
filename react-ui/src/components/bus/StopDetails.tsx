@@ -7,6 +7,7 @@ import { Header } from '../Header';
 import { StopCard } from './StopCard';
 import { RouteCard } from './RouteCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
+import { MainNavigation } from '../MainNavigation';
 
 export const StopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();
@@ -103,12 +104,7 @@ export const StopDetails: React.FC = () => {
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
         <main className="container mx-auto px-4 py-8">
-          <button
-            onClick={handleBackToSearch}
-            className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-          >
-            ← Back to Search
-          </button>
+          <MainNavigation currentType="bus-stop" />
           <div className={`text-center py-8 ${getTextClass()}`}>
             <div className="text-4xl mb-4">❌</div>
             <p>{error || 'Stop not found'}</p>
@@ -123,13 +119,8 @@ export const StopDetails: React.FC = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={handleBackToSearch}
-          className={`mb-6 px-4 py-2 rounded-md transition-colors duration-300 ${getSecondaryTextClass()} hover:bg-gray-100 dark:hover:bg-gray-700`}
-        >
-          ← Back to Search
-        </button>
+        {/* Main Navigation */}
+        <MainNavigation currentType="bus-stop" />
 
         {/* Stop Header */}
         <div className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}>

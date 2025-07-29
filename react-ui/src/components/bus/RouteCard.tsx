@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusRoute, BusStop } from '../../types';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { ETAData, api } from '../../services/api';
+import { ETAData, api, getBusETA } from '../../services/api';
 import { formatETA } from '../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
@@ -25,7 +25,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
     setLoadingETA(true);
     setEtaError(null);
     try {
-      const etaResults = await api.getBusETA(busStop.stop, route);
+      const etaResults = await getBusETA(route.company, busStop.stop, route.route, route.service_type, route.direction);
       setEtaData(etaResults);
     } catch (error) {
       setEtaError('Failed to load ETA data');
@@ -43,7 +43,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
   }, [fetchETA]);
   
 
-  const { getHoverClass, getCardClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
+  const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass, getAccentClass } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -66,10 +66,10 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
             {/* <div className={`text-sm font-medium transition-colors duration-300 ${getTextClass()}`}>
               Route {route.route} ({route.bound === '1' ? 'Inbound' : 'Outbound'})
             </div> */}
-            <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+            <div className={`text-sm transition-colors duration-300 ${getGrayTextClass()}`}>
               {route.orig_en} → {route.dest_en}
             </div>
-            <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+            <div className={`text-sm transition-colors duration-300 ${getGrayTextClass()}`}>
               {route.orig_tc} → {route.dest_tc}
             </div>
           </div>

@@ -1,15 +1,15 @@
 import { useTheme } from '../contexts/ThemeContext';
 
+export const THEME_MODES = ['light', 'dark', 'red', 'warm'] as const;
+
 export const useThemeStyles = () => {
   const { themeMode } = useTheme();
 
   const getBackgroundClass = () => {
     switch (themeMode) {
+      default:
       case 'light':
         return 'bg-light1/80';
-      default:
-        case 'custom-light':
-        return 'bg-custom-light1/80';
       case 'warm':
         return 'bg-warm1/80';
       case 'red':
@@ -21,11 +21,11 @@ export const useThemeStyles = () => {
 
   const getHeaderClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'bg-light1 border-light1';
+      // case 'light':
+      //   return 'bg-light1 border-light1';
       default:
-        case 'custom-light':
-        return 'bg-custom-light2 border-custom-light3';
+      case 'light':
+        return 'bg-light2 border-light3';
       case 'warm':
         return 'bg-warm3 border-warm2';
       case 'red':
@@ -37,11 +37,9 @@ export const useThemeStyles = () => {
 
   const getTitleClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'text-light3';
       default:
-        case 'custom-light':
-        return 'text-custom-light4';
+      case 'light':
+        return 'text-light4';
       case 'warm':
         return 'text-warm1';
       case 'red':
@@ -53,11 +51,9 @@ export const useThemeStyles = () => {
 
   const getCardClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'bg-light3/80 border border-light2';
       default:
-        case 'custom-light':
-        return 'bg-custom-light1/80 border border-custom-light3';
+      case 'light':
+        return 'bg-light1/80 border border-light3';
       case 'warm':
         return 'bg-warm4/80 border border-warm2';
       case 'red':
@@ -69,11 +65,9 @@ export const useThemeStyles = () => {
 
   const getTextClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'text-light3';
       default:
-        case 'custom-light':
-        return 'text-custom-light4';
+      case 'light':
+        return 'text-light4';
       case 'warm':
         return 'text-warm1';
       case 'red':
@@ -85,11 +79,9 @@ export const useThemeStyles = () => {
 
   const getSecondaryTextClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'text-light1/80';
       default:
-        case 'custom-light':
-        return 'text-custom-light4/80';
+      case 'light':
+        return 'text-light4/80';
       case 'warm':
         return 'text-warm1/80';
       case 'red':
@@ -101,11 +93,9 @@ export const useThemeStyles = () => {
 
   const getBorderClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'border-light2';
       default:
-      case 'custom-light':
-        return 'border-custom-light3';
+      case 'light':
+        return 'border-light3';
       case 'warm':
         return 'border-warm2';
       case 'red':
@@ -117,11 +107,9 @@ export const useThemeStyles = () => {
 
   const getInputClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'bg-light3 border-light2 text-light1 placeholder-light1/60 focus:border-light1';
       default:
-      case 'custom-light':
-        return 'bg-custom-light1 border-custom-light3 text-custom-light4 placeholder-custom-light4/60 focus:border-custom-light4';
+      case 'light':
+        return 'bg-light1 border-light3 text-light4 placeholder-light4/60 focus:border-light4';
       case 'warm':
         return 'bg-warm4 border-warm2 text-warm1 placeholder-warm1/60 focus:border-warm1';
       case 'red':
@@ -134,43 +122,36 @@ export const useThemeStyles = () => {
   const getButtonClass = (isActive: boolean) => {
     if (isActive) {
       switch (themeMode) {
-        case 'light':
-          return 'bg-light2 text-light1';
         default:
-        case 'custom-light':
-          return 'bg-custom-light3 text-custom-light4';
+        case 'light':
+          return 'bg-light3 text-light4';
         case 'warm':
           return 'bg-warm2 text-warm4';
         case 'red':
-          return 'bg-red2 text-red4';
+          return 'bg-red1 text-red4';
         case 'dark':
           return 'bg-dark3 text-dark4';
       }
     } else {
       switch (themeMode) {
+        default:
         case 'light':
-          return 'text-light1/70 hover:text-light1';
-        case 'custom-light':
-          return 'text-custom-light4/70 hover:text-custom-light4';
+          return 'text-light4/70 hover:text-light4';
         case 'warm':
           return 'text-warm1/70 hover:text-warm1';
         case 'red':
           return 'text-red1/70 hover:text-red1';
         case 'dark':
           return 'text-dark4/70 hover:text-dark4';
-        default:
-          return 'text-gray-500 hover:text-gray-700';
       }
     }
   };
 
   const getHoverClass = () => {
     switch (themeMode) {
+      default:
       case 'light':
         return 'hover:bg-light2/80';
-      default:
-      case 'custom-light':
-        return 'hover:bg-custom-light2/80';
       case 'warm':
         return 'hover:bg-warm3/80';
       case 'red':
@@ -182,11 +163,9 @@ export const useThemeStyles = () => {
 
   const getAccentClass = () => {
     switch (themeMode) {
-      case 'light':
-        return 'bg-light4 text-light3';
       default:
-      case 'custom-light':
-        return 'bg-custom-light3 text-custom-light4';
+      case 'light':
+        return 'bg-light3 text-light4';
       case 'warm':
         return 'bg-warm2 text-warm4';
       case 'red':
@@ -198,17 +177,24 @@ export const useThemeStyles = () => {
 
   const getAccentClass2 = () => {
     switch (themeMode) {
-      case 'light':
-        return 'bg-light2 text-light1';
       default:
-      case 'custom-light':
-        return 'bg-custom-light text-custom-light4';
+      case 'light':
+        return 'bg-light text-light4';
       case 'warm':
         return 'bg-warm2 text-warm4';
       case 'red':
         return 'bg-red3 text-red1';
       case 'dark':
         return 'bg-dark2 text-dark4';
+    }
+  };
+
+  const getGrayTextClass = () => {
+    switch (themeMode) {
+      case 'dark':
+        return 'text-gray-200';
+      default:
+        return 'text-gray-800';
     }
   };
 
@@ -225,5 +211,6 @@ export const useThemeStyles = () => {
     getHoverClass,
     getAccentClass,
     getAccentClass2,
+    getGrayTextClass,
   };
 }; 

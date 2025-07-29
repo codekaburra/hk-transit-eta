@@ -29,7 +29,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
   onMinibusStopClick,
   onMinibusRouteClick
 }) => {
-  const { getTextClass, getSecondaryTextClass } = useThemeStyles();
+  const { getTextClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
 
   const getResultsText = () => {
     switch (searchType) {
@@ -74,7 +74,7 @@ export const ResultsList: React.FC<ResultsListProps> = ({
     <div className="space-y-4">
       {/* Header */}
       <div className="text-center">
-        <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
+        <p className={`text-lg transition-colors duration-300 ${getGrayTextClass()}`}>
           {getResultsText()}
         </p>
       </div>

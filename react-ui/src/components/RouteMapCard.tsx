@@ -121,7 +121,7 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
   console.log('Last stop:', lastStop);
 
   return (
-    <div className={`rounded-lg shadow-md p-6 mt-6 transition-colors duration-300 ${getCardClass()}`}>
+    <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
       <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
         路線地圖 Route Map
       </h3>
@@ -172,7 +172,7 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
         </div>
 
         {/* Map Legend */}
-        <div className={`rounded-lg p-4 bg-gray-50 dark:bg-gray-800 transition-colors duration-300`}>
+        {/* <div className={`rounded-lg p-4 bg-gray-50 dark:bg-gray-800 transition-colors duration-300`}>
           <h4 className={`text-sm font-semibold mb-2 transition-colors duration-300 ${getTextClass()}`}>
             地圖說明 Map Legend
           </h4>
@@ -187,7 +187,7 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
               📏 <span className="font-medium">Area:</span> {((maxLat - minLat) * 111).toFixed(1)}km × {((maxLng - minLng) * 111).toFixed(1)}km
             </div>
           </div>
-        </div>
+        </div> */}
 
 
       </div>
