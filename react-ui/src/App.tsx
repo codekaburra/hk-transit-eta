@@ -14,8 +14,8 @@ function App() {
       <Router>
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/stop/:stopId" element={<StopDetails />} />
-          <Route path="/route/:routeId" element={<RouteDetails />} />
+          <Route path="/bus/stop/:stopId" element={<StopDetails />} />
+          <Route path="/bus/route/:routeId" element={<RouteDetails />} />
           <Route path="/minibus/route/:routeId/:routeSeq" element={<MinibusRouteDetails />} />
           <Route path="/minibus/stop/:stopId" element={<MinibusStopDetails />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -54,7 +54,7 @@ export const RouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick
         if (onClick) {
           onClick(routeStop);
         } else {
-          navigate(`/stop/${routeStop.stop}`);
+          navigate(`/bus/stop/${routeStop.stop}`);
         }
       }}
     >

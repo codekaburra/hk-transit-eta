@@ -4,7 +4,7 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 
 export const ThemeToggle: React.FC = () => {
   const { themeMode, toggleTheme } = useTheme();
-  const { getGrayTextClass } = useThemeStyles();
+  const { getGrayTextClass, getTitleClass, getAccentClass, getHoverClass } = useThemeStyles();
 
   const getThemeIcon = () => {
     switch (themeMode) {
@@ -41,32 +41,17 @@ export const ThemeToggle: React.FC = () => {
     }
   };
 
-  const getThemeColors = () => {
-    switch (themeMode) {
-      case 'light':
-        //   return 'bg-light2 hover:bg-light1';
-        // case 'custom-light':
-        return 'bg-custom-light2 hover:bg-custom-light3';
-      case 'warm':
-        return 'bg-warm2 hover:bg-warm1';
-      case 'red':
-        return 'bg-red1 hover:bg-red2';
-      case 'dark':
-        return 'bg-dark3 hover:bg-dark2';
-      default:
-        return 'bg-dark3 hover:bg-dark2';
-    }
-  };
+
 
   return (
     <div>
       <button
         onClick={toggleTheme}
-        className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${getThemeColors()} transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-custom-light4 dark:focus:ring-custom-dark4 focus:ring-offset-2 dark:focus:ring-offset-custom-dark1`}
+        className={`inline-flex items-center justify-center h-12 w-12 rounded-full ${getAccentClass()} ${getHoverClass()} transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2`}
         aria-label="Toggle theme"
         title="Toggle theme"
       >
-        <svg className={`h-4 w-4 ${getGrayTextClass()}`} fill="currentColor" viewBox="0 0 20 20">
+        <svg className={`h-4 w-4 ${getTitleClass()}`} fill="currentColor" viewBox="0 0 20 20">
           {getThemeIcon()}
         </svg>
       </button>

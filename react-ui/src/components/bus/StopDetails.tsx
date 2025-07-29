@@ -210,7 +210,7 @@ export const StopDetails: React.FC = () => {
                   <StopCard
                     key={`${nearbyStop.stop}-${index}`}
                     stop={nearbyStop}
-                    onClick={(stop) => navigate(`/stop/${stop.stop}`)}
+                    onClick={(stop) => navigate(`/bus/stop/${stop.stop}`)}
                   />
                 ))}
               </div>

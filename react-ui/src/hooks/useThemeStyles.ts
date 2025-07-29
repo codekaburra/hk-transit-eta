@@ -9,13 +9,13 @@ export const useThemeStyles = () => {
     switch (themeMode) {
       default:
       case 'light':
-        return 'bg-light1/80';
+        return 'bg-light3/80';
       case 'warm':
-        return 'bg-warm1/80';
+        return 'bg-warm2/80';
       case 'red':
-        return 'bg-red1/80';
+        return 'bg-red3/80';
       case 'dark':
-        return 'bg-dark1/80';
+        return 'bg-dark4/80';
     }
   };
 
@@ -27,11 +27,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'bg-light2 border-light3';
       case 'warm':
-        return 'bg-warm3 border-warm2';
+        return 'bg-warm3 border-warm3';
       case 'red':
-        return 'bg-red3 border-red2';
+        return 'bg-red2 border-red3';
       case 'dark':
-        return 'bg-dark2 border-dark3';
+        return 'bg-dark3 border-dark2';
     }
   };
 
@@ -41,11 +41,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'text-light4';
       case 'warm':
-        return 'text-warm1';
+        return 'text-warm4';
       case 'red':
-        return 'text-red1';
+        return 'text-red4';
       case 'dark':
-        return 'text-dark4';
+        return 'text-dark1';
     }
   };
 
@@ -55,11 +55,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'bg-light1/80 border border-light3';
       case 'warm':
-        return 'bg-warm4/80 border border-warm2';
+        return 'bg-warm2/50 border border-warm3/50';
       case 'red':
-        return 'bg-red4/80 border border-red3';
+        return 'bg-red2/80 border border-red2';
       case 'dark':
-        return 'bg-dark2/80 border border-dark3';
+        return 'bg-dark3/80 border border-dark2';
     }
   };
 
@@ -69,9 +69,9 @@ export const useThemeStyles = () => {
       case 'light':
         return 'text-light4';
       case 'warm':
-        return 'text-warm1';
+        return 'text-warm4';
       case 'red':
-        return 'text-red1';
+        return 'text-red3';
       case 'dark':
         return 'text-dark4';
     }
@@ -83,9 +83,9 @@ export const useThemeStyles = () => {
       case 'light':
         return 'text-light4/80';
       case 'warm':
-        return 'text-warm1/80';
+        return 'text-warm4/80';
       case 'red':
-        return 'text-red1/80';
+        return 'text-red3/80';
       case 'dark':
         return 'text-dark4/80';
     }
@@ -97,11 +97,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'border-light3';
       case 'warm':
-        return 'border-warm2';
+        return 'border-warm3/50';
       case 'red':
-        return 'border-red2';
+        return 'border-red3';
       case 'dark':
-        return 'border-dark3';
+        return 'border-dark2';
     }
   };
 
@@ -111,11 +111,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'bg-light1 border-light3 text-light4 placeholder-light4/60 focus:border-light4';
       case 'warm':
-        return 'bg-warm4 border-warm2 text-warm1 placeholder-warm1/60 focus:border-warm1';
+        return 'bg-warm1 border-warm3 text-warm4 placeholder-warm4/60 focus:border-warm4';
       case 'red':
-        return 'bg-red4 border-red3 text-red1 placeholder-red1/60 focus:border-red1';
+        return 'bg-red1 border-red2 text-red3 placeholder-red3/60 focus:border-red3';
       case 'dark':
-        return 'bg-dark1 border-dark3 text-dark4 placeholder-dark4/60 focus:border-dark3';
+        return 'bg-dark4 border-dark2 text-dark1 placeholder-dark1/60 focus:border-dark2';
     }
   };
 
@@ -126,11 +126,11 @@ export const useThemeStyles = () => {
         case 'light':
           return 'bg-light3 text-light4';
         case 'warm':
-          return 'bg-warm2 text-warm4';
+          return 'bg-warm3 text-warm1';
         case 'red':
-          return 'bg-red1 text-red4';
+          return 'bg-red3 text-red1';
         case 'dark':
-          return 'bg-dark3 text-dark4';
+          return 'bg-dark2 text-dark1';
       }
     } else {
       switch (themeMode) {
@@ -138,11 +138,11 @@ export const useThemeStyles = () => {
         case 'light':
           return 'text-light4/70 hover:text-light4';
         case 'warm':
-          return 'text-warm1/70 hover:text-warm1';
+          return 'text-warm4/70 hover:text-warm4';
         case 'red':
-          return 'text-red1/70 hover:text-red1';
+          return 'text-red3/70 hover:text-red3';
         case 'dark':
-          return 'text-dark4/70 hover:text-dark4';
+          return 'text-dark1/70 hover:text-dark4';
       }
     }
   };
@@ -153,11 +153,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'hover:bg-light2/80';
       case 'warm':
-        return 'hover:bg-warm3/80';
+        return 'hover:bg-warm2/80';
       case 'red':
-        return 'hover:bg-red3/80';
+        return 'hover:bg-red2/80';
       case 'dark':
-        return 'hover:bg-dark1/80';
+        return 'hover:bg-dark4/80';
     }
   };
 
@@ -167,11 +167,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'bg-light3 text-light4';
       case 'warm':
-        return 'bg-warm2 text-warm4';
+        return 'bg-warm3 text-warm1';
       case 'red':
-        return 'bg-red2 text-red4';
+        return 'bg-red3 text-red1';
       case 'dark':
-        return 'bg-dark3 text-dark4';
+        return 'bg-dark2 text-dark1';
     }
   };
 
@@ -181,11 +181,11 @@ export const useThemeStyles = () => {
       case 'light':
         return 'bg-light text-light4';
       case 'warm':
-        return 'bg-warm2 text-warm4';
+        return 'bg-warm3 text-warm1';
       case 'red':
         return 'bg-red3 text-red1';
       case 'dark':
-        return 'bg-dark2 text-dark4';
+        return 'bg-dark3 text-dark1';
     }
   };
 

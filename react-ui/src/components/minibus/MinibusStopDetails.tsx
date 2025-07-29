@@ -183,27 +183,10 @@ export const MinibusStopDetails: React.FC = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
-                    Stop ID:
-                  </span>
                   <span className={`ml-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {stopId}
+                    🚐 Minibus Stop
                   </span>
                 </div>
-                {stop.enabled !== undefined && (
-                  <div>
-                    <span className={`font-medium transition-colors duration-300 ${getTextClass()}`}>
-                      Status:
-                    </span>
-                    <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      stop.enabled 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {stop.enabled ? '✓ Active' : '✗ Inactive'}
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
             {stop.latitude && stop.longitude && (
@@ -223,7 +206,7 @@ export const MinibusStopDetails: React.FC = () => {
           </div>
         </div>
 
-        {/* Routes and ETA in 2-Column Layout */}
+        {/* Routes and Related Info in 2-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Routes Section */}
           <div className={`lg:col-span-2 rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
@@ -253,7 +236,7 @@ export const MinibusStopDetails: React.FC = () => {
 
           {/* Live ETA Section */}
           <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2 mb-4">
               <h3 className={`text-xl font-bold transition-colors duration-300 ${getTextClass()}`}>
                 即時到站預報 Live Arrivals
               </h3>

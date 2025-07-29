@@ -8,7 +8,7 @@ interface MainNavigationProps {
 
 export const MainNavigation: React.FC<MainNavigationProps> = ({ currentType }) => {
   const navigate = useNavigate();
-  const { getCardClass, getButtonClass, getGrayTextClass } = useThemeStyles();
+  const { getCardClass, getButtonClass } = useThemeStyles();
 
   const handleNavigation = (searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop') => {
     // Navigate to home with the selected search type

@@ -10,7 +10,7 @@ export interface MinibusRouteStopCardProps {
 }
 
 export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ routeStop, index, onClick }) => {
-  const { getTextClass, getHoverClass, getSecondaryTextClass, getCardClass, getAccentClass } = useThemeStyles();
+  const { getGrayTextClass, getHoverClass, getSecondaryTextClass, getCardClass, getAccentClass } = useThemeStyles();
   const navigate = useNavigate();
   const [etaData, setEtaData] = useState<any[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
@@ -104,11 +104,8 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
       </div>
       
       <div className="flex-1">
-        <p className={`text-sm font-medium ${getTextClass()}`}>{routeStop.name_tc}</p>
-        <p className={`text-sm ${getSecondaryTextClass()}`}>{routeStop.name_en}</p>
-        {routeStop.stop_id && (
-          <p className={`text-xs ${getSecondaryTextClass()}`}>Stop ID: {routeStop.stop_id}</p>
-        )}
+        <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
+        <p className={`text-sm ${getGrayTextClass()}`}>{routeStop.name_en}</p>
       </div>
 
       {/* ETA Display */}
@@ -142,11 +139,11 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
         )}
       </div>
       
-      <div className="flex items-center">
+      {/* <div className="flex items-center">
         <div className={`text-xs px-2 py-1 bg-gray-100 rounded ${getSecondaryTextClass()}`}>
           Seq {routeStop.stop_seq}
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }; 

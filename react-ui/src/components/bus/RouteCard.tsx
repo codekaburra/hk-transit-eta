@@ -51,7 +51,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, 
         if (onClick) {
           onClick(route);
         } else {
-          navigate(`/route/${route.route}`);
+          navigate(`/bus/route/${route.route}`);
         }
       }}
     >

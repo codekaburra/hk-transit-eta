@@ -184,7 +184,7 @@ export const RouteDetails: React.FC = () => {
             ) : routeStops.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
-                  <RouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/stop/${routeStop.stop}`)} />
+                  <RouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/bus/stop/${routeStop.stop}`)} />
                 ))}
               </div>
             ) : (

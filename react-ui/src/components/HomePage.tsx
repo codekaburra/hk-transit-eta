@@ -117,7 +117,7 @@ export const HomePage: React.FC = () => {
   };
 
   const handleStopClick = (stop: BusStop) => {
-    navigate(`/stop/${stop.stop}`);
+            navigate(`/bus/stop/${stop.stop}`);
   };
 
   const handleMinibusStopClick = (stop: any) => {
