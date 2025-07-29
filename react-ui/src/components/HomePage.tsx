@@ -4,13 +4,14 @@ import { useThemeStyles } from '../hooks/useThemeStyles';
 import { Header } from './Header';
 import { SearchBox } from './SearchBox';
 import { ResultsList } from './ResultsList';
+import { MTRStationsList } from './MTRStationsList';
 import { BusRoute, BusStop } from '../types';
 import { api } from '../services/api';
 
 export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchType, setSearchType] = useState<'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop'>('bus-route');
+  const [searchType, setSearchType] = useState<'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr'>('bus-route');
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [stops, setStops] = useState<BusStop[]>([]);
   const [minibusRoutes, setMinibusRoutes] = useState<any[]>([]);
@@ -31,7 +32,7 @@ export const HomePage: React.FC = () => {
 
   // Handle navigation state for search type
   useEffect(() => {
-    const state = location.state as { searchType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' };
+    const state = location.state as { searchType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr' };
     if (state?.searchType) {
       setSearchType(state.searchType);
       // Clear the state
@@ -162,6 +163,12 @@ export const HomePage: React.FC = () => {
               >
                 🚏 小巴站 Minibus Stops
               </button>
+              <button
+                onClick={() => setSearchType('mtr')}
+                className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'mtr')}`}
+              >
+                🚇 港鐵 MTR
+              </button>
             </div>
           </div>
         )}
@@ -172,32 +179,38 @@ export const HomePage: React.FC = () => {
             case 'search':
               return (
                 <div className="space-y-6">
-                  <SearchBox
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    searchType={searchType}
-                    onSearchTypeChange={setSearchType}
-                  />
-                  
-                  {(loading || initialLoading) && (
-                    <div className="text-center py-8">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                      <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
-                        {initialLoading ? 'Loading data...' : 'Searching...'}
-                      </p>
-                    </div>
+                  {searchType === 'mtr' ? (
+                    <MTRStationsList />
+                  ) : (
+                    <>
+                      <SearchBox
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                        searchType={searchType as 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop'}
+                        onSearchTypeChange={(type) => setSearchType(type)}
+                      />
+                      
+                      {(loading || initialLoading) && (
+                        <div className="text-center py-8">
+                          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                          <p className={`mt-2 transition-colors duration-300 ${getTextClass()}`}>
+                            {initialLoading ? 'Loading data...' : 'Searching...'}
+                          </p>
+                        </div>
+                      )}
+                      
+                      <ResultsList
+                        searchType={searchType as 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop'}
+                        routes={routes}
+                        stops={stops}
+                        minibusRoutes={minibusRoutes}
+                        minibusStops={minibusStops}
+                        searchTerm={searchTerm}
+                        onStopClick={handleStopClick}
+                        onMinibusStopClick={handleMinibusStopClick}
+                      />
+                    </>
                   )}
-                  
-                  <ResultsList
-                    searchType={searchType}
-                    routes={routes}
-                    stops={stops}
-                    minibusRoutes={minibusRoutes}
-                    minibusStops={minibusStops}
-                    searchTerm={searchTerm}
-                    onStopClick={handleStopClick}
-                    onMinibusStopClick={handleMinibusStopClick}
-                  />
                 </div>
               );
             case 'about':

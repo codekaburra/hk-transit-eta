@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../hooks/useThemeStyles';
 
 interface MainNavigationProps {
-  currentType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop';
+  currentType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr';
 }
 
 export const MainNavigation: React.FC<MainNavigationProps> = ({ currentType }) => {
   const navigate = useNavigate();
   const { getCardClass, getButtonClass } = useThemeStyles();
 
-  const handleNavigation = (searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop') => {
+  const handleNavigation = (searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr') => {
     // Navigate to home with the selected search type
     navigate('/', { state: { searchType } });
   };
@@ -41,6 +41,12 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({ currentType }) =
           className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(currentType === 'minibus-stop')}`}
         >
           🚏 小巴站 Minibus Stops
+        </button>
+        <button
+          onClick={() => handleNavigation('mtr')}
+          className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(currentType === 'mtr')}`}
+        >
+          🚇 港鐵 MTR
         </button>
       </div>
     </div>

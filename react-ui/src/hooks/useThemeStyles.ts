@@ -113,7 +113,7 @@ export const useThemeStyles = () => {
       case 'warm':
         return 'border border-warm2';
       case 'red':
-        return 'border border-red2';
+        return 'border border-red3';
       case 'dark':
         return 'border border-dark2';
     }
