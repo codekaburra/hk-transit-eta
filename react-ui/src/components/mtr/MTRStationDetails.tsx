@@ -3,12 +3,12 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
 import { MainNavigation } from '../MainNavigation';
-import { 
-  MTRLine, 
-  MTRStation, 
-  MTRScheduleResponse, 
+import {
+  MTRLine,
+  MTRStation,
+  MTRScheduleResponse,
   MTRTrainInfo,
-  getLineName, 
+  getLineName,
   getStationName,
   getLineNameTC,
   getStationNameTC,
@@ -23,15 +23,15 @@ interface TrainDisplayProps {
 }
 
 const TrainDisplay: React.FC<TrainDisplayProps> = ({ direction, trains, stationCode }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getAccentClass } = useThemeStyles();
+  const { getCardClass, getTextClass, getSecondaryTextClass, getAccentClass, getTitleClass, getForthTextClass } = useThemeStyles();
 
   const formatTime = (timeStr: string) => {
     const time = new Date(timeStr);
-    return time.toLocaleTimeString('en-HK', { 
-      hour: '2-digit', 
+    return time.toLocaleTimeString('en-HK', {
+      hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
-      hour12: false 
+      hour12: false
     });
   };
 
@@ -76,7 +76,7 @@ const TrainDisplay: React.FC<TrainDisplayProps> = ({ direction, trains, stationC
               </div>
             </div>
             <div className="text-right">
-              <div className={`text-lg font-bold ${train.ttnt === '0' ? 'text-green-600' : 'text-blue-600'}`}>
+              <div className={`text-lg font-bold ${getTitleClass()}`}>
                 {train.ttnt === '0' ? '即將到站' : `${train.ttnt} 分鐘`}
               </div>
               <div className={`text-xs ${getSecondaryTextClass()}`}>
@@ -95,18 +95,18 @@ export const MTRStationDetails: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const lineCode = searchParams.get('line');
-  
+
   const [scheduleData, setScheduleData] = useState<MTRScheduleResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
 
-  const { getBackgroundClass, getCardClass, getTextClass, getSecondaryTextClass, getTitleClass } = useThemeStyles();
+  const { getBackgroundClass, getCardClass, getTextClass, getSecondaryTextClass, getTitleClass, getAccentClass, getForthTextClass } = useThemeStyles();
 
   // Validate parameters
   const station = stationCode as MTRStation;
   const line = lineCode as MTRLine;
-  
+
   const stationName = getStationName(station);
   const stationNameTC = getStationNameTC(station);
   const lineName = getLineName(line);
@@ -129,17 +129,17 @@ export const MTRStationDetails: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await fetch(
         `https://rt.data.gov.hk/v1/transport/mtr/getSchedule.php?line=${line}&sta=${station}`
       );
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const data: MTRScheduleResponse = await response.json();
-      
+
       if (data.status === 0) {
         setError(data.message || 'Service temporarily unavailable');
       } else {
@@ -156,7 +156,7 @@ export const MTRStationDetails: React.FC = () => {
 
   useEffect(() => {
     fetchSchedule();
-    
+
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchSchedule, 30000);
     return () => clearInterval(interval);
@@ -186,50 +186,45 @@ export const MTRStationDetails: React.FC = () => {
       <main className="container mx-auto px-4 py-8">
         <MainNavigation currentType="mtr" />
 
-                {/* Station Header */}
-        <div 
+        {/* Station Header */}
+        <div
           className={`rounded-lg shadow-md p-6 mb-6 transition-colors duration-300 ${getCardClass()}`}
           style={{ borderLeftWidth: '6px', borderLeftColor: lineColor }}
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-4 mb-4">
-                <div className="text-4xl">🚉</div>
+                <div className="text-4xl"><div
+                  className="px-3 py-1 rounded-full text-sm font-bold text-white"
+                  style={{ backgroundColor: lineColor }}
+                >
+                  <h2 className={`text-xl transition-colors duration-300 ${getForthTextClass()}`}>
+                    {lineNameTC} {lineName}
+                  </h2>
+                </div></div>
                 <div>
-                  <h1 className={`text-2xl font-bold transition-colors duration-300 ${getTitleClass()}`}>
-                    {stationNameTC} {stationName} ({station})
-                  </h1>
                   <div className="flex items-center space-x-3 mb-2">
-                    <div 
-                      className="px-3 py-1 rounded-full text-sm font-bold text-white"
-                      style={{ backgroundColor: lineColor }}
-                    >
-                      {line}
-                    </div>
-                    <h2 className={`text-xl transition-colors duration-300 ${getTitleClass()}`}>
-                      {lineNameTC} {lineName}
-                    </h2>
+
                   </div>
-                  {lastUpdated && (
-                    <div className={`text-sm ${getSecondaryTextClass()}`}>
-                      最後更新 Last Updated: {lastUpdated}
-                    </div>
-                  )}
+                  <h1 className={`text-2xl font-bold transition-colors duration-300 ${getTitleClass()}`}>
+                    {stationNameTC} {stationName} 
+                  </h1>
                 </div>
               </div>
             </div>
             <button
               onClick={fetchSchedule}
               disabled={loading}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-300 ${
-                loading 
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-300 ${getAccentClass()}`}
             >
               {loading ? '載入中...' : '🔄 刷新 Refresh'}
             </button>
           </div>
+          {lastUpdated && (
+            <div className={`text-sm ${getSecondaryTextClass()}`}>
+              最後更新 Last Updated: {lastUpdated}
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -281,9 +276,9 @@ export const MTRStationDetails: React.FC = () => {
                 <p className={`font-medium ${getTextClass()}`}>服務通告 Service Notice</p>
                 <p className={`text-sm ${getSecondaryTextClass()}`}>{scheduleData.message}</p>
                 {scheduleData.url && (
-                  <a 
-                    href={scheduleData.url} 
-                    target="_blank" 
+                  <a
+                    href={scheduleData.url}
+                    target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:text-blue-800 text-sm underline"
                   >

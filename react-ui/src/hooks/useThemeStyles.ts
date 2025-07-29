@@ -132,7 +132,7 @@ export const useThemeStyles = () => {
         return 'bg-dark4/80 border-dark2 text-dark1 placeholder-dark1/60 focus:border-dark2';
     }
   };
-
+  
   const getButtonClass = (isActive: boolean) => {
     if (isActive) {
       switch (themeMode) {
@@ -212,6 +212,34 @@ export const useThemeStyles = () => {
     }
   };
 
+  const getThirdTextClass = () => {
+    switch (themeMode) {
+      default:
+      case 'light':
+        return 'text-light3';
+      case 'warm':
+        return 'text-warm3';
+      case 'red':
+        return 'text-red3';
+      case 'dark':
+        return 'text-dark3';
+    }
+  };
+
+  const getForthTextClass = () => {
+    switch (themeMode) {
+      default:
+      case 'light':
+        return 'text-light4';
+      case 'warm':
+        return 'text-warm4';
+      case 'red':
+        return 'text-red4';
+      case 'dark':
+        return 'text-dark4';
+    }
+  };
+
   return {
     getBackgroundClass,
     getHeaderClass,
@@ -219,6 +247,8 @@ export const useThemeStyles = () => {
     getCardClass,
     getTextClass,
     getSecondaryTextClass,
+    getThirdTextClass,
+    getForthTextClass,
     getBorderClass,
     getSecondaryBorderClass,
     getInputClass,
