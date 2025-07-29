@@ -3,15 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../Header';
 import { MinibusRouteStopCard } from './MinibusRouteStopCard';
+import { MinibusServiceFrequency } from './MinibusServiceFrequency';
 import { RouteMapCard, convertMinibusRouteStopsToMapStops } from '../RouteMapCard';
+import { RouteCodeIcon } from '../RouteCodeIcon';
 import { MainNavigation } from '../MainNavigation';
-import { api } from '../../services/api';
+import { api, getMinibusRouteDetails } from '../../services/api';
 
 export const MinibusRouteDetails: React.FC = () => {
   const { routeId, routeSeq } = useParams<{ routeId: string; routeSeq: string }>();
   const navigate = useNavigate();
   const [route, setRoute] = useState<any>(null);
   const [routeStops, setRouteStops] = useState<any[]>([]);
+  const [routeDetails, setRouteDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -44,6 +47,9 @@ export const MinibusRouteDetails: React.FC = () => {
       
       setRoute(routeData);
       setRouteStops(stopsData || []);
+      
+      // Fetch detailed route information after getting basic route data
+      await fetchDetailedRouteInfo();
     } catch (err) {
       console.error('Error fetching route details:', err);
       setError('Failed to load route details');
@@ -65,18 +71,27 @@ export const MinibusRouteDetails: React.FC = () => {
     navigate(`/minibus/stop/${stop.stop_id}`);
   };
 
-  // Function to get background color based on region
-  const getCompanyBackgroundClass = (region: string) => {
-    switch (region) {
-      case 'HKI': // Hong Kong Island - CTB territory
-        return 'bg-yellow-400';
-      case 'KLN': // Kowloon - KMB territory
-      case 'NT':  // New Territories - KMB territory
-        return 'bg-red-500';
-      default:
-        return 'bg-yellow-400'; // Default to yellow
+  const fetchDetailedRouteInfo = async () => {
+    if (!routeId || !routeSeq) return;
+    
+    try {
+      console.log('Fetching route details from backend API...');
+      const routeDetails = await getMinibusRouteDetails(routeId, routeSeq);
+      
+      if (routeDetails) {
+        console.log('Backend route details:', routeDetails);
+        setRouteDetails(routeDetails);
+      } else {
+        console.log('No route details available from backend');
+        setRouteDetails({ headways: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching detailed route info:', error);
+      setRouteDetails({ headways: [] });
     }
   };
+
+
 
   if (loading) {
     return (
@@ -122,25 +137,39 @@ export const MinibusRouteDetails: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-4 mb-4">
-                <div className={`w-16 h-16 rounded-lg ${getCompanyBackgroundClass(route.region)} flex items-center justify-center`}>
-                  <span className="font-bold text-2xl text-white">{route.route_code}</span>
-                </div>
-                <div>
-                  {/* <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
-                    <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium mr-2">
-                      {route.region}
-                    </span>
-                    <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
-                      Direction {route.route_seq}
-                    </span>
-                  </h1> */}
-                  <h2 className={`text-lg transition-colors duration-300 ${getTitleClass()}`}>
-                    {route.orig_tc} → {route.dest_tc}
-                  </h2>
-                  <h2 className={`text-xl mb-2 transition-colors duration-300 ${getTitleClass()}`}>
-                    {route.orig_en && route.dest_en ? `${route.orig_en} → ${route.dest_en}` : (route.description_en || '')}
-                  </h2>
-                </div>
+                                  <RouteCodeIcon 
+                    routeCode={route.route_code}
+                    type="minibus"
+                    size="lg"
+                  />
+                  <div>
+                    {/* <div className="flex items-center space-x-3 mb-2">
+                      <span className="text-sm px-3 py-1 bg-green-100 text-green-800 rounded-full font-medium">
+                        {route.region}
+                      </span>
+                      <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full font-medium">
+                        Direction {route.route_seq}
+                      </span>
+                    </div> */}
+                    <h2 className={`text-lg transition-colors duration-300 ${getTitleClass()}`}>
+                      {route.orig_tc} → {route.dest_tc}
+                    </h2>
+                    <h2 className={`text-xl mb-2 transition-colors duration-300 ${getTitleClass()}`}>
+                      {route.orig_en && route.dest_en ? `${route.orig_en} → ${route.dest_en}` : (route.description_en || '')}
+                    </h2>
+                    
+                    {/* Route Description */}
+                    {(route.description_tc || route.description_en) && (
+                      <div className={`mt-2 p-2 rounded-lg bg-opacity-50 ${getSecondaryTextClass()}`}>
+                        {route.description_tc && (
+                          <span className="text-sm font-medium">{route.description_tc}</span>
+                        )}
+                        {route.description_en && (
+                          <span className="text-sm">{route.description_en}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
               </div>
             </div>
           </div>
@@ -182,8 +211,12 @@ export const MinibusRouteDetails: React.FC = () => {
             )}
           </div>
 
-          {/* Route Map - Right Column */}
-          <div className="lg:sticky lg:top-6 lg:h-fit">
+          {/* Right Column - Service Frequency and Route Map */}
+          <div className="lg:sticky lg:top-6 lg:h-fit space-y-6">
+            {/* Service Frequency */}
+            <MinibusServiceFrequency routeDetails={routeDetails} />
+
+            {/* Route Map */}
             {routeStops.length > 0 && (
               <RouteMapCard routeStops={convertMinibusRouteStopsToMapStops(routeStops)} />
             )}

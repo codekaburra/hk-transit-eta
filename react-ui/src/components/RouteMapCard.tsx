@@ -52,7 +52,7 @@ export const convertMinibusRouteStopsToMapStops = (minibusRouteStops: Array<{
 };
 
 export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass } = useThemeStyles();
+  const { getCardClass, getTextClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
   const [mapError, setMapError] = React.useState(false);
 
   // All stops are already validated and normalized
@@ -61,7 +61,7 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
   if (stopsWithCoords.length === 0) {
     return (
       <div className={`rounded-lg shadow-md p-6 mt-6 transition-colors duration-300 ${getCardClass()}`}>
-        <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+        <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getGrayTextClass()}`}>
           路線地圖 Route Map
         </h3>
         <div className={`text-center py-8 transition-colors duration-300 ${getSecondaryTextClass()}`}>
@@ -122,7 +122,7 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
 
   return (
     <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-      <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getTextClass()}`}>
+      <h3 className={`text-xl font-bold mb-4 transition-colors duration-300 ${getGrayTextClass()}`}>
         路線地圖 Route Map
       </h3>
       

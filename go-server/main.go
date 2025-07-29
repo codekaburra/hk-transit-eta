@@ -76,6 +76,7 @@ func startServer() {
 	api.HandleFunc("/minibus/search/stops", minibus.SearchMinibusStops).Methods("GET")
 	api.HandleFunc("/minibus/stop-by-id", minibus.GetMinibusStopById).Methods("GET")
 	api.HandleFunc("/minibus/routes-by-stop", minibus.GetMinibusRoutesByStopId).Methods("GET")
+	api.HandleFunc("/minibus/route-details", minibus.GetRouteByRouteIdAndDirection).Methods("GET")
 
 	// CORS configuration
 	c := cors.New(cors.Options{

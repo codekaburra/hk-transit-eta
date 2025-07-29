@@ -290,6 +290,20 @@ export const getMinibusRouteStops = async (routeId: string, routeSeq: string): P
   }
 };
 
+export const getMinibusRouteDetails = async (routeId: string, routeSeq: string): Promise<any> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/minibus/route-details?routeId=${routeId}&routeSeq=${routeSeq}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching minibus route details:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
+    return null;
+  }
+};
+
 // Legacy api object for backward compatibility (can be removed after updating all imports)
 export const api = {
   searchRoutes,
@@ -309,4 +323,5 @@ export const api = {
   getMinibusStopById,
   getMinibusRoutesByStop,
   getMinibusRouteStops,
+  getMinibusRouteDetails,
 }; 

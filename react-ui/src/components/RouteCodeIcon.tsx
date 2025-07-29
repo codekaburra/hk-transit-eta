@@ -18,7 +18,7 @@ export const RouteCodeIcon: React.FC<RouteCodeIconProps> = ({
   const sizeClasses = {
     sm: 'w-12 h-10 text-sm',
     md: 'w-14 h-12 text-lg',
-    lg: 'w-18 h-16 text-2xl'
+    lg: 'w-20 h-20 text-2xl'
   };
   
   // Get background and text style based on type

@@ -83,7 +83,6 @@ export const MinibusStopDetails: React.FC = () => {
         for (const item of responseData.data) {
           mappedData[item.route_id] = item.eta;
         }
-        console.log('ETA Data mapped:', mappedData);
         setEtaData(mappedData);
       } else {
         console.log('No ETA data available');

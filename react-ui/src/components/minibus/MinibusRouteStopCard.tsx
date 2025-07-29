@@ -17,6 +17,49 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
   const [loadingETA, setLoadingETA] = useState(false);
   const [etaError, setEtaError] = useState<string | null>(null);
 
+  const renderETADisplay = () => {
+    const displayETA = (etaData && etaData.length > 0) ? etaData : localEtaData;
+    
+    // Loading state - only show if no prop data available
+    if (loadingETA && (!etaData || etaData.length === 0)) {
+      return (
+        <div className={`flex items-center space-x-1 text-xs ${getSecondaryTextClass()}`}>
+          <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+          <span>載入中...</span>
+        </div>
+      );
+    }
+    
+    // Error state - only show if no prop data available  
+    if (etaError && (!etaData || etaData.length === 0)) {
+      return (
+        <div className="text-xs text-red-500">
+          暫無到站時間
+        </div>
+      );
+    }
+    
+    // ETA data available
+    if (displayETA && displayETA.length > 0) {
+      return (
+        <div className="space-y-1">
+          {displayETA.slice(0, 3).map((eta, idx) => (
+            <div key={idx} className={`text-sm font-medium transition-colors duration-300 ${getSecondaryTextClass()}`}>
+              {formatMinibusETA(eta)}
+            </div>
+          ))}
+        </div>
+      );
+    }
+    
+    // No data state
+    return (
+      <div className={`text-xs ${getSecondaryTextClass()}`}>
+        暫無資料
+      </div>
+    );
+  };
+
   const fetchETA = useCallback(async () => {
     // Check if we have the required data for ETA fetching
     if (!routeStop.route_id || !routeStop.stop_id) return;
@@ -47,22 +90,12 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
       setEtaError('Failed to load ETA');
       console.error('Error fetching minibus ETA:', error);
       setLocalEtaData([]);
-      
+      fetchETA();
       // Sleep for 5 seconds before allowing next request
-      await new Promise(resolve => setTimeout(resolve, 5000));
     } finally {
       setLoadingETA(false);
     }
   }, [routeStop.route_id, routeStop.stop_id]);
-
-  // Only fetch ETA if etaData is not provided
-  useEffect(() => {
-    if (!etaData || etaData.length === 0) {
-      fetchETA();
-      const interval = setInterval(fetchETA, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [fetchETA, etaData]);
 
   const handleClick = () => {
     if (onClick) {
@@ -82,7 +115,7 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
       </div>
       
       <div className="flex items-center space-x-2">
-        <span className="text-lg">🚐🚏</span>
+        {/* <span className="text-lg">🚐🚏</span> */}
       </div>
       
       <div className="flex-1">
@@ -92,39 +125,7 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
 
       {/* ETA Display */}
       <div className="flex flex-col items-end min-w-[100px]">
-        {(() => {
-          const displayETA = (etaData && etaData.length > 0) ? etaData : localEtaData;
-          
-          if (loadingETA && (!etaData || etaData.length === 0)) {
-            return (
-              <div className={`text-xs ${getSecondaryTextClass()}`}>
-                Loading...
-              </div>
-            );
-          }
-          
-          if (etaError && (!etaData || etaData.length === 0)) {
-            return (
-              <div className={`text-xs text-red-500`}>
-                No ETA
-              </div>
-            );
-          }
-          
-          if (displayETA && displayETA.length > 0) {
-            return displayETA.map((eta, idx) => (
-              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {formatMinibusETA(eta)}
-              </div>
-            ));
-          }
-          
-          return (
-            <div className={`text-xs ${getSecondaryTextClass()}`}>
-              No ETA data
-            </div>
-          );
-        })()}
+        {renderETADisplay()}
       </div>
       
       {/* <div className="flex items-center">

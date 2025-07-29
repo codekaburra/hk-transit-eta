@@ -8,6 +8,7 @@ import { BusRouteStopCard } from './BusRouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
 import { MainNavigation } from '../MainNavigation';
+import { RouteCodeIcon } from '../RouteCodeIcon';
 
 export const BusRouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
@@ -18,15 +19,15 @@ export const BusRouteDetails: React.FC = () => {
   const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
   const [loadingStops, setLoadingStops] = useState(false);
   const [stopsError, setStopsError] = useState<string | null>(null);
-  
-  const { 
+
+  const {
     getBackgroundClass,
-    getCardClass, 
-    getTextClass, 
+    getCardClass,
+    getTextClass,
     getGrayTextClass,
-    getSecondaryTextClass, 
-    getAccentClass, 
-    getHoverClass 
+    getSecondaryTextClass,
+    getAccentClass,
+    getHoverClass
   } = useThemeStyles();
 
   useEffect(() => {
@@ -40,10 +41,10 @@ export const BusRouteDetails: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Search for the route by ID
         const routes = await api.searchRoutes(routeId);
-        
+
         if (routes.length > 0) {
           // Use the first matching route
           setRoute(routes[0]);
@@ -63,35 +64,35 @@ export const BusRouteDetails: React.FC = () => {
 
   const fetchRouteStops = useCallback(async () => {
     if (!route) return;
-    
+
     // Validate route parameter
     if (!route.route) {
       setStopsError(`Missing route parameter: ${route.route}`);
       return;
     }
-    
+
     setLoadingStops(true);
     setStopsError(null);
     try {
       let effectiveDirection = route.direction;
-      
+
       // If direction is empty or invalid, try to find available directions
       if (!effectiveDirection || effectiveDirection.trim() === '') {
         const allRoutes = await api.searchRoutes(route.route);
         const routesWithDirection = allRoutes.filter(r => r.route === route.route && r.direction && r.direction.trim() !== '');
-        
+
         if (routesWithDirection.length > 0) {
           effectiveDirection = routesWithDirection[0].direction;
           console.log('Found route with direction:', effectiveDirection);
-          
+
           // Update the route object with the found direction
-          setRoute({...route, direction: effectiveDirection});
+          setRoute({ ...route, direction: effectiveDirection });
         } else {
           setStopsError('No valid direction found for this route');
           return;
         }
       }
-      
+
       const stops = await api.getBusRouteStops(route.route, effectiveDirection);
       setRouteStops(stops);
     } catch (error) {
@@ -144,8 +145,8 @@ export const BusRouteDetails: React.FC = () => {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
-      
-              <main className="container mx-auto px-4 py-8">
+
+      <main className="container mx-auto px-4 py-8">
         {/* Main Navigation */}
         <MainNavigation currentType="bus-route" />
 
@@ -154,9 +155,7 @@ export const BusRouteDetails: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-4 mb-4">
-                <div className={`w-16 h-16 rounded-lg flex items-center justify-center ${getAccentClass()}`}>
-                  <span className="font-bold text-2xl">{route.route}</span>
-                </div>
+                <RouteCodeIcon routeCode={route.route} type={route.company as 'KMB' | 'CTB'} size="lg" />
                 <div>
                   <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
                     <BusCompanyIcon company={route.company} />
@@ -176,7 +175,7 @@ export const BusRouteDetails: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Route Stops - Left Column */}
           <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-            <h3 className={`text-lg font-semibold mb-3 ${getTextClass()}`}>路線途經巴士站 Route Stops</h3>
+            <h3 className={`text-lg font-semibold mb-3 ${getGrayTextClass()}`}>路線途經巴士站 Route Stops</h3>
             {loadingStops ? (
               <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
             ) : stopsError ? (

@@ -73,7 +73,7 @@ export const useThemeStyles = () => {
       case 'red':
         return 'text-red3';
       case 'dark':
-        return 'text-dark4';
+        return 'text-dark1';
     }
   };
 
@@ -87,7 +87,7 @@ export const useThemeStyles = () => {
       case 'red':
         return 'text-red3/80';
       case 'dark':
-        return 'text-dark4/80';
+        return 'text-dark1/80';
     }
   };
 
@@ -102,6 +102,20 @@ export const useThemeStyles = () => {
         return 'border-red3';
       case 'dark':
         return 'border-dark2';
+    }
+  };
+
+  const getSecondaryBorderClass = () => {
+    switch (themeMode) {
+      default:
+      case 'light':
+        return 'border border-light2';
+      case 'warm':
+        return 'border border-warm2';
+      case 'red':
+        return 'border border-red2';
+      case 'dark':
+        return 'border border-dark2';
     }
   };
 
@@ -206,6 +220,7 @@ export const useThemeStyles = () => {
     getTextClass,
     getSecondaryTextClass,
     getBorderClass,
+    getSecondaryBorderClass,
     getInputClass,
     getButtonClass,
     getHoverClass,

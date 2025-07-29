@@ -459,3 +459,112 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(routes)
 }
+
+// GetRouteByRouteIdAndDirection returns detailed route information with headways for a specific route ID and direction
+func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
+	routeIdStr := r.URL.Query().Get("routeId")
+	routeSeqStr := r.URL.Query().Get("routeSeq")
+
+	if routeIdStr == "" || routeSeqStr == "" {
+		http.Error(w, "routeId and routeSeq parameters are required", http.StatusBadRequest)
+		return
+	}
+
+	routeId, err := strconv.Atoi(routeIdStr)
+	if err != nil {
+		http.Error(w, "Invalid routeId", http.StatusBadRequest)
+		return
+	}
+
+	routeSeq, err := strconv.Atoi(routeSeqStr)
+	if err != nil {
+		http.Error(w, "Invalid routeSeq", http.StatusBadRequest)
+		return
+	}
+
+	// Get route information
+	routeQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+				direction_data_timestamp, data_timestamp 
+				FROM minibus_route WHERE route_id = ? AND route_seq = ?`
+
+	var region, routeCode, descTC, descSC, descEN string
+	var origTC, origSC, origEN, destTC, destSC, destEN string
+	var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
+	var dbRouteId, dbRouteSeq int
+
+	err = minibusDB.QueryRow(routeQuery, routeId, routeSeq).Scan(
+		&region, &routeCode, &dbRouteId, &dbRouteSeq, &descTC, &descSC, &descEN,
+		&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
+		&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
+
+	if err != nil {
+		http.Error(w, "Route not found", http.StatusNotFound)
+		return
+	}
+
+	// Get headways for this route
+	headwayQuery := `SELECT headway_seq, weekday_monday, weekday_tuesday, weekday_wednesday, 
+					weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday, 
+					public_holiday, start_time, end_time, frequency, frequency_upper
+					FROM minibus_headway WHERE route_id = ? AND route_seq = ? ORDER BY headway_seq`
+
+	headwayRows, err := minibusDB.Query(headwayQuery, routeId, routeSeq)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer headwayRows.Close()
+
+	var headways []map[string]interface{}
+	for headwayRows.Next() {
+		var headwaySeq, frequency int
+		var frequencyUpper *int
+		var mon, tue, wed, thu, fri, sat, sun, publicHoliday bool
+		var startTime, endTime string
+
+		err := headwayRows.Scan(&headwaySeq, &mon, &tue, &wed, &thu, &fri, &sat, &sun,
+			&publicHoliday, &startTime, &endTime, &frequency, &frequencyUpper)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		headway := map[string]interface{}{
+			"headway_seq":     headwaySeq,
+			"weekdays":        []bool{mon, tue, wed, thu, fri, sat, sun},
+			"public_holiday":  publicHoliday,
+			"start_time":      startTime,
+			"end_time":        endTime,
+			"frequency":       frequency,
+			"frequency_upper": frequencyUpper,
+		}
+		headways = append(headways, headway)
+	}
+
+	// Build response
+	response := map[string]interface{}{
+		"route_id":                 dbRouteId,
+		"route_seq":                dbRouteSeq,
+		"region":                   region,
+		"route_code":               routeCode,
+		"description_tc":           descTC,
+		"description_sc":           descSC,
+		"description_en":           descEN,
+		"orig_tc":                  origTC,
+		"orig_sc":                  origSC,
+		"orig_en":                  origEN,
+		"dest_tc":                  destTC,
+		"dest_sc":                  destSC,
+		"dest_en":                  destEN,
+		"remarks_tc":               remarksTC,
+		"remarks_sc":               remarksSC,
+		"remarks_en":               remarksEN,
+		"headways":                 headways,
+		"direction_data_timestamp": directionDataTimestamp,
+		"data_timestamp":           dataTimestamp,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}

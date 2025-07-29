@@ -36,7 +36,7 @@
       const diffMins = Math.round(diffMs / 60000);
       
       if (diffMins <= 0) return '即將到達 Arriving';
-      if (diffMins < 60) return `${etaDateString} - ${diffMins}mins`;
+      if (diffMins < 60) return `${etaDateString} - ${diffMins} 分鐘 mins`;
       const hours = Math.floor(diffMins / 60);
       const mins = diffMins % 60;
       return `${etaDateString} ${hours}h ${mins}m`;
@@ -53,7 +53,7 @@
       const remarksTC = etaItem.remarks_tc;
       
       if (diff <= 0) return '即將到達 Arriving';
-      if (diff < 60) return `${diff}分鐘 ${diff}mins`;
+      if (diff < 60) return `${diff}分鐘 mins`;
       
       // Also show the actual time
       const etaDate = new Date(timestamp);

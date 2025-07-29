@@ -16,7 +16,7 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
   const [etaData, setEtaData] = useState<string[]>([]);
   const [loadingETA, setLoadingETA] = useState(false);
   const [etaError, setEtaError] = useState<string | null>(null);
-  const { getTextClass, getAccentClass, getHoverClass, getSecondaryTextClass } = useThemeStyles();
+  const { getGrayTextClass, getAccentClass, getHoverClass, getSecondaryTextClass } = useThemeStyles();
   const navigate = useNavigate();
 
   const fetchETA = useCallback(async () => {
@@ -62,8 +62,8 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
         {routeStop.seq}
       </div>
       <div className="flex-1">
-        <p className={`text-sm font-medium ${getTextClass()}`}>{routeStop.name_tc}</p>
-        <p className={`text-sm font-medium ${getTextClass()}`}>{routeStop.name_en}</p>
+        <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
+        <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_en}</p>
       </div>
       <div className="flex items-center space-x-2">
         {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
