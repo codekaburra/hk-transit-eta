@@ -54,6 +54,9 @@ export const MinibusStopDetails: React.FC = () => {
     } catch (err) {
       console.error('Error fetching stop details:', err);
       setError('Failed to load stop details');
+      
+      // Sleep for 5 seconds before allowing next request
+      await new Promise(resolve => setTimeout(resolve, 5000));
     } finally {
       setLoading(false);
     }
@@ -80,13 +83,18 @@ export const MinibusStopDetails: React.FC = () => {
         for (const item of responseData.data) {
           mappedData[item.route_id] = item.eta;
         }
+        console.log('ETA Data mapped:', mappedData);
         setEtaData(mappedData);
       } else {
+        console.log('No ETA data available');
         setEtaData({});
       }
     } catch (error) {
       console.error('Error fetching stop ETA:', error);
-      setEtaData([]);
+      setEtaData({});
+      
+      // Sleep for 5 seconds before allowing next request
+      await new Promise(resolve => setTimeout(resolve, 5000));
     } finally {
       setEtaLoading(false);
     }

@@ -2,6 +2,9 @@
 
 import { BusRoute, BusStop, RouteStop } from '../types';
 
+// Utility function to sleep for a given duration
+const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
+
 const API_BASE_URL = 'http://localhost:8080/api';
 const CITYBUS_ETA_BASE_URL = 'https://rt.data.gov.hk/v2/transport/citybus/eta';
 
@@ -31,6 +34,7 @@ export const searchRoutes = async (query: string): Promise<BusRoute[]> => {
     return await response.json();
   } catch (error) {
     console.error('Error searching routes:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
     return [];
   }
 };
@@ -45,6 +49,7 @@ export const searchStops = async (query: string): Promise<BusStop[]> => {
     return await response.json();
   } catch (error) {
     console.error('Error searching stops:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
     return [];
   }
 };
@@ -169,19 +174,25 @@ export const getBusStopById = async (stopId: string): Promise<BusStop | null> =>
 };
 
 export const getBusETA = async (company: string, stopId: string, route: string, service_type: string, direction: string): Promise<string[]> => {
-  let url = '';
-  if (company === 'KMB') {
-    // Fetch from KMB public API directly
-    url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route}/${service_type}`;
-  } else if (company === 'CTB') {
-    // Fetch from Citybus public API directly
-    url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/${stopId}/${route}`;
+  try {
+    let url = '';
+    if (company === 'KMB') {
+      // Fetch from KMB public API directly
+      url = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopId}/${route}/${service_type}`;
+    } else if (company === 'CTB') {
+      // Fetch from Citybus public API directly
+      url = `https://rt.data.gov.hk/v2/transport/citybus/eta/ctb/${stopId}/${route}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch Bus ETA');
+    const data = await response.json();
+    const etaList = (data.data || []).filter((item: any) => direction === item.dir).map((item: any) => item.eta);
+    return etaList;
+  } catch (error) {
+    console.error('Error fetching bus ETA:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
+    return [];
   }
-  const response = await fetch(url);
-  if (!response.ok) throw new Error('Failed to fetch Citybus ETA');
-  const data = await response.json();
-  const etaList = (data.data || []).filter((item: any) => direction === item.dir).map((item: any) => item.eta);
-  return etaList;
 };
 
 // Minibus API functions
@@ -220,6 +231,7 @@ export const searchMinibusRoutes = async (query: string): Promise<any[]> => {
     return await response.json();
   } catch (error) {
     console.error('Error searching minibus routes:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
     return [];
   }
 };
@@ -233,6 +245,7 @@ export const searchMinibusStops = async (query: string): Promise<any[]> => {
     return await response.json();
   } catch (error) {
     console.error('Error searching minibus stops:', error);
+    await sleep(5000); // Sleep for 5 seconds on error
     return [];
   }
 };

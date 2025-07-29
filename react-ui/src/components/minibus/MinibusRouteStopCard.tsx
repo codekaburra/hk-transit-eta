@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { formatETA, formatMinibusETA, MinibusETA } from '../../services/utils';
@@ -13,8 +13,56 @@ export interface MinibusRouteStopCardProps {
 export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ routeStop, etaData = [], index, onClick }) => {
   const { getGrayTextClass, getHoverClass, getSecondaryTextClass, getCardClass, getAccentClass } = useThemeStyles();
   const navigate = useNavigate();
+  const [localEtaData, setLocalEtaData] = useState<MinibusETA[]>([]);
+  const [loadingETA, setLoadingETA] = useState(false);
+  const [etaError, setEtaError] = useState<string | null>(null);
 
+  const fetchETA = useCallback(async () => {
+    // Check if we have the required data for ETA fetching
+    if (!routeStop.route_id || !routeStop.stop_id) return;
+    
+    setLoadingETA(true);
+    setEtaError(null);
+    
+    try {
+      const url = `https://data.etagmb.gov.hk/eta/route-stop/${routeStop.route_id}/${routeStop.stop_id}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const responseData = await response.json();
+      
+      // Handle the GMB API response structure
+      if (responseData.data && responseData.data.enabled && Array.isArray(responseData.data.eta)) {
+        const etaList: MinibusETA[] = responseData.data.eta
+          .filter((item: MinibusETA) => item.timestamp && item.timestamp !== '')
+          .slice(0, 3); // Limit to first 3 ETAs
+        setLocalEtaData(etaList);
+      } else {
+        setLocalEtaData([]);
+      }
+    } catch (error) {
+      setEtaError('Failed to load ETA');
+      console.error('Error fetching minibus ETA:', error);
+      setLocalEtaData([]);
+      
+      // Sleep for 5 seconds before allowing next request
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    } finally {
+      setLoadingETA(false);
+    }
+  }, [routeStop.route_id, routeStop.stop_id]);
 
+  // Only fetch ETA if etaData is not provided
+  useEffect(() => {
+    if (!etaData || etaData.length === 0) {
+      fetchETA();
+      const interval = setInterval(fetchETA, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [fetchETA, etaData]);
 
   const handleClick = () => {
     if (onClick) {
@@ -44,19 +92,39 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
 
       {/* ETA Display */}
       <div className="flex flex-col items-end min-w-[100px]">
-        {etaData && etaData.length > 0 ? (
-          <>
-            {etaData.map((eta, etaIndex) => (
-              <div key={`eta-${etaIndex}`} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+        {(() => {
+          const displayETA = (etaData && etaData.length > 0) ? etaData : localEtaData;
+          
+          if (loadingETA && (!etaData || etaData.length === 0)) {
+            return (
+              <div className={`text-xs ${getSecondaryTextClass()}`}>
+                Loading...
+              </div>
+            );
+          }
+          
+          if (etaError && (!etaData || etaData.length === 0)) {
+            return (
+              <div className={`text-xs text-red-500`}>
+                No ETA
+              </div>
+            );
+          }
+          
+          if (displayETA && displayETA.length > 0) {
+            return displayETA.map((eta, idx) => (
+              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
                 {formatMinibusETA(eta)}
               </div>
-            ))}
-          </>
-        ) : (
-          <div className={`text-xs ${getSecondaryTextClass()}`}>
-            No ETA data
-          </div>
-        )}
+            ));
+          }
+          
+          return (
+            <div className={`text-xs ${getSecondaryTextClass()}`}>
+              No ETA data
+            </div>
+          );
+        })()}
       </div>
       
       {/* <div className="flex items-center">

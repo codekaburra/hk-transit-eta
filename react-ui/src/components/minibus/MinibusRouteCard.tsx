@@ -52,13 +52,19 @@ export const MinibusRouteCard: React.FC<MinibusRouteCardProps> = ({ route, onCli
         </div>
 
         <div className="flex flex-col">
-          {etaData && etaData.map((eta, idx) => {
-            return (
-              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {formatMinibusETA(eta)}
-              </div>
-            )
-          })}
+          {etaData && etaData.length > 0 ? (
+            etaData.map((eta, idx) => {
+              return (
+                <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                  {formatMinibusETA(eta)}
+                </div>
+              )
+            })
+          ) : (
+            <div className={`text-xs ${getSecondaryTextClass()}`}>
+              No ETA
+            </div>
+          )}
         </div>
         {/* Region and Direction badges */}
         {/* <div className={`ml-4 flex-shrink-0 flex flex-col space-y-1 max-w-[25%] ${getSecondaryTextClass()}`}>
