@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useThemeStyles } from '../hooks/useThemeStyles';
-import { Header } from './Header';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { Header } from '../header/Header';
 import { SearchBox } from './SearchBox';
 import { ResultsList } from './ResultsList';
 import { MTRStationsList } from './MTRStationsList';
-import { BusRoute, BusStop } from '../types';
-import { api } from '../services/api';
+import { BusRoute, BusStop } from '../../types';
+import { api } from '../../services/api';
 
 export const HomePage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
@@ -18,14 +18,17 @@ export const HomePage: React.FC = () => {
   const [minibusStops, setMinibusStops] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
-  const { 
-    getBackgroundClass, 
-    getTextClass, 
-    getSecondaryTextClass, 
-    getCardClass, 
-    getButtonClass, 
-    getHoverClass, 
-    getBorderClass 
+  const [totalBusRoutes, setTotalBusRoutes] = useState<number>(0);
+  const [totalMinibusRoutes, setTotalMinibusRoutes] = useState<number>(0);
+  const {
+    getBackgroundClass,
+    getTextClass,
+    getSecondaryTextClass,
+    getCardClass,
+    getButtonClass,
+    getHoverClass,
+    getBorderClass,
+    getTitleClass
   } = useThemeStyles();
   const navigate = useNavigate();
   const location = useLocation();
@@ -43,6 +46,7 @@ export const HomePage: React.FC = () => {
   // Load initial data on component mount
   useEffect(() => {
     loadInitialData();
+    loadTotalRouteCounts();
   }, []);
 
   // Debounced search effect
@@ -59,6 +63,19 @@ export const HomePage: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchType]);
 
+  const loadTotalRouteCounts = async () => {
+    try {
+      const [busCount, minibusCount] = await Promise.all([
+        api.getRouteCount('bus'),
+        api.getRouteCount('minibus')
+      ]);
+      setTotalBusRoutes(busCount.count);
+      setTotalMinibusRoutes(minibusCount.count);
+    } catch (error) {
+      console.error('Failed to load total route counts:', error);
+    }
+  };
+
   const loadInitialData = async () => {
     setInitialLoading(true);
     try {
@@ -70,16 +87,16 @@ export const HomePage: React.FC = () => {
 
       if (searchType === 'bus-route') {
         const allRoutes = await api.getBusRoutes();
-        setRoutes(allRoutes.slice(0, 100));
+        setRoutes(Array.isArray(allRoutes) ? allRoutes.slice(0, 100) : []);
       } else if (searchType === 'bus-stop') {
         const allStops = await api.getBusStops();
-        setStops(allStops.slice(0, 100));
+        setStops(Array.isArray(allStops) ? allStops.slice(0, 100) : []);
       } else if (searchType === 'minibus-route') {
         const allMinibusRoutes = await api.getMinibusRoutes();
-        setMinibusRoutes(allMinibusRoutes.slice(0, 100));
+        setMinibusRoutes(Array.isArray(allMinibusRoutes) ? allMinibusRoutes.slice(0, 100) : []);
       } else if (searchType === 'minibus-stop') {
         const allMinibusStops = await api.getMinibusStops();
-        setMinibusStops(allMinibusStops.slice(0, 100));
+        setMinibusStops(Array.isArray(allMinibusStops) ? allMinibusStops.slice(0, 100) : []);
       }
     } catch (error) {
       console.error('Failed to load initial data:', error);
@@ -99,16 +116,16 @@ export const HomePage: React.FC = () => {
 
       if (searchType === 'bus-route') {
         const results = await api.searchRoutes(searchTerm);
-        setRoutes(results);
+        setRoutes(Array.isArray(results) ? results : []);
       } else if (searchType === 'bus-stop') {
         const results = await api.searchStops(searchTerm);
-        setStops(results);
+        setStops(Array.isArray(results) ? results : []);
       } else if (searchType === 'minibus-route') {
         const results = await api.searchMinibusRoutes(searchTerm);
-        setMinibusRoutes(results);
+        setMinibusRoutes(Array.isArray(results) ? results : []);
       } else if (searchType === 'minibus-stop') {
         const results = await api.searchMinibusStops(searchTerm);
-        setMinibusStops(results);
+        setMinibusStops(Array.isArray(results) ? results : []);
       }
     } catch (error) {
       console.error('Search failed:', error);
@@ -118,7 +135,7 @@ export const HomePage: React.FC = () => {
   };
 
   const handleStopClick = (stop: BusStop) => {
-            navigate(`/bus/stop/${stop.stop}`);
+    navigate(`/bus/stop/${stop.stop}`);
   };
 
   const handleMinibusStopClick = (stop: any) => {
@@ -133,8 +150,16 @@ export const HomePage: React.FC = () => {
   return (
     <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
       <Header />
-      
+
       <main className="container mx-auto px-4 py-8">
+        <div>
+          <h1 className={`text-4xl text-center font-bold transition-colors duration-300 ${getTitleClass()}`}>
+            香港交通實時抵站時間
+          </h1>
+          <h1 className={`text-4xl text-center font-bold transition-colors duration-300 ${getTitleClass()}`}>
+            Hong Kong Transport Estimated Time of Arrival
+          </h1>
+        </div>
         {/* Search Type Selection - only show when on search tab */}
         {activeTab === 'search' && (
           <div className="flex mb-8 items-center justify-center">
@@ -151,6 +176,8 @@ export const HomePage: React.FC = () => {
               >
                 🚏 巴士站 Bus Stops
               </button>
+            </div>
+            <div className={`flex flex-wrap space-x-1 rounded-lg p-1 ${getCardClass()}`}>
               <button
                 onClick={() => setSearchType('minibus-route')}
                 className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'minibus-route')}`}
@@ -163,6 +190,8 @@ export const HomePage: React.FC = () => {
               >
                 🚏 小巴站 Minibus Stops
               </button>
+            </div>
+            <div className={`flex flex-wrap space-x-1 rounded-lg p-1 ${getCardClass()}`}>
               <button
                 onClick={() => setSearchType('mtr')}
                 className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(searchType === 'mtr')}`}
@@ -175,7 +204,7 @@ export const HomePage: React.FC = () => {
 
         {/* Tab Content */}
         {(() => {
-          switch(activeTab) {
+          switch (activeTab) {
             case 'search':
               return (
                 <div className="space-y-6">
@@ -189,7 +218,7 @@ export const HomePage: React.FC = () => {
                         searchType={searchType as 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop'}
                         onSearchTypeChange={(type) => setSearchType(type)}
                       />
-                      
+
                       {(loading || initialLoading) && (
                         <div className="text-center py-8">
                           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -198,7 +227,7 @@ export const HomePage: React.FC = () => {
                           </p>
                         </div>
                       )}
-                      
+
                       <ResultsList
                         searchType={searchType as 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop'}
                         routes={routes}
@@ -206,43 +235,13 @@ export const HomePage: React.FC = () => {
                         minibusRoutes={minibusRoutes}
                         minibusStops={minibusStops}
                         searchTerm={searchTerm}
+                        totalBusRoutes={totalBusRoutes}
+                        totalMinibusRoutes={totalMinibusRoutes}
                         onStopClick={handleStopClick}
                         onMinibusStopClick={handleMinibusStopClick}
                       />
                     </>
                   )}
-                </div>
-              );
-            case 'about':
-              return (
-                <div className="max-w-4xl mx-auto">
-                  <div className={`rounded-lg shadow-lg p-8 ${getCardClass()}`}>
-                    <h2 className={`text-3xl font-bold mb-6 transition-colors duration-300 ${getTextClass()}`}>
-                      About HK Bus Tool
-                    </h2>
-                    <div className="space-y-4">
-                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        HK Bus Tool is a web application designed to help users find bus routes and stops in Hong Kong.
-                        It provides a user-friendly interface to search for bus routes by name or number,
-                        and to locate bus stops by their name or identifier.
-                      </p>
-                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        The application uses real-time data from the Hong Kong Transport Department's API,
-                        ensuring that all route and stop information is up-to-date. Now also supports minibus (小巴) routes and stops!
-                      </p>
-                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        You can search for routes by entering the route name or number, and for stops by entering
-                        the stop name or identifier. The search results will show you the relevant routes or stops,
-                        along with their details and locations.
-                      </p>
-                      <p className={`text-lg transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        For more information about the Hong Kong bus system, please visit the official website:
-                        <a href="https://www.td.gov.hk/en/index.html" target="_blank" rel="noopener noreferrer" className={`ml-2 underline transition-colors duration-300 ${getTextClass()} ${getHoverClass()}`}>
-                          Transport Department of Hong Kong
-                        </a>
-                      </p>
-                    </div>
-                  </div>
                 </div>
               );
             default:
@@ -252,4 +251,4 @@ export const HomePage: React.FC = () => {
       </main>
     </div>
   );
-}; 
+};

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 // Standardized interface for RouteMapCard
 interface MapStop {

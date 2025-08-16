@@ -222,7 +222,7 @@ export const useThemeStyles = () => {
       case 'red':
         return 'text-red3';
       case 'dark':
-        return 'text-dark3';
+        return 'text-dark2';
     }
   };
 
@@ -236,7 +236,7 @@ export const useThemeStyles = () => {
       case 'red':
         return 'text-red4';
       case 'dark':
-        return 'text-dark4';
+        return 'text-dark1';
     }
   };
 

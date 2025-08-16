@@ -1,8 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { RouteCodeIcon } from '../RouteCodeIcon';
-import { formatMinibusETA, MinibusETA } from '../../services/utils';
+import { formatMinibusETA, MinibusETA } from '../../../services/utils';
 
 interface MinibusRouteCardProps {
   route: any;

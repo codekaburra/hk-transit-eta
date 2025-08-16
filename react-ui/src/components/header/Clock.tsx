@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 export const Clock: React.FC = () => {
   const [time, setTime] = useState(new Date());

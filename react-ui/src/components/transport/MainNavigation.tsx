@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 interface MainNavigationProps {
   currentType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr';

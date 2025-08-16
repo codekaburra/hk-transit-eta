@@ -1,6 +1,6 @@
 import React from 'react';
-import { SearchBoxProps } from '../types';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { SearchBoxProps } from '../../types';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 export const SearchBox: React.FC<SearchBoxProps> = ({
   searchTerm,

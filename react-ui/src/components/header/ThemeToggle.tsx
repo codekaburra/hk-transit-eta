@@ -1,6 +1,6 @@
 import React from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 export const ThemeToggle: React.FC = () => {
   const { themeMode, toggleTheme } = useTheme();

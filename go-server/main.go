@@ -16,6 +16,21 @@ import (
 
 var database *sql.DB
 
+// getRouteCount handles the /num-routes endpoint and routes to appropriate count function
+func getRouteCount(w http.ResponseWriter, r *http.Request) {
+	routeType := r.URL.Query().Get("type")
+	fmt.Printf("getRouteCount - Type: %s\n", routeType)
+
+	switch routeType {
+	case "bus":
+		bus.GetRouteCount(w, r)
+	case "minibus":
+		minibus.GetRouteCount(w, r)
+	default:
+		http.Error(w, "Invalid type parameter. Use 'bus' or 'minibus'", http.StatusBadRequest)
+	}
+}
+
 func main() {
 	// Initialize databases
 	initDatabases()
@@ -52,6 +67,9 @@ func startServer() {
 
 	// API Routes
 	api := r.PathPrefix("/api").Subrouter()
+
+	// Route count endpoint
+	api.HandleFunc("/num-routes", getRouteCount).Methods("GET")
 
 	// Bus API endpoints
 	api.HandleFunc("/bus/routes", bus.GetRoutes).Methods("GET")

@@ -1,14 +1,24 @@
-import React, {  } from 'react';
-import { StopCardProps } from '../../types';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { BusCompanyIcon } from './BusCompanyIcon';
+import React from 'react';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
 
-export const BusStopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getGrayTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
+interface MinibusStopCardProps {
+  stop: any;
+  onClick?: (stop: any) => void;
+}
+
+export const MinibusStopCard: React.FC<MinibusStopCardProps> = ({ stop, onClick }) => {
+  const { getCardClass, getGrayTextClass, getSecondaryTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick(stop);
+    }
+  };
+
   return (
     <div 
       className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
-      onClick={() => onClick && onClick(stop)}
+      onClick={handleClick}
     >
       <div className="flex items-center justify-between">
         <div className="flex-1">
@@ -26,7 +36,7 @@ export const BusStopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
         </div>
         <div className="text-gray-400 ml-4">
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-             <BusCompanyIcon company={stop.company} />
+            🚐
           </div>
         </div>
         <div className="text-gray-400 ml-4">

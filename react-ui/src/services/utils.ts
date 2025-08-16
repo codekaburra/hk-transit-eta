@@ -68,3 +68,18 @@
       return '';
     }
   };
+
+// Debug utility functions
+export const isDebugMode = (): boolean => {
+  return process.env.DEBUG_MODE === 'true';
+};
+
+export const debugLog = (message: string, ...args: any[]): void => {
+  if (isDebugMode()) {
+    console.log(`[DEBUG] ${message}`, ...args);
+  }
+};
+
+export const debugRender = (condition: boolean, content: React.ReactNode): React.ReactNode | null => {
+  return isDebugMode() && condition ? content : null;
+};

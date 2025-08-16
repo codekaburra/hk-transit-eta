@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Header } from '../Header';
-import { BusRoute, RouteStop } from '../../types';
-import { api } from '../../services/api';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { Header } from '../../header/Header';
+import { BusRoute, RouteStop } from '../../../types';
+import { api } from '../../../services/api';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { BusRouteStopCard } from './BusRouteStopCard';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
@@ -26,8 +26,6 @@ export const BusRouteDetails: React.FC = () => {
     getTextClass,
     getGrayTextClass,
     getSecondaryTextClass,
-    getAccentClass,
-    getHoverClass
   } = useThemeStyles();
 
   useEffect(() => {
@@ -74,26 +72,7 @@ export const BusRouteDetails: React.FC = () => {
     setLoadingStops(true);
     setStopsError(null);
     try {
-      let effectiveDirection = route.direction;
-
-      // If direction is empty or invalid, try to find available directions
-      if (!effectiveDirection || effectiveDirection.trim() === '') {
-        const allRoutes = await api.searchRoutes(route.route);
-        const routesWithDirection = allRoutes.filter(r => r.route === route.route && r.direction && r.direction.trim() !== '');
-
-        if (routesWithDirection.length > 0) {
-          effectiveDirection = routesWithDirection[0].direction;
-          console.log('Found route with direction:', effectiveDirection);
-
-          // Update the route object with the found direction
-          setRoute({ ...route, direction: effectiveDirection });
-        } else {
-          setStopsError('No valid direction found for this route');
-          return;
-        }
-      }
-
-      const stops = await api.getBusRouteStops(route.route, effectiveDirection);
+      const stops = await api.getBusRouteStops(route.route, route.direction ?? '');
       setRouteStops(stops);
     } catch (error) {
       console.error('Error fetching route stops:', error);
@@ -175,7 +154,7 @@ export const BusRouteDetails: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Route Stops - Left Column */}
           <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-            <h3 className={`text-lg font-semibold mb-3 ${getGrayTextClass()}`}>路線途經巴士站 Route Stops</h3>
+            <h3 className={`text-lg font-semibold mb-3 ${getGrayTextClass()}`}>途經巴士站 Route Stops</h3>
             {loadingStops ? (
               <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
             ) : stopsError ? (

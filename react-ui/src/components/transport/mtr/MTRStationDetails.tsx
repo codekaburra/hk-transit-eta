@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { Header } from '../Header';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { Header } from '../../header/Header';
 import { MainNavigation } from '../MainNavigation';
 import {
   MTRLine,
@@ -14,7 +14,7 @@ import {
   getStationNameTC,
   getLineColor,
   isValidLineStation
-} from '../../types/mtr';
+} from '../../../types/mtr';
 
 interface TrainDisplayProps {
   direction: 'UP' | 'DOWN';

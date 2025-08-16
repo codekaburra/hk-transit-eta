@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { RouteStop } from '../../types';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { formatETA } from '../../services/utils';
+import { RouteStop } from '../../../types';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { formatETA, debugRender, debugLog } from '../../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
-import { getBusETA } from '../../services/api';
+import { getBusETA } from '../../../services/api';
 
 export interface RouteStopCardProps {
   routeStop: RouteStop;
@@ -39,13 +39,13 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
       setLoadingETA(false);
     }
   }, [routeStop]);
-  
+
   // Auto-refresh ETA data every 30 seconds
   useEffect(() => {
     fetchETA();
     const interval = setInterval(fetchETA, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
-}, [fetchETA]);
+  }, [fetchETA]);
 
   return (
     <div
@@ -65,6 +65,12 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
         <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
         <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_en}</p>
       </div>
+      {/* <div className="flex-1">
+        <p className={`text-sm font-medium ${getSecondaryTextClass()}`}>stopID: {routeStop.stop}</p>
+        <p className={`text-xs ${getSecondaryTextClass()}`}>
+          Route: {routeStop.route} | Dir: {routeStop.direction} | Type: {routeStop.service_type}
+        </p>
+      </div> */}
       <div className="flex items-center space-x-2">
         {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
       </div>
@@ -73,7 +79,6 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
           return (
             <div key={`eta-${index}`} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
               {formatETA(eta)}
-              {/* {eta.toString()} */}
             </div>
           )
         })}

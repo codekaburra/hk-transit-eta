@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { Header } from '../Header';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { Header } from '../../header/Header';
 import { MinibusRouteCard } from './MinibusRouteCard';
-import { api } from '../../services/api';
+import { api } from '../../../services/api';
 import { MainNavigation } from '../MainNavigation';
-import { MinibusETA } from '../../services/utils';
+import { MinibusETA } from '../../../services/utils';
 
 export const MinibusStopDetails: React.FC = () => {
   const { stopId } = useParams<{ stopId: string }>();

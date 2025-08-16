@@ -112,5 +112,9 @@ type RouteStop struct {
 	ServiceType   string `json:"service_type"`
 	Seq           string `json:"seq"`
 	Stop          string `json:"stop"`
+	NameEn        string `json:"name_en"`
+	NameTc        string `json:"name_tc"`
+	Lat           string `json:"lat"`
+	Long          string `json:"long"`
 	DataTimestamp string `json:"data_timestamp"`
 }

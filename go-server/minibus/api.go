@@ -2,6 +2,7 @@ package minibus
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 )
@@ -9,6 +10,7 @@ import (
 // GetMinibusRoutes returns all minibus routes with optional region filter
 func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	region := r.URL.Query().Get("region")
+	fmt.Printf("GetMinibusRoutes - Region: %s\n", region)
 
 	var query string
 	var args []interface{}
@@ -24,8 +26,11 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
 				direction_data_timestamp, data_timestamp 
 				FROM minibus_route ORDER BY region, route_code, route_seq`
+		args = []interface{}{}
 	}
 
+	fmt.Printf("SQL: %s\n", query)
+	fmt.Printf("SQL Parameters: %v\n", args)
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -77,6 +82,7 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 
 // GetMinibusStops returns all minibus stops with coordinates
 func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("GetMinibusStops - Query: %s\n", r.URL.RawQuery)
 	query := `SELECT s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude, 
 			  s.enabled, s.remarks_tc, s.remarks_sc, s.remarks_en, s.data_timestamp,
 			  rs.name_tc, rs.name_sc, rs.name_en
@@ -84,7 +90,7 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 			  LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
 			  GROUP BY s.stop_id
 			  ORDER BY s.stop_id LIMIT 100`
-
+	fmt.Printf("SQL: %s\n", query)
 	rows, err := minibusDB.Query(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -133,6 +139,7 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 	routeIDStr := r.URL.Query().Get("routeId")
 	routeSeqStr := r.URL.Query().Get("routeSeq")
+	fmt.Printf("GetMinibusRouteStops - RouteId: %s, RouteSeq: %s\n", routeIDStr, routeSeqStr)
 
 	if routeIDStr == "" {
 		http.Error(w, "routeId parameter is required", http.StatusBadRequest)
@@ -171,6 +178,8 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 		args = []interface{}{routeID}
 	}
 
+	fmt.Printf("SQL: %s\n", query)
+	fmt.Printf("SQL Parameters: %v\n", args)
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -213,22 +222,21 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 // SearchMinibusRoutes searches routes by route code or description
 func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
+	fmt.Printf("SearchMinibusRoutes - Query: %s\n", query)
 	if query == "" {
 		http.Error(w, "Search query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
 
-	searchQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-					orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-					direction_data_timestamp, data_timestamp 
-					FROM minibus_route 
-					WHERE route_code LIKE ? OR description_tc LIKE ? OR description_sc LIKE ? OR description_en LIKE ? 
-					OR orig_tc LIKE ? OR orig_sc LIKE ? OR orig_en LIKE ? OR dest_tc LIKE ? OR dest_sc LIKE ? OR dest_en LIKE ?
-					ORDER BY region, route_code, route_seq`
-
-	searchTerm := "%" + query + "%"
-	rows, err := minibusDB.Query(searchQuery, searchTerm, searchTerm, searchTerm, searchTerm,
-		searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm)
+	sql := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
+			orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
+			direction_data_timestamp, data_timestamp 
+			FROM minibus_route 
+			WHERE route_code LIKE ? OR description_tc LIKE ? OR description_sc LIKE ? OR description_en LIKE ?
+			ORDER BY region, route_code, route_seq LIMIT 50`
+	fmt.Printf("SQL: %s\n", sql)
+	fmt.Printf("SQL Parameters: [%s, %s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+	rows, err := minibusDB.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -280,21 +288,23 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 // SearchMinibusStops searches stops by name
 func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
+	fmt.Printf("SearchMinibusStops - Query: %s\n", query)
 	if query == "" {
 		http.Error(w, "Search query parameter 'q' is required", http.StatusBadRequest)
 		return
 	}
 
-	searchQuery := `SELECT DISTINCT s.stop_id, s.latitude, s.longitude, s.enabled, 
-					rs.name_tc, rs.name_sc, rs.name_en
-					FROM minibus_stop s
-					JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
-					WHERE rs.name_tc LIKE ? OR rs.name_sc LIKE ? OR rs.name_en LIKE ?
-					GROUP BY s.stop_id
-					ORDER BY rs.name_en`
-
-	searchTerm := "%" + query + "%"
-	rows, err := minibusDB.Query(searchQuery, searchTerm, searchTerm, searchTerm)
+	sql := `SELECT DISTINCT s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude, 
+			s.enabled, s.remarks_tc, s.remarks_sc, s.remarks_en, s.data_timestamp,
+			rs.name_tc, rs.name_sc, rs.name_en
+			FROM minibus_stop s
+			LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
+			WHERE rs.name_tc LIKE ? OR rs.name_sc LIKE ? OR rs.name_en LIKE ?
+			GROUP BY s.stop_id
+			ORDER BY s.stop_id LIMIT 50`
+	fmt.Printf("SQL: %s\n", sql)
+	fmt.Printf("SQL Parameters: [%s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+	rows, err := minibusDB.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -333,6 +343,7 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 // GetMinibusStopById returns detailed information for a specific stop
 func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 	stopIdStr := r.URL.Query().Get("stopId")
+	fmt.Printf("GetMinibusStopById - StopId: %s\n", stopIdStr)
 	if stopIdStr == "" {
 		http.Error(w, "stopId parameter is required", http.StatusBadRequest)
 		return
@@ -351,6 +362,8 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 			  LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
 			  WHERE s.stop_id = ?
 			  LIMIT 1`
+	fmt.Printf("SQL: %s\n", query)
+	fmt.Printf("SQL Parameters: [%d]\n", stopId)
 
 	var stop map[string]interface{} = make(map[string]interface{})
 	var stopID int
@@ -392,6 +405,7 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 // GetMinibusRoutesByStopId returns all routes that serve a specific stop
 func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	stopIdStr := r.URL.Query().Get("stopId")
+	fmt.Printf("GetMinibusRoutesByStopId - StopId: %s\n", stopIdStr)
 	if stopIdStr == "" {
 		http.Error(w, "stopId parameter is required", http.StatusBadRequest)
 		return
@@ -410,6 +424,8 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 			  JOIN minibus_route_stop rs ON mr.route_id = rs.route_id AND mr.route_seq = rs.route_seq
 			  WHERE rs.stop_id = ?
 			  ORDER BY mr.region, mr.route_code, mr.route_seq`
+	fmt.Printf("SQL: %s\n", query)
+	fmt.Printf("SQL Parameters: [%d]\n", stopId)
 
 	rows, err := minibusDB.Query(query, stopId)
 	if err != nil {
@@ -464,6 +480,7 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 	routeIdStr := r.URL.Query().Get("routeId")
 	routeSeqStr := r.URL.Query().Get("routeSeq")
+	fmt.Printf("GetRouteByRouteIdAndDirection - RouteId: %s, RouteSeq: %s\n", routeIdStr, routeSeqStr)
 
 	if routeIdStr == "" || routeSeqStr == "" {
 		http.Error(w, "routeId and routeSeq parameters are required", http.StatusBadRequest)
@@ -487,6 +504,8 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
 				direction_data_timestamp, data_timestamp 
 				FROM minibus_route WHERE route_id = ? AND route_seq = ?`
+	fmt.Printf("SQL 1 (Route): %s\n", routeQuery)
+	fmt.Printf("SQL 1 Parameters: [%d, %d]\n", routeId, routeSeq)
 
 	var region, routeCode, descTC, descSC, descEN string
 	var origTC, origSC, origEN, destTC, destSC, destEN string
@@ -508,6 +527,8 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 					weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday, 
 					public_holiday, start_time, end_time, frequency, frequency_upper
 					FROM minibus_headway WHERE route_id = ? AND route_seq = ? ORDER BY headway_seq`
+	fmt.Printf("SQL 2 (Headway): %s\n", headwayQuery)
+	fmt.Printf("SQL 2 Parameters: [%d, %d]\n", routeId, routeSeq)
 
 	headwayRows, err := minibusDB.Query(headwayQuery, routeId, routeSeq)
 	if err != nil {
@@ -563,6 +584,27 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		"headways":                 headways,
 		"direction_data_timestamp": directionDataTimestamp,
 		"data_timestamp":           dataTimestamp,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetRouteCount returns the total number of minibus routes
+func GetRouteCount(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("GetRouteCount - Type: minibus\n")
+	var count int
+	sql := "SELECT COUNT(*) FROM minibus_route"
+	fmt.Printf("SQL: %s\n", sql)
+	err := minibusDB.QueryRow(sql).Scan(&count)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"type":  "minibus",
+		"count": count,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

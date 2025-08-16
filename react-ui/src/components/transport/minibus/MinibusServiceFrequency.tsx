@@ -1,5 +1,5 @@
 import React from 'react';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
 
 export interface MinibusServiceFrequencyProps {
   routeDetails: any;

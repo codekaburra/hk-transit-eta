@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { Header } from '../Header';
+import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { Header } from '../../header/Header';
 import { MinibusRouteStopCard } from './MinibusRouteStopCard';
 import { MinibusServiceFrequency } from './MinibusServiceFrequency';
 import { RouteMapCard, convertMinibusRouteStopsToMapStops } from '../RouteMapCard';
 import { RouteCodeIcon } from '../RouteCodeIcon';
 import { MainNavigation } from '../MainNavigation';
-import { api, getMinibusRouteDetails } from '../../services/api';
+import { api, getMinibusRouteDetails } from '../../../services/api';
 
 export const MinibusRouteDetails: React.FC = () => {
   const { routeId, routeSeq } = useParams<{ routeId: string; routeSeq: string }>();

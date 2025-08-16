@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useThemeStyles } from '../hooks/useThemeStyles';
+import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { 
   MTRLine, 
   MTRStation, 
@@ -12,7 +12,7 @@ import {
   getLineNameTC,
   getStationNameTC,
   getLineColor
-} from '../types/mtr';
+} from '../../types/mtr';
 
 export const MTRStationsList: React.FC = () => {
   const { getCardClass, getTextClass, getSecondaryTextClass, getHoverClass, getAccentClass, getSecondaryBorderClass, getTitleClass } = useThemeStyles();
