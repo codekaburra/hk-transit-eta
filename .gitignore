@@ -184,4 +184,7 @@ go-server/stopList.json
 
 # Local configuration files
 config.local.json
-settings.local.json 
+settings.local.json
+
+# API specifications
+api-spec/ 
