@@ -16,21 +16,18 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	var args []interface{}
 
 	if region != "" {
-		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-				direction_data_timestamp, data_timestamp 
-				FROM minibus_route WHERE region = ? ORDER BY route_code, route_seq`
+		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
+				direction_data_timestamp, data_timestamp
+				FROM minibus_route WHERE region = $1 ORDER BY route_code, route_seq`
 		args = append(args, region)
 	} else {
-		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-				direction_data_timestamp, data_timestamp 
+		query = `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
+				direction_data_timestamp, data_timestamp
 				FROM minibus_route ORDER BY region, route_code, route_seq`
-		args = []interface{}{}
 	}
 
-	fmt.Printf("SQL: %s\n", query)
-	fmt.Printf("SQL Parameters: %v\n", args)
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -40,7 +37,6 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 
 	var routes []map[string]interface{}
 	for rows.Next() {
-		var route map[string]interface{} = make(map[string]interface{})
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
 		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
@@ -54,26 +50,14 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		route["region"] = region
-		route["route_code"] = routeCode
-		route["route_id"] = routeID
-		route["route_seq"] = routeSeq
-		route["description_tc"] = descTC
-		route["description_sc"] = descSC
-		route["description_en"] = descEN
-		route["orig_tc"] = origTC
-		route["orig_sc"] = origSC
-		route["orig_en"] = origEN
-		route["dest_tc"] = destTC
-		route["dest_sc"] = destSC
-		route["dest_en"] = destEN
-		route["remarks_tc"] = remarksTC
-		route["remarks_sc"] = remarksSC
-		route["remarks_en"] = remarksEN
-		route["direction_data_timestamp"] = directionDataTimestamp
-		route["data_timestamp"] = dataTimestamp
-
-		routes = append(routes, route)
+		routes = append(routes, map[string]interface{}{
+			"region": region, "route_code": routeCode, "route_id": routeID, "route_seq": routeSeq,
+			"description_tc": descTC, "description_sc": descSC, "description_en": descEN,
+			"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
+			"dest_tc": destTC, "dest_sc": destSC, "dest_en": destEN,
+			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -83,14 +67,13 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 // GetMinibusStops returns all minibus stops with coordinates
 func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetMinibusStops - Query: %s\n", r.URL.RawQuery)
-	query := `SELECT s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude, 
+	// DISTINCT ON is PostgreSQL syntax for "first row per group by stop_id"
+	query := `SELECT DISTINCT ON (s.stop_id) s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude,
 			  s.enabled, s.remarks_tc, s.remarks_sc, s.remarks_en, s.data_timestamp,
 			  rs.name_tc, rs.name_sc, rs.name_en
 			  FROM minibus_stop s
 			  LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
-			  GROUP BY s.stop_id
 			  ORDER BY s.stop_id LIMIT 100`
-	fmt.Printf("SQL: %s\n", query)
 	rows, err := minibusDB.Query(query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -100,7 +83,6 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 
 	var stops []map[string]interface{}
 	for rows.Next() {
-		var stop map[string]interface{} = make(map[string]interface{})
 		var stopID int
 		var lat, lng, hk80Lat, hk80Lng float64
 		var enabled bool
@@ -114,21 +96,12 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		stop["stop_id"] = stopID
-		stop["latitude"] = lat
-		stop["longitude"] = lng
-		stop["hk80_latitude"] = hk80Lat
-		stop["hk80_longitude"] = hk80Lng
-		stop["enabled"] = enabled
-		stop["remarks_tc"] = remarksTC
-		stop["remarks_sc"] = remarksSC
-		stop["remarks_en"] = remarksEN
-		stop["data_timestamp"] = dataTimestamp
-		stop["name_tc"] = nameTC
-		stop["name_sc"] = nameSC
-		stop["name_en"] = nameEN
-
-		stops = append(stops, stop)
+		stops = append(stops, map[string]interface{}{
+			"stop_id": stopID, "latitude": lat, "longitude": lng,
+			"hk80_latitude": hk80Lat, "hk80_longitude": hk80Lng, "enabled": enabled,
+			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+			"data_timestamp": dataTimestamp, "name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -165,7 +138,7 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 				 s.latitude, s.longitude, s.enabled
 				 FROM minibus_route_stop rs
 				 LEFT JOIN minibus_stop s ON rs.stop_id = s.stop_id
-				 WHERE rs.route_id = ? AND rs.route_seq = ?
+				 WHERE rs.route_id = $1 AND rs.route_seq = $2
 				 ORDER BY rs.stop_seq`
 		args = []interface{}{routeID, routeSeq}
 	} else {
@@ -173,13 +146,11 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 				 s.latitude, s.longitude, s.enabled
 				 FROM minibus_route_stop rs
 				 LEFT JOIN minibus_stop s ON rs.stop_id = s.stop_id
-				 WHERE rs.route_id = ?
+				 WHERE rs.route_id = $1
 				 ORDER BY rs.route_seq, rs.stop_seq`
 		args = []interface{}{routeID}
 	}
 
-	fmt.Printf("SQL: %s\n", query)
-	fmt.Printf("SQL Parameters: %v\n", args)
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -189,7 +160,6 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 
 	var routeStops []map[string]interface{}
 	for rows.Next() {
-		var routeStop map[string]interface{} = make(map[string]interface{})
 		var routeID, routeSeq, stopSeq, stopID int
 		var nameTC, nameSC, nameEN string
 		var lat, lng *float64
@@ -201,18 +171,11 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		routeStop["route_id"] = routeID
-		routeStop["route_seq"] = routeSeq
-		routeStop["stop_seq"] = stopSeq
-		routeStop["stop_id"] = stopID
-		routeStop["name_tc"] = nameTC
-		routeStop["name_sc"] = nameSC
-		routeStop["name_en"] = nameEN
-		routeStop["latitude"] = lat
-		routeStop["longitude"] = lng
-		routeStop["enabled"] = enabled
-
-		routeStops = append(routeStops, routeStop)
+		routeStops = append(routeStops, map[string]interface{}{
+			"route_id": routeID, "route_seq": routeSeq, "stop_seq": stopSeq, "stop_id": stopID,
+			"name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
+			"latitude": lat, "longitude": lng, "enabled": enabled,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -228,15 +191,14 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sql := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-			orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-			direction_data_timestamp, data_timestamp 
-			FROM minibus_route 
-			WHERE route_code LIKE ? OR description_tc LIKE ? OR description_sc LIKE ? OR description_en LIKE ?
+	like := "%" + query + "%"
+	sql := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
+			orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
+			direction_data_timestamp, data_timestamp
+			FROM minibus_route
+			WHERE route_code LIKE $1 OR description_tc LIKE $2 OR description_sc LIKE $3 OR description_en LIKE $4
 			ORDER BY region, route_code, route_seq LIMIT 50`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s, %s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	rows, err := minibusDB.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
+	rows, err := minibusDB.Query(sql, like, like, like, like)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -245,7 +207,6 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 
 	var routes []map[string]interface{}
 	for rows.Next() {
-		var route map[string]interface{} = make(map[string]interface{})
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
 		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
@@ -259,26 +220,14 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		route["region"] = region
-		route["route_code"] = routeCode
-		route["route_id"] = routeID
-		route["route_seq"] = routeSeq
-		route["description_tc"] = descTC
-		route["description_sc"] = descSC
-		route["description_en"] = descEN
-		route["orig_tc"] = origTC
-		route["orig_sc"] = origSC
-		route["orig_en"] = origEN
-		route["dest_tc"] = destTC
-		route["dest_sc"] = destSC
-		route["dest_en"] = destEN
-		route["remarks_tc"] = remarksTC
-		route["remarks_sc"] = remarksSC
-		route["remarks_en"] = remarksEN
-		route["direction_data_timestamp"] = directionDataTimestamp
-		route["data_timestamp"] = dataTimestamp
-
-		routes = append(routes, route)
+		routes = append(routes, map[string]interface{}{
+			"region": region, "route_code": routeCode, "route_id": routeID, "route_seq": routeSeq,
+			"description_tc": descTC, "description_sc": descSC, "description_en": descEN,
+			"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
+			"dest_tc": destTC, "dest_sc": destSC, "dest_en": destEN,
+			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -294,17 +243,16 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sql := `SELECT DISTINCT s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude, 
+	like := "%" + query + "%"
+	// DISTINCT ON (s.stop_id) replaces the SQLite GROUP BY s.stop_id pattern
+	sql := `SELECT DISTINCT ON (s.stop_id) s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude,
 			s.enabled, s.remarks_tc, s.remarks_sc, s.remarks_en, s.data_timestamp,
 			rs.name_tc, rs.name_sc, rs.name_en
 			FROM minibus_stop s
 			LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
-			WHERE rs.name_tc LIKE ? OR rs.name_sc LIKE ? OR rs.name_en LIKE ?
-			GROUP BY s.stop_id
+			WHERE rs.name_tc LIKE $1 OR rs.name_sc LIKE $2 OR rs.name_en LIKE $3
 			ORDER BY s.stop_id LIMIT 50`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	rows, err := minibusDB.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%")
+	rows, err := minibusDB.Query(sql, like, like, like)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -313,27 +261,25 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 
 	var stops []map[string]interface{}
 	for rows.Next() {
-		var stop map[string]interface{} = make(map[string]interface{})
 		var stopID int
-		var lat, lng float64
+		var lat, lng, hk80Lat, hk80Lng float64
 		var enabled bool
-		var nameTC, nameSC, nameEN string
+		var remarksTC, remarksSC, remarksEN, dataTimestamp *string
+		var nameTC, nameSC, nameEN *string
 
-		err := rows.Scan(&stopID, &lat, &lng, &enabled, &nameTC, &nameSC, &nameEN)
+		err := rows.Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng, &enabled,
+			&remarksTC, &remarksSC, &remarksEN, &dataTimestamp, &nameTC, &nameSC, &nameEN)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		stop["stop_id"] = stopID
-		stop["latitude"] = lat
-		stop["longitude"] = lng
-		stop["enabled"] = enabled
-		stop["name_tc"] = nameTC
-		stop["name_sc"] = nameSC
-		stop["name_en"] = nameEN
-
-		stops = append(stops, stop)
+		stops = append(stops, map[string]interface{}{
+			"stop_id": stopID, "latitude": lat, "longitude": lng,
+			"hk80_latitude": hk80Lat, "hk80_longitude": hk80Lng, "enabled": enabled,
+			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+			"data_timestamp": dataTimestamp, "name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -355,17 +301,14 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude,
+	query := `SELECT DISTINCT ON (s.stop_id) s.stop_id, s.latitude, s.longitude, s.hk80_latitude, s.hk80_longitude,
 			  s.enabled, s.remarks_tc, s.remarks_sc, s.remarks_en, s.data_timestamp,
 			  rs.name_tc, rs.name_sc, rs.name_en
 			  FROM minibus_stop s
 			  LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
-			  WHERE s.stop_id = ?
-			  LIMIT 1`
-	fmt.Printf("SQL: %s\n", query)
-	fmt.Printf("SQL Parameters: [%d]\n", stopId)
+			  WHERE s.stop_id = $1
+			  ORDER BY s.stop_id`
 
-	var stop map[string]interface{} = make(map[string]interface{})
 	var stopID int
 	var lat, lng, hk80Lat, hk80Lng float64
 	var enabled bool
@@ -374,7 +317,6 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 
 	err = minibusDB.QueryRow(query, stopId).Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng,
 		&enabled, &remarksTC, &remarksSC, &remarksEN, &dataTimestamp, &nameTC, &nameSC, &nameEN)
-
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
 			http.Error(w, "Stop not found", http.StatusNotFound)
@@ -384,22 +326,13 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stop["stop_id"] = stopID
-	stop["latitude"] = lat
-	stop["longitude"] = lng
-	stop["hk80_latitude"] = hk80Lat
-	stop["hk80_longitude"] = hk80Lng
-	stop["enabled"] = enabled
-	stop["remarks_tc"] = remarksTC
-	stop["remarks_sc"] = remarksSC
-	stop["remarks_en"] = remarksEN
-	stop["data_timestamp"] = dataTimestamp
-	stop["name_tc"] = nameTC
-	stop["name_sc"] = nameSC
-	stop["name_en"] = nameEN
-
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stop)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"stop_id": stopID, "latitude": lat, "longitude": lng,
+		"hk80_latitude": hk80Lat, "hk80_longitude": hk80Lng, "enabled": enabled,
+		"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+		"data_timestamp": dataTimestamp, "name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
+	})
 }
 
 // GetMinibusRoutesByStopId returns all routes that serve a specific stop
@@ -417,15 +350,14 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := `SELECT DISTINCT mr.region, mr.route_code, mr.route_id, mr.route_seq, mr.description_tc, mr.description_sc, mr.description_en,
-			  mr.orig_tc, mr.orig_sc, mr.orig_en, mr.dest_tc, mr.dest_sc, mr.dest_en, 
+	query := `SELECT DISTINCT mr.region, mr.route_code, mr.route_id, mr.route_seq,
+			  mr.description_tc, mr.description_sc, mr.description_en,
+			  mr.orig_tc, mr.orig_sc, mr.orig_en, mr.dest_tc, mr.dest_sc, mr.dest_en,
 			  mr.remarks_tc, mr.remarks_sc, mr.remarks_en, mr.direction_data_timestamp, mr.data_timestamp
 			  FROM minibus_route mr
 			  JOIN minibus_route_stop rs ON mr.route_id = rs.route_id AND mr.route_seq = rs.route_seq
-			  WHERE rs.stop_id = ?
+			  WHERE rs.stop_id = $1
 			  ORDER BY mr.region, mr.route_code, mr.route_seq`
-	fmt.Printf("SQL: %s\n", query)
-	fmt.Printf("SQL Parameters: [%d]\n", stopId)
 
 	rows, err := minibusDB.Query(query, stopId)
 	if err != nil {
@@ -436,7 +368,6 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 
 	var routes []map[string]interface{}
 	for rows.Next() {
-		var route map[string]interface{} = make(map[string]interface{})
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
 		var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
@@ -450,33 +381,21 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		route["region"] = region
-		route["route_code"] = routeCode
-		route["route_id"] = routeID
-		route["route_seq"] = routeSeq
-		route["description_tc"] = descTC
-		route["description_sc"] = descSC
-		route["description_en"] = descEN
-		route["orig_tc"] = origTC
-		route["orig_sc"] = origSC
-		route["orig_en"] = origEN
-		route["dest_tc"] = destTC
-		route["dest_sc"] = destSC
-		route["dest_en"] = destEN
-		route["remarks_tc"] = remarksTC
-		route["remarks_sc"] = remarksSC
-		route["remarks_en"] = remarksEN
-		route["direction_data_timestamp"] = directionDataTimestamp
-		route["data_timestamp"] = dataTimestamp
-
-		routes = append(routes, route)
+		routes = append(routes, map[string]interface{}{
+			"region": region, "route_code": routeCode, "route_id": routeID, "route_seq": routeSeq,
+			"description_tc": descTC, "description_sc": descSC, "description_en": descEN,
+			"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
+			"dest_tc": destTC, "dest_sc": destSC, "dest_en": destEN,
+			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(routes)
 }
 
-// GetRouteByRouteIdAndDirection returns detailed route information with headways for a specific route ID and direction
+// GetRouteByRouteIdAndDirection returns route details with headways
 func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 	routeIdStr := r.URL.Query().Get("routeId")
 	routeSeqStr := r.URL.Query().Get("routeSeq")
@@ -492,20 +411,16 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid routeId", http.StatusBadRequest)
 		return
 	}
-
 	routeSeq, err := strconv.Atoi(routeSeqStr)
 	if err != nil {
 		http.Error(w, "Invalid routeSeq", http.StatusBadRequest)
 		return
 	}
 
-	// Get route information
-	routeQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-				direction_data_timestamp, data_timestamp 
-				FROM minibus_route WHERE route_id = ? AND route_seq = ?`
-	fmt.Printf("SQL 1 (Route): %s\n", routeQuery)
-	fmt.Printf("SQL 1 Parameters: [%d, %d]\n", routeId, routeSeq)
+	routeQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
+				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
+				direction_data_timestamp, data_timestamp
+				FROM minibus_route WHERE route_id = $1 AND route_seq = $2`
 
 	var region, routeCode, descTC, descSC, descEN string
 	var origTC, origSC, origEN, destTC, destSC, destEN string
@@ -516,19 +431,15 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		&region, &routeCode, &dbRouteId, &dbRouteSeq, &descTC, &descSC, &descEN,
 		&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
 		&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
-
 	if err != nil {
 		http.Error(w, "Route not found", http.StatusNotFound)
 		return
 	}
 
-	// Get headways for this route
-	headwayQuery := `SELECT headway_seq, weekday_monday, weekday_tuesday, weekday_wednesday, 
-					weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday, 
+	headwayQuery := `SELECT headway_seq, weekday_monday, weekday_tuesday, weekday_wednesday,
+					weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday,
 					public_holiday, start_time, end_time, frequency, frequency_upper
-					FROM minibus_headway WHERE route_id = ? AND route_seq = ? ORDER BY headway_seq`
-	fmt.Printf("SQL 2 (Headway): %s\n", headwayQuery)
-	fmt.Printf("SQL 2 Parameters: [%d, %d]\n", routeId, routeSeq)
+					FROM minibus_headway WHERE route_id = $1 AND route_seq = $2 ORDER BY headway_seq`
 
 	headwayRows, err := minibusDB.Query(headwayQuery, routeId, routeSeq)
 	if err != nil {
@@ -551,7 +462,7 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		headway := map[string]interface{}{
+		headways = append(headways, map[string]interface{}{
 			"headway_seq":     headwaySeq,
 			"weekdays":        []bool{mon, tue, wed, thu, fri, sat, sun},
 			"public_holiday":  publicHoliday,
@@ -559,54 +470,33 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 			"end_time":        endTime,
 			"frequency":       frequency,
 			"frequency_upper": frequencyUpper,
-		}
-		headways = append(headways, headway)
-	}
-
-	// Build response
-	response := map[string]interface{}{
-		"route_id":                 dbRouteId,
-		"route_seq":                dbRouteSeq,
-		"region":                   region,
-		"route_code":               routeCode,
-		"description_tc":           descTC,
-		"description_sc":           descSC,
-		"description_en":           descEN,
-		"orig_tc":                  origTC,
-		"orig_sc":                  origSC,
-		"orig_en":                  origEN,
-		"dest_tc":                  destTC,
-		"dest_sc":                  destSC,
-		"dest_en":                  destEN,
-		"remarks_tc":               remarksTC,
-		"remarks_sc":               remarksSC,
-		"remarks_en":               remarksEN,
-		"headways":                 headways,
-		"direction_data_timestamp": directionDataTimestamp,
-		"data_timestamp":           dataTimestamp,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"route_id": dbRouteId, "route_seq": dbRouteSeq, "region": region, "route_code": routeCode,
+		"description_tc": descTC, "description_sc": descSC, "description_en": descEN,
+		"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
+		"dest_tc": destTC, "dest_sc": destSC, "dest_en": destEN,
+		"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
+		"headways": headways,
+		"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
+	})
 }
 
 // GetRouteCount returns the total number of minibus routes
 func GetRouteCount(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetRouteCount - Type: minibus\n")
 	var count int
-	sql := "SELECT COUNT(*) FROM minibus_route"
-	fmt.Printf("SQL: %s\n", sql)
-	err := minibusDB.QueryRow(sql).Scan(&count)
-	if err != nil {
+	if err := minibusDB.QueryRow("SELECT COUNT(*) FROM minibus_route").Scan(&count); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"type":  "minibus",
 		"count": count,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }

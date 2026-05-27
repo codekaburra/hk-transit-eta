@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func FetchKmbData() {
@@ -16,49 +14,52 @@ func FetchKmbData() {
 	fmt.Println("=== Processing KMB Route Data ===")
 	routes, err := fetchKmbRouteData()
 	if err != nil {
-		log.Fatal("Error fetching route data:", err)
+		log.Printf("Error fetching KMB route data: %v", err)
+		return
 	}
 
 	fmt.Printf("Fetched %d routes from API\n", len(routes))
 
-	err = storeRoutes(routes)
-	if err != nil {
-		log.Fatal("Error storing routes:", err)
+	if err = storeRoutes(routes); err != nil {
+		log.Printf("Error storing KMB routes: %v", err)
+		return
 	}
 
-	fmt.Println("Successfully stored all routes in SQLite database")
+	fmt.Println("Successfully stored all KMB routes")
 
 	// Fetch and store stop data
 	fmt.Println("\n=== Processing KMB Stop Data ===")
 	stops, err := fetchKmbStopData()
 	if err != nil {
-		log.Fatal("Error fetching stop data:", err)
+		log.Printf("Error fetching KMB stop data: %v", err)
+		return
 	}
 
 	fmt.Printf("Fetched %d stops from API\n", len(stops))
 
-	err = storeStops(stops)
-	if err != nil {
-		log.Fatal("Error storing stops:", err)
+	if err = storeStops(stops); err != nil {
+		log.Printf("Error storing KMB stops: %v", err)
+		return
 	}
 
-	fmt.Println("Successfully stored all stops in SQLite database")
+	fmt.Println("Successfully stored all KMB stops")
 
 	// Fetch and store route-stop data
 	fmt.Println("\n=== Processing KMB Route-Stop Data ===")
 	routeStops, err := fetchKmbRouteStopData()
 	if err != nil {
-		log.Fatal("Error fetching route-stop data:", err)
+		log.Printf("Error fetching KMB route-stop data: %v", err)
+		return
 	}
 
 	fmt.Printf("Fetched %d route-stop relationships from API\n", len(routeStops))
 
-	err = storeRouteStops(routeStops)
-	if err != nil {
-		log.Fatal("Error storing route-stops:", err)
+	if err = storeRouteStops(routeStops); err != nil {
+		log.Printf("Error storing KMB route-stops: %v", err)
+		return
 	}
 
-	fmt.Println("Successfully stored all route-stop relationships in SQLite database")
+	fmt.Println("Successfully stored all KMB route-stop relationships")
 }
 
 func fetchKmbRouteData() ([]Route, error) {

@@ -14,6 +14,7 @@ go.work.sum
 # Go build artifacts
 go-server/hk-bus-tool
 go-server/*.db
+go-server/tmp/       # air live-reload build output
 
 # SQLite databases (these contain data that should be regenerated)
 *.db
