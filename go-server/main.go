@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"hk-bus-tool/bus"
-	"hk-bus-tool/minibus"
+	"hk-transit-eta/bus"
+	"hk-transit-eta/minibus"
 
 	"github.com/gorilla/mux"
 	_ "github.com/jackc/pgx/v5/stdlib"

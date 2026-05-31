@@ -1,4 +1,4 @@
-# HK Bus Tool 🚌🚐
+# HK Transit ETA 🚌🚐🚇
 
 A comprehensive web application for searching and managing Hong Kong public transport data, including buses (KMB, Citybus) and minibuses (GMB). This project features a Go backend with organized package structure and a modern React frontend with multi-transport search capabilities.
 
@@ -28,7 +28,7 @@ A comprehensive web application for searching and managing Hong Kong public tran
 ## 📁 Project Structure
 
 ```
-hk-bus-tool/
+hk-transit-eta/
 ├── go-server/                 # Go backend application
 │   ├── main.go               # Main server entry point
 │   ├── bus/                  # Bus-related functionality

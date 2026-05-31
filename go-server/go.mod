@@ -1,4 +1,4 @@
-module hk-bus-tool
+module hk-transit-eta
 
 go 1.26
 
