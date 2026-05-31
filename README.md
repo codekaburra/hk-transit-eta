@@ -1,4 +1,4 @@
-# HK Bus Tool 🚌🚐
+# HK Transit ETA 🚌🚐🚇
 
 A comprehensive web application for searching and managing Hong Kong public transport data, including buses (KMB, Citybus) and minibuses (GMB). This project features a Go backend with organized package structure and a modern React frontend with multi-transport search capabilities.
 
@@ -15,7 +15,7 @@ A comprehensive web application for searching and managing Hong Kong public tran
 - **Route Details**: Complete route information including headways, fare details, and stop sequences
 
 ### 💾 **Data Management**
-- **SQLite Database**: Efficient local storage for all transport data
+- **PostgreSQL Database**: Persistent storage for all transport data
 - **Multi-language Support**: English, Traditional Chinese, and Simplified Chinese
 - **Modular Architecture**: Organized into `bus` and `minibus` packages for scalability
 
@@ -28,7 +28,7 @@ A comprehensive web application for searching and managing Hong Kong public tran
 ## 📁 Project Structure
 
 ```
-hk-bus-tool/
+hk-transit-eta/
 ├── go-server/                 # Go backend application
 │   ├── main.go               # Main server entry point
 │   ├── bus/                  # Bus-related functionality
@@ -74,15 +74,17 @@ hk-bus-tool/
 │   │   └── citybus_bg.svg   # Citybus logo with background
 │   ├── package.json         # Node.js dependencies
 │   └── tsconfig.json        # TypeScript configuration
-├── docker-compose.yaml       # Docker Compose configuration
-└── README.md                # This file
+├── docker-compose.yaml       # Production Docker Compose
+├── docker-compose.dev.yml    # Development Docker Compose (hot reload)
+├── .env.example              # Environment variable reference
+└── README.md                 # This file
 ```
 
 ## 🛠️ Technology Stack
 
 ### Backend
-- **Go 1.23.4**: Main programming language with modular package structure
-- **SQLite**: Local database storage for all transport data
+- **Go 1.26**: Main programming language with modular package structure
+- **PostgreSQL**: Persistent database storage for all transport data
 - **Gorilla Mux**: HTTP routing and middleware
 - **Concurrent Processing**: Goroutines for non-blocking data fetching
 
@@ -96,55 +98,67 @@ hk-bus-tool/
 
 ### Prerequisites
 
-- Go 1.23.4 or later
-- Node.js 16+ and npm
-- Docker and Docker Compose (optional)
+- Docker and Docker Compose
+- Go 1.26+ and Node.js 18+ *(only needed for running without Docker)*
 
-### Quick Start with Docker
+### Environment Variables
+
+Copy `.env.example` to `.env` and adjust if needed:
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-username/hk-bus-tool.git
-cd hk-bus-tool
-
-# Start all services
-docker-compose up
+cp .env.example .env
 ```
 
-### Manual Setup
+| Variable | Description | Default |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable` |
+| `PORT` | Backend server port | `8080` |
+| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
+| `REACT_APP_API_URL` | Frontend API base URL (build-time) | `/api` |
 
-#### Backend Setup
+### Quick Start — Development (hot reload)
 
 ```bash
-# Navigate to the Go server directory
+docker-compose -f docker-compose.dev.yml up --build
+```
+
+| Service | URL |
+|---|---|
+| Frontend (React dev server) | http://localhost:3000 |
+| Backend API | http://localhost:8080 |
+| PostgreSQL | localhost:5432 |
+
+File changes in `react-ui/src/` and `go-server/` are picked up automatically.
+
+### Quick Start — Production
+
+```bash
+docker-compose up --build
+```
+
+The app is served on **http://localhost** (port 80). nginx handles the frontend and proxies `/api/*` to the backend — no ports other than 80 need to be open.
+
+> On first boot the backend fetches all KMB, Citybus and GMB data from the official HK government APIs. This runs in the background; the server is available immediately while data loads.
+
+### Manual Setup (without Docker)
+
+Requires a running PostgreSQL instance. Set `DATABASE_URL` in your environment or shell.
+
+#### Backend
+
+```bash
 cd go-server
-
-# Install dependencies
 go mod download
-
-# Start the server
-go run .
+DATABASE_URL=postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable go run .
 ```
 
-The server will:
-- 🚌 Fetch and store KMB/Citybus data
-- 🚐 Fetch and store Minibus data from all regions
-- 🌐 Start API server on `http://localhost:8080`
-
-#### Frontend Setup
+#### Frontend
 
 ```bash
-# Navigate to the React UI directory
 cd react-ui
-
-# Install dependencies
 npm install
-
-# Start the development server
-npm start
+npm start   # dev server at http://localhost:3000
 ```
-
-The React app will open at `http://localhost:3000`
 
 ## 📊 API Endpoints
 
@@ -237,26 +251,18 @@ The React app will open at `http://localhost:3000`
 
 ## 🚀 Deployment
 
-### Production Build
-
 ```bash
-# Build frontend
-cd react-ui
-npm run build
+# Build images and start in the background
+docker-compose up --build -d
 
-# Build backend
-cd ../go-server
-go build -o hk-bus-tool
+# View logs
+docker-compose logs -f
 
-# Run production server
-./hk-bus-tool
+# Stop
+docker-compose down
 ```
 
-### Docker Deployment
-
-```bash
-docker-compose -f docker-compose.prod.yml up -d
-```
+The only port that needs to be open publicly is **80**. The backend and database are internal to the Docker network.
 
 ## 📝 License
 

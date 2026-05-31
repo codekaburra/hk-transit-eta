@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"strconv"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func FetchCitybusData() {
@@ -16,31 +14,33 @@ func FetchCitybusData() {
 	fmt.Println("\n=== Processing Citybus Route Data ===")
 	routes, err := fetchCitybusRoutes()
 	if err != nil {
-		log.Fatal("Error fetching Citybus routes:", err)
+		log.Printf("Error fetching Citybus routes: %v", err)
+		return
 	}
 	fmt.Printf("Fetched %d Citybus routes from API\n", len(routes))
-	err = storeRoutes(routes)
-	if err != nil {
-		log.Fatal("Error storing Citybus routes:", err)
+	if err = storeRoutes(routes); err != nil {
+		log.Printf("Error storing Citybus routes: %v", err)
+		return
 	}
-	fmt.Println("Successfully stored Citybus routes in SQLite database")
+	fmt.Println("Successfully stored Citybus routes")
 
 	fmt.Println("\n=== Processing Citybus Route-Stop Data ===")
 	for i, route := range routes {
 		fmt.Printf("🖍️ RouteStop %d / %d - %s\n", i, len(routes), route.Route)
 		routeStops, err := fetchCitybusRouteStops(route.Route)
 		if err != nil {
-			log.Fatal("Error fetching Citybus route-stop data:", err)
+			// Log and skip — one flaky route should not crash the server
+			log.Printf("Warning: skipping route-stops for Citybus route %s: %v", route.Route, err)
+			continue
 		}
 		fmt.Printf("Fetched %d Citybus route-stop relationships from API\n", len(routeStops))
-		err = storeRouteStops(routeStops)
-		if err != nil {
-			log.Fatal("Error storing Citybus route-stop data:", err)
+		if err = storeRouteStops(routeStops); err != nil {
+			log.Printf("Warning: failed to store route-stops for Citybus route %s: %v", route.Route, err)
 		}
 	}
 
 	// Get unique stops from route_stops table to fetch stop details
-	routeStopsInDb, err := database.Query("SELECT DISTINCT stop FROM route_stops where company = ?", DatabaseCompany_CityBus)
+	routeStopsInDb, err := database.Query("SELECT DISTINCT stop FROM route_stops WHERE company = $1", DatabaseCompany_CityBus)
 	if err != nil {
 		log.Fatal("Error querying citybus route_stops:", err)
 	}

@@ -1,6 +1,6 @@
-# HK Bus Tool
+# HK Transit ETA — Go Server
 
-A Go application that fetches KMB (Kowloon Motor Bus) route, stop, and route-stop relationship data from the Hong Kong Transport Department API and stores it in a SQLite database.
+A Go backend that fetches KMB, Citybus, and GMB route/stop/ETA data from Hong Kong's official transport APIs and stores it in PostgreSQL.
 
 ## Features
 

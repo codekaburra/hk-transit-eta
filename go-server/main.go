@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
+	"time"
 
-	"hk-bus-tool/bus"
-	"hk-bus-tool/minibus"
+	"hk-transit-eta/bus"
+	"hk-transit-eta/minibus"
 
 	"github.com/gorilla/mux"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/rs/cors"
 )
 
@@ -35,12 +38,13 @@ func main() {
 	// Initialize databases
 	initDatabases()
 
-	if false && shouldFetchData() {
-		// Run data fetches in background goroutines so server starts immediately
+	if shouldFetchData() {
+		// Fetch data in background goroutines so the server starts immediately.
+		// Only runs when the database is empty (first boot after a fresh DB).
 		go bus.FetchKmbData()
 		go bus.FetchCitybusData()
 	}
-	if false && minibus.ShouldFetchMinibusData() {
+	if minibus.ShouldFetchMinibusData() {
 		go minibus.FetchMinibusRoutes()
 	}
 
@@ -49,11 +53,28 @@ func main() {
 }
 
 func initDatabases() {
-	var err error
-	database, err = sql.Open("sqlite3", "../transport.db")
-	if err != nil {
-		log.Fatal("Error opening Bus Database:", err)
+	dsn := os.Getenv("DATABASE_URL")
+	if dsn == "" {
+		dsn = "postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable"
 	}
+
+	var err error
+	// Retry connecting to the database (PostgreSQL may not be ready immediately)
+	for i := 1; i <= 10; i++ {
+		database, err = sql.Open("pgx", dsn)
+		if err == nil {
+			err = database.Ping()
+			if err == nil {
+				break
+			}
+		}
+		log.Printf("Database not ready, retrying (%d/10)...", i)
+		time.Sleep(2 * time.Second)
+	}
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+
 	// Set the database connection for both packages
 	bus.SetDatabase(database)
 	bus.InitBusDatabase()
@@ -97,31 +118,34 @@ func startServer() {
 	api.HandleFunc("/minibus/route-details", minibus.GetRouteByRouteIdAndDirection).Methods("GET")
 
 	// CORS configuration
+	corsOrigins := os.Getenv("CORS_ORIGINS")
+	allowedOrigins := []string{"http://localhost:3000", "http://127.0.0.1:3000"}
+	if corsOrigins != "" {
+		allowedOrigins = strings.Split(corsOrigins, ",")
+	}
+
 	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowedOrigins: allowedOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"*"},
 	})
 
 	handler := c.Handler(r)
 
-	fmt.Println("Server starting on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", handler))
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	fmt.Printf("Server starting on http://localhost:%s\n", port)
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
 
 func shouldFetchData() bool {
-	// Check if KMB database has data
+	// Check if bus routes table has data
 	var count int
-	err := database.QueryRow("SELECT COUNT(*) FROM kmb_routes").Scan(&count)
+	err := database.QueryRow("SELECT COUNT(*) FROM routes").Scan(&count)
 	if err != nil || count == 0 {
 		return true
 	}
-
-	// Check if Citybus database has data
-	err = database.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&count)
-	if err != nil || count == 0 {
-		return true
-	}
-
 	return false
 }

@@ -17,10 +17,9 @@ func SetDatabase(db *sql.DB) {
 func InitMinibusDatabase() {
 	fmt.Println("Initializing minibus database...")
 
-	// Create Minibus Routes table with direction-specific fields
 	createMinibusRouteTable := `
 	CREATE TABLE IF NOT EXISTS minibus_route (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		region TEXT NOT NULL,
 		route_code TEXT NOT NULL,
 		route_id INTEGER NOT NULL,
@@ -39,19 +38,16 @@ func InitMinibusDatabase() {
 		remarks_en TEXT,
 		direction_data_timestamp TEXT,
 		data_timestamp TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(region, route_code, route_id, route_seq)
 	);`
-
-	_, err := minibusDB.Exec(createMinibusRouteTable)
-	if err != nil {
+	if _, err := minibusDB.Exec(createMinibusRouteTable); err != nil {
 		log.Fatal("Error creating minibus_route table:", err)
 	}
 
-	// Create minibus_headway table for scheduling information
 	createMinibusHeadwayTableSQL := `
 	CREATE TABLE IF NOT EXISTS minibus_headway (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		route_id INTEGER NOT NULL,
 		route_seq INTEGER NOT NULL,
 		headway_seq INTEGER NOT NULL,
@@ -67,18 +63,16 @@ func InitMinibusDatabase() {
 		end_time TEXT NOT NULL,
 		frequency INTEGER NOT NULL,
 		frequency_upper INTEGER,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(route_id, route_seq, headway_seq)
 	);`
-	_, err = minibusDB.Exec(createMinibusHeadwayTableSQL)
-	if err != nil {
+	if _, err := minibusDB.Exec(createMinibusHeadwayTableSQL); err != nil {
 		log.Fatal("Error creating minibus_headway table:", err)
 	}
 
-	// Create minibus_route_stop table for route stop information
 	createMinibusRouteStopTableSQL := `
 	CREATE TABLE IF NOT EXISTS minibus_route_stop (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id SERIAL PRIMARY KEY,
 		route_id INTEGER NOT NULL,
 		route_seq INTEGER NOT NULL,
 		stop_seq INTEGER NOT NULL,
@@ -87,39 +81,35 @@ func InitMinibusDatabase() {
 		name_sc TEXT NOT NULL,
 		name_en TEXT NOT NULL,
 		data_timestamp TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(route_id, route_seq, stop_seq)
 	);`
-	_, err = minibusDB.Exec(createMinibusRouteStopTableSQL)
-	if err != nil {
+	if _, err := minibusDB.Exec(createMinibusRouteStopTableSQL); err != nil {
 		log.Fatal("Error creating minibus_route_stop table:", err)
 	}
 
-	// Create minibus_stop table for stop coordinates and details
 	createMinibusStopTableSQL := `
 	CREATE TABLE IF NOT EXISTS minibus_stop (
 		stop_id INTEGER PRIMARY KEY,
-		latitude REAL NOT NULL,
-		longitude REAL NOT NULL,
-		hk80_latitude REAL,
-		hk80_longitude REAL,
+		latitude DOUBLE PRECISION NOT NULL,
+		longitude DOUBLE PRECISION NOT NULL,
+		hk80_latitude DOUBLE PRECISION,
+		hk80_longitude DOUBLE PRECISION,
 		enabled BOOLEAN NOT NULL,
 		remarks_tc TEXT,
 		remarks_sc TEXT,
 		remarks_en TEXT,
 		data_timestamp TEXT,
-		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);`
-	_, err = minibusDB.Exec(createMinibusStopTableSQL)
-	if err != nil {
+	if _, err := minibusDB.Exec(createMinibusStopTableSQL); err != nil {
 		log.Fatal("Error creating minibus_stop table:", err)
 	}
 
-	fmt.Println("minibus database initialized successfully")
+	fmt.Println("Minibus database initialized successfully")
 }
 
 func ShouldFetchMinibusData() bool {
-	// Check if Minibus database has data
 	var count int
 	err := minibusDB.QueryRow("SELECT COUNT(*) FROM minibus_route").Scan(&count)
 	if err != nil || count == 0 {
@@ -130,70 +120,77 @@ func ShouldFetchMinibusData() bool {
 
 func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 	// Clear existing data for this region
-	_, err := minibusDB.Exec("DELETE FROM minibus_route WHERE region = ?", region)
-	if err != nil {
-		return fmt.Errorf("error clearing existing minibus routes for region %s: %v", region, err)
+	if _, err := minibusDB.Exec("DELETE FROM minibus_route WHERE region = $1", region); err != nil {
+		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
+	}
+	if _, err := minibusDB.Exec(`DELETE FROM minibus_headway WHERE route_id IN
+		(SELECT route_id FROM minibus_route WHERE region = $1)`, region); err != nil {
+		return fmt.Errorf("error clearing minibus headways for region %s: %v", region, err)
+	}
+	if _, err := minibusDB.Exec(`DELETE FROM minibus_route_stop WHERE route_id IN
+		(SELECT route_id FROM minibus_route WHERE region = $1)`, region); err != nil {
+		return fmt.Errorf("error clearing minibus route stops for region %s: %v", region, err)
 	}
 
-	// Clear existing headway data for this region's routes
-	_, err = minibusDB.Exec(`DELETE FROM minibus_headway WHERE route_id IN 
-		(SELECT route_id FROM minibus_route WHERE region = ?)`, region)
-	if err != nil {
-		return fmt.Errorf("error clearing existing minibus headways for region %s: %v", region, err)
-	}
-
-	// Clear existing route stop data for this region's routes
-	_, err = minibusDB.Exec(`DELETE FROM minibus_route_stop WHERE route_id IN 
-		(SELECT route_id FROM minibus_route WHERE region = ?)`, region)
-	if err != nil {
-		return fmt.Errorf("error clearing existing minibus route stops for region %s: %v", region, err)
-	}
-
-	// Insert new routes (each direction as a separate record)
-	insertRouteSQL := `INSERT INTO minibus_route 
-		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en, 
-		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en, 
-		 direction_data_timestamp, data_timestamp) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
+	insertRouteSQL := `INSERT INTO minibus_route
+		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
+		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
+		 direction_data_timestamp, data_timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+		ON CONFLICT (region, route_code, route_id, route_seq) DO UPDATE SET
+			description_tc = EXCLUDED.description_tc,
+			description_sc = EXCLUDED.description_sc,
+			description_en = EXCLUDED.description_en,
+			orig_tc = EXCLUDED.orig_tc, orig_sc = EXCLUDED.orig_sc, orig_en = EXCLUDED.orig_en,
+			dest_tc = EXCLUDED.dest_tc, dest_sc = EXCLUDED.dest_sc, dest_en = EXCLUDED.dest_en,
+			remarks_tc = EXCLUDED.remarks_tc, remarks_sc = EXCLUDED.remarks_sc, remarks_en = EXCLUDED.remarks_en,
+			direction_data_timestamp = EXCLUDED.direction_data_timestamp,
+			data_timestamp = EXCLUDED.data_timestamp`
 	routeStmt, err := minibusDB.Prepare(insertRouteSQL)
 	if err != nil {
-		return fmt.Errorf("error preparing minibus route insert statement: %v", err)
+		return fmt.Errorf("error preparing minibus route insert: %v", err)
 	}
 	defer routeStmt.Close()
 
-	// Insert new headways
-	insertHeadwaySQL := `INSERT INTO minibus_headway 
-		(route_id, route_seq, headway_seq, weekday_monday, weekday_tuesday, weekday_wednesday, 
-		 weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday, public_holiday, 
-		 start_time, end_time, frequency, frequency_upper) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
+	insertHeadwaySQL := `INSERT INTO minibus_headway
+		(route_id, route_seq, headway_seq, weekday_monday, weekday_tuesday, weekday_wednesday,
+		 weekday_thursday, weekday_friday, weekday_saturday, weekday_sunday, public_holiday,
+		 start_time, end_time, frequency, frequency_upper)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		ON CONFLICT (route_id, route_seq, headway_seq) DO UPDATE SET
+			weekday_monday = EXCLUDED.weekday_monday,
+			weekday_tuesday = EXCLUDED.weekday_tuesday,
+			weekday_wednesday = EXCLUDED.weekday_wednesday,
+			weekday_thursday = EXCLUDED.weekday_thursday,
+			weekday_friday = EXCLUDED.weekday_friday,
+			weekday_saturday = EXCLUDED.weekday_saturday,
+			weekday_sunday = EXCLUDED.weekday_sunday,
+			public_holiday = EXCLUDED.public_holiday,
+			start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
+			frequency = EXCLUDED.frequency, frequency_upper = EXCLUDED.frequency_upper`
 	headwayStmt, err := minibusDB.Prepare(insertHeadwaySQL)
 	if err != nil {
-		return fmt.Errorf("error preparing minibus headway insert statement: %v", err)
+		return fmt.Errorf("error preparing minibus headway insert: %v", err)
 	}
 	defer headwayStmt.Close()
 
-	// Insert new route stops
-	insertRouteStopSQL := `INSERT INTO minibus_route_stop 
-		(route_id, route_seq, stop_seq, stop_id, name_tc, name_sc, name_en, data_timestamp) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-
+	insertRouteStopSQL := `INSERT INTO minibus_route_stop
+		(route_id, route_seq, stop_seq, stop_id, name_tc, name_sc, name_en, data_timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (route_id, route_seq, stop_seq) DO UPDATE SET
+			stop_id = EXCLUDED.stop_id,
+			name_tc = EXCLUDED.name_tc, name_sc = EXCLUDED.name_sc, name_en = EXCLUDED.name_en,
+			data_timestamp = EXCLUDED.data_timestamp`
 	routeStopStmt, err := minibusDB.Prepare(insertRouteStopSQL)
 	if err != nil {
-		return fmt.Errorf("error preparing minibus route stop insert statement: %v", err)
+		return fmt.Errorf("error preparing minibus route stop insert: %v", err)
 	}
 	defer routeStopStmt.Close()
 
-	insertedRoutes := 0
-	insertedHeadways := 0
-	insertedRouteStops := 0
+	insertedRoutes, insertedHeadways, insertedRouteStops := 0, 0, 0
 
 	for _, route := range routes {
-		// For each route, insert each direction as a separate record
 		for _, direction := range route.Directions {
-			// Convert pointer fields to strings for database insertion
 			var remarksTC, remarksSC, remarksEN string
 			if direction.RemarksTC != nil {
 				remarksTC = *direction.RemarksTC
@@ -205,36 +202,21 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 				remarksEN = *direction.RemarksEN
 			}
 
-			// Insert route record for this direction
 			_, err := routeStmt.Exec(
-				route.Region,
-				route.RouteCode,
-				route.RouteID,
-				direction.RouteSeq,
-				route.DescriptionTC,
-				route.DescriptionSC,
-				route.DescriptionEN,
-				direction.OrigTC,
-				direction.OrigSC,
-				direction.OrigEN,
-				direction.DestTC,
-				direction.DestSC,
-				direction.DestEN,
-				remarksTC,
-				remarksSC,
-				remarksEN,
-				direction.DataTimestamp,
-				route.DataTimestamp,
+				route.Region, route.RouteCode, route.RouteID, direction.RouteSeq,
+				route.DescriptionTC, route.DescriptionSC, route.DescriptionEN,
+				direction.OrigTC, direction.OrigSC, direction.OrigEN,
+				direction.DestTC, direction.DestSC, direction.DestEN,
+				remarksTC, remarksSC, remarksEN,
+				direction.DataTimestamp, route.DataTimestamp,
 			)
 			if err != nil {
-				log.Printf("Error inserting minibus route %s/%d/%d for region %s: %v", route.RouteCode, route.RouteID, direction.RouteSeq, region, err)
+				log.Printf("Error inserting minibus route %s/%d/%d: %v", route.RouteCode, route.RouteID, direction.RouteSeq, err)
 				continue
 			}
 			insertedRoutes++
 
-			// Insert headways for this direction
 			for _, headway := range direction.Headways {
-				// Convert weekdays array to individual boolean fields
 				var weekdays [7]bool
 				for i, day := range headway.Weekdays {
 					if i < 7 {
@@ -242,36 +224,21 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 					}
 				}
 
-				var freqUpper *int
-				if headway.FrequencyUpper != nil {
-					freqUpper = headway.FrequencyUpper
-				}
-
 				_, err := headwayStmt.Exec(
-					route.RouteID,
-					direction.RouteSeq,
-					headway.HeadwaySeq,
-					weekdays[0], // Monday
-					weekdays[1], // Tuesday
-					weekdays[2], // Wednesday
-					weekdays[3], // Thursday
-					weekdays[4], // Friday
-					weekdays[5], // Saturday
-					weekdays[6], // Sunday
+					route.RouteID, direction.RouteSeq, headway.HeadwaySeq,
+					weekdays[0], weekdays[1], weekdays[2], weekdays[3],
+					weekdays[4], weekdays[5], weekdays[6],
 					headway.PublicHoliday,
-					headway.StartTime,
-					headway.EndTime,
-					headway.Frequency,
-					freqUpper,
+					headway.StartTime, headway.EndTime,
+					headway.Frequency, headway.FrequencyUpper,
 				)
 				if err != nil {
-					log.Printf("Error inserting headway for route %s/%d seq %d: %v", route.RouteCode, route.RouteID, direction.RouteSeq, err)
+					log.Printf("Error inserting headway for route %s/%d: %v", route.RouteCode, route.RouteID, err)
 					continue
 				}
 				insertedHeadways++
 			}
 
-			// Fetch and insert route stops for this direction
 			fmt.Printf("Fetching route stops for route %d, sequence %d\n", route.RouteID, direction.RouteSeq)
 			routeStops, err := fetchRouteStops(route.RouteID, direction.RouteSeq)
 			if err != nil {
@@ -279,20 +246,15 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 				continue
 			}
 
-			// Insert route stops
 			for _, routeStop := range routeStops.RouteStops {
 				_, err := routeStopStmt.Exec(
-					route.RouteID,
-					direction.RouteSeq,
-					routeStop.StopSeq,
-					routeStop.StopID,
-					routeStop.NameTC,
-					routeStop.NameSC,
-					routeStop.NameEN,
+					route.RouteID, direction.RouteSeq, routeStop.StopSeq,
+					routeStop.StopID, routeStop.NameTC, routeStop.NameSC, routeStop.NameEN,
 					routeStops.DataTimestamp,
 				)
 				if err != nil {
-					log.Printf("Error inserting route stop for route %d seq %d stop %d: %v", route.RouteID, direction.RouteSeq, routeStop.StopSeq, err)
+					log.Printf("Error inserting route stop for route %d seq %d stop %d: %v",
+						route.RouteID, direction.RouteSeq, routeStop.StopSeq, err)
 					continue
 				}
 				insertedRouteStops++
@@ -300,24 +262,23 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		}
 	}
 
-	fmt.Printf("Successfully inserted %d detailed minibus route directions, %d headways, and %d route stops for region %s\n",
+	fmt.Printf("Inserted %d route directions, %d headways, %d route stops for region %s\n",
 		insertedRoutes, insertedHeadways, insertedRouteStops, region)
 	return nil
 }
 
-// FetchAndStoreStopCoordinates fetches coordinates for all unique stops that don't have coordinates yet
+// FetchAndStoreStopCoordinates fetches coordinates for stops not yet in minibus_stop
 func FetchAndStoreStopCoordinates() error {
 	fmt.Println("=== Fetching Minibus Stop Coordinates ===")
 
-	// Get all unique stop IDs that don't have coordinates yet
 	rows, err := minibusDB.Query(`
-		SELECT DISTINCT stop_id 
-		FROM minibus_route_stop 
+		SELECT DISTINCT stop_id
+		FROM minibus_route_stop
 		WHERE stop_id NOT IN (SELECT stop_id FROM minibus_stop)
 		ORDER BY stop_id
 	`)
 	if err != nil {
-		return fmt.Errorf("error querying unique stop IDs: %v", err)
+		return fmt.Errorf("error querying stop IDs: %v", err)
 	}
 	defer rows.Close()
 
@@ -331,32 +292,36 @@ func FetchAndStoreStopCoordinates() error {
 		stopIDs = append(stopIDs, stopID)
 	}
 
-	fmt.Printf("Found %d unique stops to fetch coordinates for\n", len(stopIDs))
+	fmt.Printf("Found %d stops to fetch\n", len(stopIDs))
 
-	// Prepare insert statement for stops
-	insertStopSQL := `INSERT OR REPLACE INTO minibus_stop 
-		(stop_id, latitude, longitude, hk80_latitude, hk80_longitude, enabled, remarks_tc, remarks_sc, remarks_en, data_timestamp) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-
+	insertStopSQL := `INSERT INTO minibus_stop
+		(stop_id, latitude, longitude, hk80_latitude, hk80_longitude, enabled, remarks_tc, remarks_sc, remarks_en, data_timestamp)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (stop_id) DO UPDATE SET
+			latitude = EXCLUDED.latitude,
+			longitude = EXCLUDED.longitude,
+			hk80_latitude = EXCLUDED.hk80_latitude,
+			hk80_longitude = EXCLUDED.hk80_longitude,
+			enabled = EXCLUDED.enabled,
+			remarks_tc = EXCLUDED.remarks_tc,
+			remarks_sc = EXCLUDED.remarks_sc,
+			remarks_en = EXCLUDED.remarks_en,
+			data_timestamp = EXCLUDED.data_timestamp`
 	stopStmt, err := minibusDB.Prepare(insertStopSQL)
 	if err != nil {
-		return fmt.Errorf("error preparing stop insert statement: %v", err)
+		return fmt.Errorf("error preparing stop insert: %v", err)
 	}
 	defer stopStmt.Close()
 
 	insertedStops := 0
-
-	// Fetch coordinates for each stop
 	for _, stopID := range stopIDs {
 		fmt.Printf("Fetching coordinates for stop %d\n", stopID)
-
 		stopData, err := fetchStopCoordinates(stopID)
 		if err != nil {
-			log.Printf("Error fetching stop coordinates for stop %d: %v", stopID, err)
+			log.Printf("Error fetching stop %d: %v", stopID, err)
 			continue
 		}
 
-		// Insert stop coordinates
 		_, err = stopStmt.Exec(
 			stopID,
 			stopData.Coordinates.WGS84.Latitude,
@@ -370,30 +335,26 @@ func FetchAndStoreStopCoordinates() error {
 			stopData.DataTimestamp,
 		)
 		if err != nil {
-			log.Printf("Error inserting stop coordinates for stop %d: %v", stopID, err)
+			log.Printf("Error inserting stop %d: %v", stopID, err)
 			continue
 		}
 		insertedStops++
 	}
 
-	fmt.Printf("Successfully inserted coordinates for %d stops\n", insertedStops)
-	fmt.Println("=== Minibus Stop Coordinates Fetching Complete ===")
+	fmt.Printf("Inserted coordinates for %d stops\n", insertedStops)
 	return nil
 }
 
 func fetchStopCoordinates(stopID int) (*MinibusStopResponse, error) {
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/stop/%d", stopID)
-
 	response, err := fetchAPI(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching stop coordinates: %v", err)
 	}
 
 	var stopData MinibusStopResponse
-	err = json.Unmarshal(response.Data, &stopData)
-	if err != nil {
+	if err := json.Unmarshal(response.Data, &stopData); err != nil {
 		return nil, fmt.Errorf("error unmarshaling stop coordinates: %v", err)
 	}
-
 	return &stopData, nil
 }

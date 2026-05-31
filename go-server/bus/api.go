@@ -9,7 +9,6 @@ import (
 func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetRoutes - Query: %s\n", r.URL.RawQuery)
 	sql := "SELECT company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc FROM routes LIMIT 100"
-	fmt.Printf("SQL: %s\n", sql)
 	rows, err := database.Query(sql)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -34,7 +33,6 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 func GetStops(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetStops - Query: %s\n", r.URL.RawQuery)
 	sql := "SELECT company, stop, name_en, name_tc, name_sc, lat, long FROM stops LIMIT 100"
-	fmt.Printf("SQL: %s\n", sql)
 	rows, err := database.Query(sql)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -59,7 +57,6 @@ func GetStops(w http.ResponseWriter, r *http.Request) {
 func GetRouteStops(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetRouteStops - Query: %s\n", r.URL.RawQuery)
 	sql := "SELECT company, route, direction, service_type, seq, stop FROM route_stops LIMIT 100"
-	fmt.Printf("SQL: %s\n", sql)
 	rows, err := database.Query(sql)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -81,7 +78,6 @@ func GetRouteStops(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(routeStops)
 }
 
-// Search API Handlers
 func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("q")
 	fmt.Printf("SearchRoutes - Query: %s\n", query)
@@ -90,25 +86,24 @@ func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search in both KMB and Citybus routes
-	var allRoutes []Route
-
-	// Search KMB routes
-	sql := `SELECT company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc 
-		FROM routes 
-		WHERE route LIKE ? OR orig_en LIKE ? OR dest_en LIKE ? OR orig_tc LIKE ? OR dest_tc LIKE ?
+	like := "%" + query + "%"
+	sql := `SELECT company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc
+		FROM routes
+		WHERE route LIKE $1 OR orig_en LIKE $2 OR dest_en LIKE $3 OR orig_tc LIKE $4 OR dest_tc LIKE $5
 		LIMIT 50`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s, %s, %s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	rows, err := database.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var route Route
-			err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
-			if err == nil {
-				allRoutes = append(allRoutes, route)
-			}
+	rows, err := database.Query(sql, like, like, like, like, like)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var allRoutes []Route
+	for rows.Next() {
+		var route Route
+		err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
+		if err == nil {
+			allRoutes = append(allRoutes, route)
 		}
 	}
 
@@ -124,50 +119,32 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Search in both KMB and Citybus stops
-	var allStops []Stop
-
-	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long 
-		FROM stops 
-		WHERE stop LIKE ? OR name_en LIKE ? OR name_tc LIKE ? OR name_sc LIKE ?
+	like := "%" + query + "%"
+	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
+		FROM stops
+		WHERE stop LIKE $1 OR name_en LIKE $2 OR name_tc LIKE $3 OR name_sc LIKE $4
 		LIMIT 50`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s, %s, %s, %s]\n", "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	rows, err := database.Query(sql, "%"+query+"%", "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var stop Stop
-			err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
-			if err == nil {
-				allStops = append(allStops, stop)
-			}
+	rows, err := database.Query(sql, like, like, like, like)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var allStops []Stop
+	for rows.Next() {
+		var stop Stop
+		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
+		if err == nil {
+			allStops = append(allStops, stop)
 		}
 	}
-
-	// // Search Citybus stops
-	// rows, err = database.Query(`
-	// 	SELECT stop, name_en, name_tc, name_sc, lat, long
-	// 	FROM citybus_stops
-	// 	WHERE stop LIKE ? OR name_en LIKE ? OR name_tc LIKE ?
-	// 	LIMIT 50
-	// `, "%"+query+"%", "%"+query+"%", "%"+query+"%")
-	// if err == nil {
-	// 	defer rows.Close()
-	// 	for rows.Next() {
-	// 		var stop KmbStop
-	// 		err := rows.Scan(&stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
-	// 		if err == nil {
-	// 			allStops = append(allStops, stop)
-	// 		}
-	// 	}
-	// }
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(allStops)
 }
 
-// getStopsByRouteId returns all stops for a specific route
+// GetStopsByRouteId returns all stops for a specific route
 func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 	routeId := r.URL.Query().Get("routeId")
 	direction := r.URL.Query().Get("direction")
@@ -185,7 +162,7 @@ func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 			s.name_en, s.name_tc, s.lat, s.long
 			FROM route_stops rs
 			JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
-			WHERE rs.route = ? AND rs.direction = ?
+			WHERE rs.route = $1 AND rs.direction = $2
 			ORDER BY CAST(rs.seq AS INTEGER)`
 		args = []interface{}{routeId, direction}
 	} else {
@@ -193,13 +170,11 @@ func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 			s.name_en, s.name_tc, s.lat, s.long
 			FROM route_stops rs
 			JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
-			WHERE rs.route = ?
+			WHERE rs.route = $1
 			ORDER BY rs.direction, CAST(rs.seq AS INTEGER)`
 		args = []interface{}{routeId}
 	}
 
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: %v\n", args)
 	rows, err := database.Query(sql, args...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -214,8 +189,7 @@ func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-
-		routeStop := map[string]interface{}{
+		routeStopsWithDetails = append(routeStopsWithDetails, map[string]interface{}{
 			"company":      company,
 			"route":        route,
 			"direction":    direction,
@@ -226,15 +200,14 @@ func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 			"name_tc":      nameTc,
 			"lat":          lat,
 			"long":         long,
-		}
-		routeStopsWithDetails = append(routeStopsWithDetails, routeStop)
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(routeStopsWithDetails)
 }
 
-// getRoutesByStopId returns all routes that pass through a specific stop
+// GetRoutesByStopId returns all routes that pass through a specific stop
 func GetRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	stopId := r.URL.Query().Get("stopId")
 	fmt.Printf("GetRoutesByStopId - StopId: %s\n", stopId)
@@ -245,10 +218,8 @@ func GetRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 
 	sql := `SELECT DISTINCT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, rs.stop
 		FROM route_stops rs
-		WHERE rs.stop = ?
+		WHERE rs.stop = $1
 		ORDER BY rs.route, rs.direction`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s]\n", stopId)
 	rows, err := database.Query(sql, stopId)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -263,24 +234,21 @@ func GetRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-
-		routeWithDetails := map[string]interface{}{
+		routesWithDetails = append(routesWithDetails, map[string]interface{}{
 			"company":      company,
 			"route":        route,
 			"direction":    direction,
 			"service_type": serviceType,
 			"seq":          seq,
 			"stop":         stop,
-		}
-
-		routesWithDetails = append(routesWithDetails, routeWithDetails)
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(routesWithDetails)
 }
 
-// getStopsNearby returns stops within ±0.001 latitude and ±0.001 longitude from a given stop
+// GetStopsNearby returns stops within ±0.001 lat/long from a given stop
 func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	stopId := r.URL.Query().Get("stopId")
 	fmt.Printf("GetStopsNearby - StopId: %s\n", stopId)
@@ -289,18 +257,13 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// First get the latitude and longitude of the given stop
-	sql1 := "SELECT lat, long FROM stops WHERE stop = ?"
-	fmt.Printf("SQL 1: %s\n", sql1)
-	fmt.Printf("SQL 1 Parameters: [%s]\n", stopId)
 	var targetLat, targetLong string
-	err := database.QueryRow(sql1, stopId).Scan(&targetLat, &targetLong)
+	err := database.QueryRow("SELECT lat, long FROM stops WHERE stop = $1", stopId).Scan(&targetLat, &targetLong)
 	if err != nil {
 		http.Error(w, "Stop not found", http.StatusNotFound)
 		return
 	}
 
-	// Convert latitude and longitude to float for comparison
 	var latFloat, longFloat float64
 	_, err = fmt.Sscanf(targetLat, "%f", &latFloat)
 	if err != nil {
@@ -313,15 +276,16 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Find stops within ±0.001 latitude AND ±0.001 longitude range
-	sql2 := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
+	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
 		FROM stops
-		WHERE CAST(lat AS REAL) BETWEEN ? AND ?
-		AND CAST(long AS REAL) BETWEEN ? AND ?
-		ORDER BY ABS(CAST(lat AS REAL) - ?) + ABS(CAST(long AS REAL) - ?), stop`
-	fmt.Printf("SQL 2: %s\n", sql2)
-	fmt.Printf("SQL 2 Parameters: [%f, %f, %f, %f, %f, %f]\n", latFloat-0.001, latFloat+0.001, longFloat-0.001, longFloat+0.001, latFloat, longFloat)
-	rows, err := database.Query(sql2, latFloat-0.001, latFloat+0.001, longFloat-0.001, longFloat+0.001, latFloat, longFloat)
+		WHERE CAST(lat AS DOUBLE PRECISION) BETWEEN $1 AND $2
+		AND CAST(long AS DOUBLE PRECISION) BETWEEN $3 AND $4
+		ORDER BY ABS(CAST(lat AS DOUBLE PRECISION) - $5) + ABS(CAST(long AS DOUBLE PRECISION) - $6), stop`
+	rows, err := database.Query(sql,
+		latFloat-0.001, latFloat+0.001,
+		longFloat-0.001, longFloat+0.001,
+		latFloat, longFloat,
+	)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -342,7 +306,7 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(nearbyStops)
 }
 
-// getStopByStopId returns the stop details for a specific stopId
+// GetStopByStopId returns the stop details for a specific stopId
 func GetStopByStopId(w http.ResponseWriter, r *http.Request) {
 	stopId := r.URL.Query().Get("stopId")
 	fmt.Printf("GetStopByStopId - StopId: %s\n", stopId)
@@ -353,9 +317,7 @@ func GetStopByStopId(w http.ResponseWriter, r *http.Request) {
 
 	sql := `SELECT id, company, stop, name_en, name_tc, name_sc, lat, long, data_timestamp
 		FROM stops
-		WHERE stop = ?`
-	fmt.Printf("SQL: %s\n", sql)
-	fmt.Printf("SQL Parameters: [%s]\n", stopId)
+		WHERE stop = $1`
 	row := database.QueryRow(sql, stopId)
 
 	var stop Stop
@@ -377,19 +339,15 @@ func GetStopByStopId(w http.ResponseWriter, r *http.Request) {
 func GetRouteCount(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetRouteCount - Type: bus\n")
 	var count int
-	sql := "SELECT COUNT(*) FROM routes"
-	fmt.Printf("SQL: %s\n", sql)
-	err := database.QueryRow(sql).Scan(&count)
+	err := database.QueryRow("SELECT COUNT(*) FROM routes").Scan(&count)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	response := map[string]interface{}{
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"type":  "bus",
 		"count": count,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	})
 }

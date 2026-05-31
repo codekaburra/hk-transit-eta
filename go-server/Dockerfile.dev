@@ -1,0 +1,15 @@
+# Dev image — installs air for live reload on source changes
+FROM golang:1.26-alpine
+RUN apk add --no-cache ca-certificates
+WORKDIR /app
+# Pre-download modules so they're cached in the image layer.
+# Context is project root, so go.mod lives under go-server/.
+COPY go-server/go.mod go-server/go.sum ./
+RUN go mod download
+# Install air (Go live-reload tool)
+RUN go install github.com/air-verse/air@latest
+# Copy source — will be overridden by the volume mount in docker-compose.dev.yml,
+# but having it here means the image builds even without a mount.
+COPY go-server/ .
+EXPOSE 8080
+CMD ["air"]

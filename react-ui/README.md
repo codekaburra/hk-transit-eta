@@ -1,6 +1,6 @@
-# HK Bus Tool Frontend
+# HK Transit ETA — Frontend
 
-This is the React + TypeScript + Tailwind CSS frontend for the HK Bus Tool project. It provides a web interface to view Hong Kong bus route, stop, and route-stop data.
+React + TypeScript + Tailwind CSS frontend for HK Transit ETA. Provides real-time arrival times for buses, minibuses, and MTR across Hong Kong.
 
 ## Features
 - Modern React (TypeScript) web app

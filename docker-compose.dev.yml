@@ -1,0 +1,62 @@
+version: '3.9'
+# Development compose — hot reload for both frontend and backend.
+# Usage: docker-compose -f docker-compose.dev.yml up --build
+#
+# Frontend: npm start (React dev server on :3000, HMR enabled)
+# Backend:  air (Go live reload on :8080)
+# DB:       PostgreSQL on :5432 (also accessible from host for DB clients)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: hkbus
+      POSTGRES_USER: hkbus
+      POSTGRES_PASSWORD: hkbus_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hkbus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: go-server/Dockerfile.dev
+    restart: always
+    volumes:
+      - ./go-server:/app   # live source mount — air watches for .go changes
+    environment:
+      DATABASE_URL: postgres://hkbus:hkbus_password@db:5432/hkbus?sslmode=disable
+      PORT: "8080"
+      CORS_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./react-ui
+      dockerfile: Dockerfile.dev
+    restart: always
+    volumes:
+      - ./react-ui/src:/app/src       # hot reload: only src/ and public/ are mounted
+      - ./react-ui/public:/app/public # node_modules stays in the container
+    environment:
+      REACT_APP_API_URL: "http://localhost:8080/api"
+      CHOKIDAR_USEPOLLING: "true"   # required for file-watch inside Docker on macOS
+      CI: "false"                   # prevent warnings from killing the dev server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_dev_data:
