@@ -8,9 +8,6 @@ import (
 )
 
 func FetchCitybusData() {
-
-	fmt.Println("Successfully stored Citybus company data in SQLite database")
-
 	fmt.Println("\n=== Processing Citybus Route Data ===")
 	routes, err := fetchCitybusRoutes()
 	if err != nil {
@@ -18,6 +15,11 @@ func FetchCitybusData() {
 		return
 	}
 	fmt.Printf("Fetched %d Citybus routes from API\n", len(routes))
+
+	if err = saveCache(ctbCacheDir+"/ctb_routes.json", routes); err != nil {
+		log.Printf("Warning: could not save CTB routes cache: %v", err)
+	}
+
 	if err = storeRoutes(routes); err != nil {
 		log.Printf("Error storing Citybus routes: %v", err)
 		return
@@ -25,46 +27,57 @@ func FetchCitybusData() {
 	fmt.Println("Successfully stored Citybus routes")
 
 	fmt.Println("\n=== Processing Citybus Route-Stop Data ===")
+	var allRouteStops []RouteStop
 	for i, route := range routes {
-		fmt.Printf("🖍️ RouteStop %d / %d - %s\n", i, len(routes), route.Route)
+		fmt.Printf("🖍️ RouteStop %d / %d - %s\n", i+1, len(routes), route.Route)
 		routeStops, err := fetchCitybusRouteStops(route.Route)
 		if err != nil {
-			// Log and skip — one flaky route should not crash the server
 			log.Printf("Warning: skipping route-stops for Citybus route %s: %v", route.Route, err)
 			continue
 		}
 		fmt.Printf("Fetched %d Citybus route-stop relationships from API\n", len(routeStops))
+		allRouteStops = append(allRouteStops, routeStops...)
 		if err = storeRouteStops(routeStops); err != nil {
 			log.Printf("Warning: failed to store route-stops for Citybus route %s: %v", route.Route, err)
 		}
 	}
 
+	if err = saveCache(ctbCacheDir+"/ctb_route_stops.json", allRouteStops); err != nil {
+		log.Printf("Warning: could not save CTB route-stops cache: %v", err)
+	}
+
 	// Get unique stops from route_stops table to fetch stop details
 	routeStopsInDb, err := database.Query("SELECT DISTINCT stop FROM route_stops WHERE company = $1", DatabaseCompany_CityBus)
 	if err != nil {
-		log.Fatal("Error querying citybus route_stops:", err)
+		log.Printf("Error querying citybus route_stops: %v", err)
+		return
 	}
 	defer routeStopsInDb.Close()
 
 	var stopIds []string
 	for routeStopsInDb.Next() {
 		var stopId string
-		err := routeStopsInDb.Scan(&stopId)
-		if err != nil {
-			log.Printf("Error fetching Citybus stop %s: %v", stopId, err)
+		if err := routeStopsInDb.Scan(&stopId); err != nil {
+			log.Printf("Error scanning Citybus stop ID: %v", err)
 			continue
 		}
 		stopIds = append(stopIds, stopId)
 	}
 
-	stops, _ := fetchCitybusStops(stopIds)
 	fmt.Println("\n=== Processing Citybus Stop Data ===")
-	err = storeStops(stops)
-	fmt.Println("Successfully stored Citybus stops in SQLite database")
+	stops, _ := fetchCitybusStops(stopIds)
 
-	fmt.Println("Successfully stored Citybus route-stop relationships in SQLite database")
+	if err = saveCache(ctbCacheDir+"/ctb_stops.json", stops); err != nil {
+		log.Printf("Warning: could not save CTB stops cache: %v", err)
+	}
 
+	if err = storeStops(stops); err != nil {
+		log.Printf("Warning: failed to store Citybus stops: %v", err)
+	}
+	fmt.Println("Successfully stored Citybus stops")
 }
+
+const ctbCacheDir = "data/bus"
 
 func fetchCitybusRoutes() ([]Route, error) {
 	var routes []Route
@@ -154,130 +167,3 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 	}
 	return routeStops, nil
 }
-
-// func queryCitybusDatabase() {
-// 	var companyCount, routeCount, stopCount, routeStopCount int
-// 	err := database.QueryRow("SELECT COUNT(*) FROM citybus_company").Scan(&companyCount)
-// 	if err != nil {
-// 		log.Fatal("Error querying company count:", err)
-// 	}
-// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_routes").Scan(&routeCount)
-// 	if err != nil {
-// 		log.Fatal("Error querying route count:", err)
-// 	}
-// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_stops").Scan(&stopCount)
-// 	if err != nil {
-// 		log.Fatal("Error querying stop count:", err)
-// 	}
-// 	err = database.QueryRow("SELECT COUNT(*) FROM citybus_route_stops").Scan(&routeStopCount)
-// 	if err != nil {
-// 		log.Fatal("Error querying route-stop count:", err)
-// 	}
-
-// 	fmt.Printf("\n=== Citybus Database Summary ===\n")
-// 	fmt.Printf("Total companies in database: %d\n", companyCount)
-// 	fmt.Printf("Total routes in database: %d\n", routeCount)
-// 	fmt.Printf("Total stops in database: %d\n", stopCount)
-// 	fmt.Printf("Total route-stop relationships in database: %d\n\n", routeStopCount)
-
-// 	fmt.Println("=== Citybus Company Information ===")
-// 	rows, err := database.Query(`
-// 		SELECT co, name_en, name_tc, name_sc, url, data_timestamp
-// 		FROM citybus_company
-// 		ORDER BY co
-// 	`)
-// 	if err != nil {
-// 		log.Fatal("Error querying company data:", err)
-// 	}
-// 	defer rows.Close()
-// 	fmt.Printf("%-6s %-20s %-20s %-20s %-40s %-25s\n", "Code", "Name (EN)", "Name (TC)", "Name (SC)", "URL", "Data Timestamp")
-// 	fmt.Println("--------------------------------------------------------------------------------------------------------------------------------")
-// 	for rows.Next() {
-// 		var co, nameEn, nameTc, nameSc, url, dataTimestamp string
-// 		err := rows.Scan(&co, &nameEn, &nameTc, &nameSc, &url, &dataTimestamp)
-// 		if err != nil {
-// 			log.Fatal("Error scanning company row:", err)
-// 		}
-// 		fmt.Printf("%-6s %-20s %-20s %-20s %-40s %-25s\n", co, nameEn, nameTc, nameSc, url, dataTimestamp)
-// 	}
-// 	if err = rows.Err(); err != nil {
-// 		log.Fatal("Error iterating company rows:", err)
-// 	}
-
-// 	fmt.Println("\n=== Sample Citybus Routes ===")
-// 	routeRows, err := database.Query(`
-// 		SELECT route, orig_tc, dest_tc, orig_en, dest_en
-// 		FROM citybus_routes
-// 		ORDER BY route
-// 		LIMIT 5
-// 	`)
-// 	if err != nil {
-// 		log.Fatal("Error querying routes:", err)
-// 	}
-// 	defer routeRows.Close()
-// 	fmt.Printf("%-8s %-20s %-20s %-20s %-20s\n", "Route", "Origin (TC)", "Destination (TC)", "Origin (EN)", "Destination (EN)")
-// 	fmt.Println("-----------------------------------------------------------------------------------------------------------")
-// 	for routeRows.Next() {
-// 		var route, origTc, destTc, origEn, destEn string
-// 		err := routeRows.Scan(&route, &origTc, &destTc, &origEn, &destEn)
-// 		if err != nil {
-// 			log.Fatal("Error scanning route row:", err)
-// 		}
-// 		fmt.Printf("%-8s %-20s %-20s %-20s %-20s\n", route, origTc, destTc, origEn, destEn)
-// 	}
-// 	if err = routeRows.Err(); err != nil {
-// 		log.Fatal("Error iterating route rows:", err)
-// 	}
-
-// 	fmt.Println("\n=== Sample Citybus Stops ===")
-// 	stopRows, err := database.Query(`
-// 		SELECT stop, name_tc, lat, long
-// 		FROM citybus_stops
-// 		ORDER BY name_tc
-// 		LIMIT 5
-// 	`)
-// 	if err != nil {
-// 		log.Fatal("Error querying stops:", err)
-// 	}
-// 	defer stopRows.Close()
-// 	fmt.Printf("%-20s %-30s %-12s %-12s\n", "Stop ID", "Name (TC)", "Latitude", "Longitude")
-// 	fmt.Println("--------------------------------------------------------------------------------")
-// 	for stopRows.Next() {
-// 		var stop, nameTc, lat, long string
-// 		err := stopRows.Scan(&stop, &nameTc, &lat, &long)
-// 		if err != nil {
-// 			log.Fatal("Error scanning stop row:", err)
-// 		}
-// 		fmt.Printf("%-20s %-30s %-12s %-12s\n", stop, nameTc, lat, long)
-// 	}
-// 	if err = stopRows.Err(); err != nil {
-// 		log.Fatal("Error iterating stop rows:", err)
-// 	}
-
-// 	fmt.Println("\n=== Sample Citybus Route-Stop Relationships ===")
-// 	routeStopRows, err := database.Query(`
-// 		SELECT rs.route, rs.dir, rs.seq, s.name_tc
-// 		FROM citybus_route_stops rs
-// 		JOIN citybus_stops s ON rs.stop = s.stop
-// 		WHERE rs.route = '1' AND rs.dir = 'I'
-// 		ORDER BY rs.seq
-// 		LIMIT 10
-// 	`)
-// 	if err != nil {
-// 		log.Fatal("Error querying route-stops:", err)
-// 	}
-// 	defer routeStopRows.Close()
-// 	fmt.Printf("%-8s %-4s %-6s %-30s\n", "Route", "Dir", "Seq", "Stop Name")
-// 	fmt.Println("--------------------------------------------------------------")
-// 	for routeStopRows.Next() {
-// 		var route, dir, seq, stopName string
-// 		err := routeStopRows.Scan(&route, &dir, &seq, &stopName)
-// 		if err != nil {
-// 			log.Fatal("Error scanning route-stop row:", err)
-// 		}
-// 		fmt.Printf("%-8s %-4s %-6s %-30s\n", route, dir, seq, stopName)
-// 	}
-// 	if err = routeStopRows.Err(); err != nil {
-// 		log.Fatal("Error iterating route-stop rows:", err)
-// 	}
-// }

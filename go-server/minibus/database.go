@@ -119,10 +119,8 @@ func ShouldFetchMinibusData() bool {
 }
 
 func storeMinibusRoutes(routes []MinibusRoute, region string) error {
-	// Clear existing data for this region
-	if _, err := minibusDB.Exec("DELETE FROM minibus_route WHERE region = $1", region); err != nil {
-		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
-	}
+	// Clear existing data for this region. Delete child tables first, while the
+	// parent minibus_route rows still exist for the subquery to match.
 	if _, err := minibusDB.Exec(`DELETE FROM minibus_headway WHERE route_id IN
 		(SELECT route_id FROM minibus_route WHERE region = $1)`, region); err != nil {
 		return fmt.Errorf("error clearing minibus headways for region %s: %v", region, err)
@@ -130,6 +128,9 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 	if _, err := minibusDB.Exec(`DELETE FROM minibus_route_stop WHERE route_id IN
 		(SELECT route_id FROM minibus_route WHERE region = $1)`, region); err != nil {
 		return fmt.Errorf("error clearing minibus route stops for region %s: %v", region, err)
+	}
+	if _, err := minibusDB.Exec("DELETE FROM minibus_route WHERE region = $1", region); err != nil {
+		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
 	}
 
 	insertRouteSQL := `INSERT INTO minibus_route
@@ -313,6 +314,7 @@ func FetchAndStoreStopCoordinates() error {
 	}
 	defer stopStmt.Close()
 
+	var cachedStops []cachedStop
 	insertedStops := 0
 	for _, stopID := range stopIDs {
 		fmt.Printf("Fetching coordinates for stop %d\n", stopID)
@@ -338,7 +340,23 @@ func FetchAndStoreStopCoordinates() error {
 			log.Printf("Error inserting stop %d: %v", stopID, err)
 			continue
 		}
+		cachedStops = append(cachedStops, cachedStop{
+			StopID:        stopID,
+			Latitude:      stopData.Coordinates.WGS84.Latitude,
+			Longitude:     stopData.Coordinates.WGS84.Longitude,
+			HK80Lat:       stopData.Coordinates.HK80.Latitude,
+			HK80Lng:       stopData.Coordinates.HK80.Longitude,
+			Enabled:       stopData.Enabled,
+			RemarksTC:     stopData.RemarksTC,
+			RemarksSC:     stopData.RemarksSC,
+			RemarksEN:     stopData.RemarksEN,
+			DataTimestamp: stopData.DataTimestamp,
+		})
 		insertedStops++
+	}
+
+	if err := saveCache(minbusCacheDir+"/gmb_stops.json", cachedStops); err != nil {
+		log.Printf("Warning: could not save GMB stops cache: %v", err)
 	}
 
 	fmt.Printf("Inserted coordinates for %d stops\n", insertedStops)

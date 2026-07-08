@@ -38,14 +38,18 @@ func main() {
 	// Initialize databases
 	initDatabases()
 
+	const dataDir = "data"
 	if shouldFetchData() {
-		// Fetch data in background goroutines so the server starts immediately.
-		// Only runs when the database is empty (first boot after a fresh DB).
-		go bus.FetchKmbData()
-		go bus.FetchCitybusData()
+		// Seed from local JSON cache if available (fast), otherwise fetch from APIs (slow).
+		if !bus.SeedFromCache(dataDir) {
+			go bus.FetchKmbData()
+			go bus.FetchCitybusData()
+		}
 	}
 	if minibus.ShouldFetchMinibusData() {
-		go minibus.FetchMinibusRoutes()
+		if !minibus.SeedFromCache(dataDir) {
+			go minibus.FetchMinibusRoutes()
+		}
 	}
 
 	// Start HTTP server

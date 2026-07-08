@@ -70,7 +70,10 @@ func fetchMinibusRoutesByRegion(region string) error {
 
 	fmt.Printf("Successfully fetched detailed info for %d routes in region %s\n", len(detailedRoutes), region)
 
-	// Step 3: Store detailed routes in database
+	if err = saveCache(minbusCacheDir+"/gmb_routes_"+region+".json", detailedRoutes); err != nil {
+		log.Printf("Warning: could not save GMB routes cache for %s: %v", region, err)
+	}
+
 	err = storeMinibusRoutes(detailedRoutes, region)
 	if err != nil {
 		return fmt.Errorf("error storing minibus routes for region %s: %v", region, err)

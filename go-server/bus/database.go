@@ -82,7 +82,7 @@ func InitBusDatabase() {
 		stop TEXT NOT NULL,
 		data_timestamp TEXT,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		UNIQUE(route, direction, service_type, seq)
+		UNIQUE(company, route, direction, service_type, seq)
 	);`
 	_, err = database.Exec(createRouteStopsTableSQL)
 	if err != nil {
@@ -210,8 +210,7 @@ func storeRouteStops(routeStops []RouteStop) error {
 	insertSQL := `
 	INSERT INTO route_stops (company, route, direction, service_type, seq, stop, data_timestamp)
 	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	ON CONFLICT (route, direction, service_type, seq) DO UPDATE SET
-		company = EXCLUDED.company,
+	ON CONFLICT (company, route, direction, service_type, seq) DO UPDATE SET
 		stop = EXCLUDED.stop,
 		data_timestamp = EXCLUDED.data_timestamp`
 	stmt, err := tx.Prepare(insertSQL)
