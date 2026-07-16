@@ -136,6 +136,12 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
 	}
 
+	return upsertMinibusRoutes(routes)
+}
+
+// upsertMinibusRoutes inserts or updates route directions plus their headways
+// and route-stops (route-stops are fetched live, one request per direction).
+func upsertMinibusRoutes(routes []MinibusRoute) error {
 	insertRouteSQL := `INSERT INTO minibus_route
 		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
 		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
@@ -266,8 +272,20 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		}
 	}
 
-	fmt.Printf("Inserted %d route directions, %d headways, %d route stops for region %s\n",
-		insertedRoutes, insertedHeadways, insertedRouteStops, region)
+	fmt.Printf("Inserted %d route directions, %d headways, %d route stops\n",
+		insertedRoutes, insertedHeadways, insertedRouteStops)
+	return nil
+}
+
+// deleteMinibusRouteIDs removes the given routes and their children.
+func deleteMinibusRouteIDs(routeIDs []int) error {
+	for _, id := range routeIDs {
+		for _, table := range []string{"minibus_headway", "minibus_route_stop", "minibus_route"} {
+			if _, err := minibusDB.Exec("DELETE FROM "+table+" WHERE route_id = $1", id); err != nil {
+				return fmt.Errorf("error deleting route %d from %s: %v", id, table, err)
+			}
+		}
+	}
 	return nil
 }
 

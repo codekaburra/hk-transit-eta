@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"hk-transit-eta/bus"
@@ -19,6 +20,41 @@ import (
 )
 
 var database *sql.DB
+
+var refreshInFlight atomic.Bool
+
+// handleAdminRefresh triggers an incremental data refresh in the background.
+// Protected by ADMIN_TOKEN (X-Admin-Token header); disabled when unset.
+// Intended to be driven by host cron or invoked manually — deliberately not
+// an in-process ticker, since container restarts make wall-clock scheduling
+// inside the process unreliable.
+func handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
+	token := os.Getenv("ADMIN_TOKEN")
+	if token == "" {
+		http.Error(w, "refresh disabled: ADMIN_TOKEN not set", http.StatusServiceUnavailable)
+		return
+	}
+	if r.Header.Get("X-Admin-Token") != token {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if !refreshInFlight.CompareAndSwap(false, true) {
+		http.Error(w, "refresh already running", http.StatusConflict)
+		return
+	}
+	go func() {
+		defer refreshInFlight.Store(false)
+		if err := bus.Refresh(); err != nil {
+			log.Printf("Bus refresh failed: %v", err)
+		}
+		if err := minibus.Refresh(); err != nil {
+			log.Printf("Minibus refresh failed: %v", err)
+		}
+		log.Println("Data refresh finished")
+	}()
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprintln(w, `{"status":"refresh started"}`)
+}
 
 // getRouteCount handles the /num-routes endpoint and routes to appropriate count function
 func getRouteCount(w http.ResponseWriter, r *http.Request) {
@@ -100,6 +136,9 @@ func startServer() {
 
 	// Route count endpoint
 	api.HandleFunc("/num-routes", getRouteCount).Methods("GET")
+
+	// Admin: trigger incremental data refresh
+	api.HandleFunc("/admin/refresh", handleAdminRefresh).Methods("POST")
 
 	// Bus API endpoints
 	api.HandleFunc("/bus/routes", bus.GetRoutes).Methods("GET")
