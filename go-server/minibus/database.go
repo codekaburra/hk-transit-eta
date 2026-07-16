@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
+	"hk-transit-eta/internal/cache"
+	"hk-transit-eta/internal/httpapi"
 )
 
 var minibusDB *sql.DB
@@ -355,7 +358,7 @@ func FetchAndStoreStopCoordinates() error {
 		insertedStops++
 	}
 
-	if err := saveCache(minbusCacheDir+"/gmb_stops.json", cachedStops); err != nil {
+	if err := cache.Save(minibusCacheDir+"/gmb_stops.json", cachedStops); err != nil {
 		log.Printf("Warning: could not save GMB stops cache: %v", err)
 	}
 
@@ -365,7 +368,7 @@ func FetchAndStoreStopCoordinates() error {
 
 func fetchStopCoordinates(stopID int) (*MinibusStopResponse, error) {
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/stop/%d", stopID)
-	response, err := fetchAPI(apiURL)
+	response, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching stop coordinates: %v", err)
 	}

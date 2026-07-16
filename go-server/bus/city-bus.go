@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+
+	"hk-transit-eta/internal/cache"
+	"hk-transit-eta/internal/httpapi"
 )
 
 func FetchCitybusData() {
@@ -16,7 +19,7 @@ func FetchCitybusData() {
 	}
 	fmt.Printf("Fetched %d Citybus routes from API\n", len(routes))
 
-	if err = saveCache(ctbCacheDir+"/ctb_routes.json", routes); err != nil {
+	if err = cache.Save(ctbCacheDir+"/ctb_routes.json", routes); err != nil {
 		log.Printf("Warning: could not save CTB routes cache: %v", err)
 	}
 
@@ -42,7 +45,7 @@ func FetchCitybusData() {
 		}
 	}
 
-	if err = saveCache(ctbCacheDir+"/ctb_route_stops.json", allRouteStops); err != nil {
+	if err = cache.Save(ctbCacheDir+"/ctb_route_stops.json", allRouteStops); err != nil {
 		log.Printf("Warning: could not save CTB route-stops cache: %v", err)
 	}
 
@@ -65,9 +68,13 @@ func FetchCitybusData() {
 	}
 
 	fmt.Println("\n=== Processing Citybus Stop Data ===")
-	stops, _ := fetchCitybusStops(stopIds)
+	stops, err := fetchCitybusStops(stopIds)
+	if err != nil {
+		// Keep whatever was fetched before the failure; store partial results.
+		log.Printf("Warning: Citybus stop fetch incomplete (%d fetched): %v", len(stops), err)
+	}
 
-	if err = saveCache(ctbCacheDir+"/ctb_stops.json", stops); err != nil {
+	if err = cache.Save(ctbCacheDir+"/ctb_stops.json", stops); err != nil {
 		log.Printf("Warning: could not save CTB stops cache: %v", err)
 	}
 
@@ -84,7 +91,7 @@ func fetchCitybusRoutes() ([]Route, error) {
 	var _routes []CitybusRoute
 
 	apiURL := "https://rt.data.gov.hk/v2/transport/citybus/route/ctb"
-	apiResponse, err := FetchAPI(apiURL)
+	apiResponse, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +125,7 @@ func fetchCitybusStops(stopIds []string) ([]Stop, error) {
 		var _stop CitybusStop
 		fmt.Printf("🖍️ Stop %d / %d - %s\n", i+1, stopCount, stopId)
 		apiURL := "https://rt.data.gov.hk/v2/transport/citybus/stop/" + stopId
-		apiResponse, err := FetchAPI(apiURL)
+		apiResponse, err := httpapi.Fetch(apiURL)
 		if err != nil {
 			return stops, err
 		}
@@ -147,7 +154,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 		fmt.Printf("💬 Citybus RouteStop %s %s \n", route, dir)
 		_apiURL := apiURL + "/" + dir
 		var _routeStops []CitybusRouteStop
-		apiResponse, err := FetchAPI(_apiURL)
+		apiResponse, err := httpapi.Fetch(_apiURL)
 		if err != nil {
 			return nil, err
 		}
@@ -162,6 +169,7 @@ func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
 			routeStop.Direction = rs.Dir
 			routeStop.Seq = strconv.Itoa(rs.Seq)
 			routeStop.Stop = rs.Stop
+			routeStop.DataTimestamp = rs.DataTimestamp
 			routeStops = append(routeStops, routeStop)
 		}
 	}

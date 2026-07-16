@@ -1,45 +1,13 @@
 package minibus
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
+
+	"hk-transit-eta/internal/cache"
 )
 
-const minbusCacheDir = "data/minibus"
-
-func saveCache(path string, v interface{}) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return err
-	}
-	f, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	enc := json.NewEncoder(f)
-	enc.SetIndent("", "  ")
-	return enc.Encode(v)
-}
-
-func loadCache(path string, v interface{}) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return json.NewDecoder(f).Decode(v)
-}
-
-func cacheExists(paths ...string) bool {
-	for _, p := range paths {
-		if _, err := os.Stat(p); err != nil {
-			return false
-		}
-	}
-	return true
-}
+const minibusCacheDir = "data/minibus"
 
 // SeedFromCache loads minibus data from JSON cache files and stores it in the DB.
 // Returns false if any cache file is missing.
@@ -53,7 +21,7 @@ func SeedFromCache(dataDir string) bool {
 	}
 	files = append(files, filepath.Join(mbDir, "gmb_stops.json"))
 
-	if !cacheExists(files...) {
+	if !cache.Exists(files...) {
 		return false
 	}
 
@@ -61,7 +29,7 @@ func SeedFromCache(dataDir string) bool {
 
 	for i, region := range regions {
 		var routes []MinibusRoute
-		if err := loadCache(files[i], &routes); err != nil {
+		if err := cache.Load(files[i], &routes); err != nil {
 			fmt.Printf("Error loading GMB routes cache for %s: %v\n", region, err)
 			return false
 		}
@@ -73,7 +41,7 @@ func SeedFromCache(dataDir string) bool {
 	}
 
 	var stops []cachedStop
-	if err := loadCache(files[len(files)-1], &stops); err != nil {
+	if err := cache.Load(files[len(files)-1], &stops); err != nil {
 		fmt.Printf("Error loading GMB stops cache: %v\n", err)
 		return false
 	}

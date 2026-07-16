@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
+	"hk-transit-eta/internal/cache"
+	"hk-transit-eta/internal/httpapi"
 )
 
 const kmbCacheDir = "data/bus"
@@ -18,7 +21,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d routes from API\n", len(routes))
 
-	if err = saveCache(kmbCacheDir+"/kmb_routes.json", routes); err != nil {
+	if err = cache.Save(kmbCacheDir+"/kmb_routes.json", routes); err != nil {
 		log.Printf("Warning: could not save KMB routes cache: %v", err)
 	}
 
@@ -39,7 +42,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d stops from API\n", len(stops))
 
-	if err = saveCache(kmbCacheDir+"/kmb_stops.json", stops); err != nil {
+	if err = cache.Save(kmbCacheDir+"/kmb_stops.json", stops); err != nil {
 		log.Printf("Warning: could not save KMB stops cache: %v", err)
 	}
 
@@ -59,7 +62,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d route-stop relationships from API\n", len(routeStops))
 
-	if err = saveCache(kmbCacheDir+"/kmb_route_stops.json", routeStops); err != nil {
+	if err = cache.Save(kmbCacheDir+"/kmb_route_stops.json", routeStops); err != nil {
 		log.Printf("Warning: could not save KMB route-stops cache: %v", err)
 	}
 
@@ -76,7 +79,7 @@ func fetchKmbRouteData() ([]Route, error) {
 	var _routes []KmbRoute
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/route/"
 
-	apiResponse, err := FetchAPI(apiURL)
+	apiResponse, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +100,7 @@ func fetchKmbRouteData() ([]Route, error) {
 		route.DestEn = r.DestEn
 		route.DestTc = r.DestTc
 		route.DestSc = r.DestSc
-		route.DataTimestamp = ""
+		route.DataTimestamp = apiResponse.GeneratedTimestamp
 		routes = append(routes, route)
 	}
 	return routes, nil
@@ -106,7 +109,7 @@ func fetchKmbRouteData() ([]Route, error) {
 func fetchKmbStopData() ([]Stop, error) {
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/stop/"
 
-	apiResponse, err := FetchAPI(apiURL)
+	apiResponse, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +128,7 @@ func fetchKmbStopData() ([]Stop, error) {
 		stop.NameSc = _stop.NameSc
 		stop.Lat = _stop.Lat
 		stop.Long = _stop.Long
-		stop.DataTimestamp = ""
+		stop.DataTimestamp = apiResponse.GeneratedTimestamp
 		stops = append(stops, stop)
 	}
 	return stops, nil
@@ -134,7 +137,7 @@ func fetchKmbStopData() ([]Stop, error) {
 func fetchKmbRouteStopData() ([]RouteStop, error) {
 	apiURL := "https://data.etabus.gov.hk/v1/transport/kmb/route-stop/"
 
-	apiResponse, err := FetchAPI(apiURL)
+	apiResponse, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, err
 	}
@@ -153,6 +156,7 @@ func fetchKmbRouteStopData() ([]RouteStop, error) {
 		routeStop.Seq = _routeStop.Seq
 		routeStop.Stop = _routeStop.Stop
 		routeStop.ServiceType = _routeStop.ServiceType
+		routeStop.DataTimestamp = apiResponse.GeneratedTimestamp
 		routeStops = append(routeStops, routeStop)
 	}
 	return routeStops, nil

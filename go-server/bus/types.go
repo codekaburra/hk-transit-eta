@@ -1,14 +1,5 @@
 package bus
 
-import "encoding/json"
-
-type APICommon struct {
-	Type               string          `json:"type"`
-	Version            string          `json:"version"`
-	GeneratedTimestamp string          `json:"generated_timestamp"`
-	Data               json.RawMessage `json:"data"`
-}
-
 type KmbRoute struct {
 	Route       string `json:"route"`
 	Bound       string `json:"bound"`
