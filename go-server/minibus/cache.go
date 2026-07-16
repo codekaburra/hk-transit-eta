@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"hk-transit-eta/internal/cache"
+	"hk-transit-eta/internal/syncmeta"
 )
 
 const minibusCacheDir = "data/minibus"
@@ -52,6 +53,9 @@ func SeedFromCache(dataDir string) bool {
 	fmt.Printf("Seeded %d GMB stops\n", len(stops))
 
 	fmt.Println("=== Minibus cache seeding complete ===")
+	if err := syncmeta.Record("gmb_seed", ""); err != nil {
+		fmt.Printf("Warning: could not record gmb seed: %v\n", err)
+	}
 	return true
 }
 

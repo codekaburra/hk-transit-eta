@@ -7,6 +7,7 @@ import (
 
 	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
+	"hk-transit-eta/internal/syncmeta"
 )
 
 const kmbCacheDir = "data/bus"
@@ -72,6 +73,14 @@ func FetchKmbData() {
 	}
 
 	fmt.Println("Successfully stored all KMB route-stop relationships")
+
+	var ts string
+	if len(routes) > 0 {
+		ts = routes[0].DataTimestamp
+	}
+	if err := syncmeta.Record("kmb", ts); err != nil {
+		log.Printf("Warning: could not record kmb sync: %v", err)
+	}
 }
 
 func fetchKmbRouteData() ([]Route, error) {

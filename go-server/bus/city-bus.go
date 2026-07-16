@@ -8,6 +8,7 @@ import (
 
 	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
+	"hk-transit-eta/internal/syncmeta"
 )
 
 func FetchCitybusData() {
@@ -82,6 +83,14 @@ func FetchCitybusData() {
 		log.Printf("Warning: failed to store Citybus stops: %v", err)
 	}
 	fmt.Println("Successfully stored Citybus stops")
+
+	var ts string
+	if len(routes) > 0 {
+		ts = routes[0].DataTimestamp
+	}
+	if err := syncmeta.Record("ctb", ts); err != nil {
+		log.Printf("Warning: could not record ctb sync: %v", err)
+	}
 }
 
 const ctbCacheDir = "data/bus"

@@ -117,123 +117,123 @@ func QueryDatabase() {
 	fmt.Printf("Total route-stop relationships: %d\n\n", routeStopCount)
 }
 
-func storeRoutes(routes []Route) error {
-	tx, err := database.Begin()
+const insertRouteSQL = `
+INSERT INTO routes (company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc, data_timestamp)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+ON CONFLICT (company, route, direction, service_type) DO UPDATE SET
+	orig_en = EXCLUDED.orig_en,
+	orig_tc = EXCLUDED.orig_tc,
+	orig_sc = EXCLUDED.orig_sc,
+	dest_en = EXCLUDED.dest_en,
+	dest_tc = EXCLUDED.dest_tc,
+	dest_sc = EXCLUDED.dest_sc,
+	data_timestamp = EXCLUDED.data_timestamp`
+
+const insertStopSQL = `
+INSERT INTO stops (company, stop, name_en, name_tc, name_sc, lat, long, data_timestamp)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (stop) DO UPDATE SET
+	name_en = EXCLUDED.name_en,
+	name_tc = EXCLUDED.name_tc,
+	name_sc = EXCLUDED.name_sc,
+	lat = EXCLUDED.lat,
+	long = EXCLUDED.long,
+	data_timestamp = EXCLUDED.data_timestamp`
+
+const insertRouteStopSQL = `
+INSERT INTO route_stops (company, route, direction, service_type, seq, stop, data_timestamp)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (company, route, direction, service_type, seq) DO UPDATE SET
+	stop = EXCLUDED.stop,
+	data_timestamp = EXCLUDED.data_timestamp`
+
+func insertRoutesTx(tx *sql.Tx, routes []Route) error {
+	stmt, err := tx.Prepare(insertRouteSQL)
 	if err != nil {
-		return fmt.Errorf("error beginning transaction: %v", err)
-	}
-	insertSQL := `
-	INSERT INTO routes (company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc, data_timestamp)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-	ON CONFLICT (company, route, direction, service_type) DO UPDATE SET
-		orig_en = EXCLUDED.orig_en,
-		orig_tc = EXCLUDED.orig_tc,
-		orig_sc = EXCLUDED.orig_sc,
-		dest_en = EXCLUDED.dest_en,
-		dest_tc = EXCLUDED.dest_tc,
-		dest_sc = EXCLUDED.dest_sc,
-		data_timestamp = EXCLUDED.data_timestamp`
-	stmt, err := tx.Prepare(insertSQL)
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error preparing statement: %v", err)
+		return fmt.Errorf("error preparing route statement: %v", err)
 	}
 	defer stmt.Close()
 	for _, route := range routes {
-		_, err = stmt.Exec(
-			route.Company,
-			route.Route,
-			route.Direction,
-			route.ServiceType,
-			route.OrigEn,
-			route.OrigTc,
-			route.OrigSc,
-			route.DestEn,
-			route.DestTc,
-			route.DestSc,
-			route.DataTimestamp,
-		)
-		if err != nil {
-			tx.Rollback()
+		if _, err := stmt.Exec(route.Company, route.Route, route.Direction, route.ServiceType,
+			route.OrigEn, route.OrigTc, route.OrigSc,
+			route.DestEn, route.DestTc, route.DestSc, route.DataTimestamp); err != nil {
 			return fmt.Errorf("error inserting route %s: %v", route.Route, err)
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
-func storeStops(stops []Stop) error {
-	tx, err := database.Begin()
+func insertStopsTx(tx *sql.Tx, stops []Stop) error {
+	stmt, err := tx.Prepare(insertStopSQL)
 	if err != nil {
-		return fmt.Errorf("error beginning transaction: %v", err)
-	}
-	insertSQL := `
-	INSERT INTO stops (company, stop, name_en, name_tc, name_sc, lat, long, data_timestamp)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	ON CONFLICT (stop) DO UPDATE SET
-		name_en = EXCLUDED.name_en,
-		name_tc = EXCLUDED.name_tc,
-		name_sc = EXCLUDED.name_sc,
-		lat = EXCLUDED.lat,
-		long = EXCLUDED.long,
-		data_timestamp = EXCLUDED.data_timestamp`
-	stmt, err := tx.Prepare(insertSQL)
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("error preparing statement: %v", err)
+		return fmt.Errorf("error preparing stop statement: %v", err)
 	}
 	defer stmt.Close()
 	for _, stop := range stops {
-		_, err = stmt.Exec(
-			stop.Company,
-			stop.Stop,
-			stop.NameEn,
-			stop.NameTc,
-			stop.NameSc,
-			stop.Lat,
-			stop.Long,
-			stop.DataTimestamp,
-		)
-		if err != nil {
-			tx.Rollback()
+		if _, err := stmt.Exec(stop.Company, stop.Stop, stop.NameEn, stop.NameTc, stop.NameSc,
+			stop.Lat, stop.Long, stop.DataTimestamp); err != nil {
 			return fmt.Errorf("error inserting stop %s: %v", stop.Stop, err)
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
-func storeRouteStops(routeStops []RouteStop) error {
-	fmt.Printf("💾 Storing %d route stops\n", len(routeStops))
+func insertRouteStopsTx(tx *sql.Tx, routeStops []RouteStop) error {
+	stmt, err := tx.Prepare(insertRouteStopSQL)
+	if err != nil {
+		return fmt.Errorf("error preparing route-stop statement: %v", err)
+	}
+	defer stmt.Close()
+	for _, rs := range routeStops {
+		if _, err := stmt.Exec(rs.Company, rs.Route, rs.Direction, rs.ServiceType,
+			rs.Seq, rs.Stop, rs.DataTimestamp); err != nil {
+			return fmt.Errorf("error inserting route-stop %s-%s-%s: %v", rs.Route, rs.Direction, rs.Seq, err)
+		}
+	}
+	return nil
+}
+
+func runInTx(fn func(tx *sql.Tx) error) error {
 	tx, err := database.Begin()
 	if err != nil {
 		return fmt.Errorf("error beginning transaction: %v", err)
 	}
-	insertSQL := `
-	INSERT INTO route_stops (company, route, direction, service_type, seq, stop, data_timestamp)
-	VALUES ($1, $2, $3, $4, $5, $6, $7)
-	ON CONFLICT (company, route, direction, service_type, seq) DO UPDATE SET
-		stop = EXCLUDED.stop,
-		data_timestamp = EXCLUDED.data_timestamp`
-	stmt, err := tx.Prepare(insertSQL)
-	if err != nil {
+	if err := fn(tx); err != nil {
 		tx.Rollback()
-		return fmt.Errorf("error preparing statement: %v", err)
-	}
-	defer stmt.Close()
-	for _, rs := range routeStops {
-		fmt.Printf("💾 RouteStop %s %s %s %s %s %s\n", rs.Company, rs.Route, rs.Direction, rs.Seq, rs.Stop, rs.ServiceType)
-		_, err = stmt.Exec(
-			rs.Company,
-			rs.Route,
-			rs.Direction,
-			rs.ServiceType,
-			rs.Seq,
-			rs.Stop,
-			rs.DataTimestamp,
-		)
-		if err != nil {
-			tx.Rollback()
-			return fmt.Errorf("error inserting route-stop %s-%s-%s: %v", rs.Route, rs.Direction, rs.Seq, err)
-		}
+		return err
 	}
 	return tx.Commit()
+}
+
+func storeRoutes(routes []Route) error {
+	return runInTx(func(tx *sql.Tx) error { return insertRoutesTx(tx, routes) })
+}
+
+func storeStops(stops []Stop) error {
+	return runInTx(func(tx *sql.Tx) error { return insertStopsTx(tx, stops) })
+}
+
+func storeRouteStops(routeStops []RouteStop) error {
+	fmt.Printf("Storing %d route stops\n", len(routeStops))
+	return runInTx(func(tx *sql.Tx) error { return insertRouteStopsTx(tx, routeStops) })
+}
+
+// ReplaceCompanyData atomically swaps all rows for one company. Used by
+// refresh so removed routes/stops don't linger as zombie rows, while a
+// mid-refresh failure rolls back to the previous complete dataset.
+func ReplaceCompanyData(company string, routes []Route, stops []Stop, routeStops []RouteStop) error {
+	return runInTx(func(tx *sql.Tx) error {
+		for _, table := range []string{"route_stops", "routes", "stops"} {
+			if _, err := tx.Exec("DELETE FROM "+table+" WHERE company = $1", company); err != nil {
+				return fmt.Errorf("error clearing %s for %s: %v", table, company, err)
+			}
+		}
+		if err := insertRoutesTx(tx, routes); err != nil {
+			return err
+		}
+		if err := insertStopsTx(tx, stops); err != nil {
+			return err
+		}
+		return insertRouteStopsTx(tx, routeStops)
+	})
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"hk-transit-eta/internal/cache"
+	"hk-transit-eta/internal/syncmeta"
 )
 
 // SeedFromCache loads bus data from JSON cache files and stores it in the DB.
@@ -92,5 +93,8 @@ func SeedFromCache(dataDir string) bool {
 	fmt.Printf("Seeded %d CTB route-stops\n", len(ctbRouteStops))
 
 	fmt.Println("=== Bus cache seeding complete ===")
+	if err := syncmeta.Record("bus_seed", ""); err != nil {
+		fmt.Printf("Warning: could not record bus seed: %v\n", err)
+	}
 	return true
 }

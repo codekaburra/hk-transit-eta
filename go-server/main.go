@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"hk-transit-eta/bus"
+	"hk-transit-eta/internal/syncmeta"
 	"hk-transit-eta/minibus"
 
 	"github.com/gorilla/mux"
@@ -77,6 +78,10 @@ func initDatabases() {
 	}
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
+	}
+
+	if err := syncmeta.Init(database); err != nil {
+		log.Fatal("Failed to init sync_meta table:", err)
 	}
 
 	// Set the database connection for both packages

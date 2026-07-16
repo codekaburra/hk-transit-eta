@@ -7,6 +7,7 @@ import (
 
 	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
+	"hk-transit-eta/internal/syncmeta"
 )
 
 func FetchMinibusRoutes() {
@@ -30,6 +31,10 @@ func FetchMinibusRoutes() {
 	err := FetchAndStoreStopCoordinates()
 	if err != nil {
 		log.Printf("Error fetching stop coordinates: %v", err)
+	}
+
+	if err := syncmeta.Record("gmb", ""); err != nil {
+		log.Printf("Warning: could not record gmb sync: %v", err)
 	}
 }
 
