@@ -128,18 +128,20 @@ Prefer the simplest reliable option:
 
 ## Execution order (each = its own commit)
 
-1. `git push` current branch + open PR to `main`. PR body **must** note the
-   `route_stops` UNIQUE change requires a DB reset (`docker compose down -v`) —
-   `CREATE TABLE IF NOT EXISTS` won't alter an existing table.
-2. Extract `internal/cache` + `internal/httpapi` (P5); add HTTP client timeout
-   (P4); fix swallowed CTB error; stop discarding KMB `data_timestamp`.
-3. Add `sync_meta` table (P3); write to it on seed/refresh.
-4. Bus refresh → delete-then-insert inside a transaction (P2).
-5. Run one full fetch; write compact JSON; commit the baseline snapshot (P1).
-6. Add `POST /admin/refresh`: GMB `last-update` diff + KMB bulk re-fetch + CTB
-   changed-route-only re-fetch (P4 retry/delay).
-
-Run `go build ./... && go vet ./...` after steps 2–4.
+1. ✅ `git push` current branch + open PR to `main`
+   ([PR #2](https://github.com/codekaburra/hk-transit-eta/pull/2), DB-reset
+   note included).
+2. ✅ Extract `internal/cache` + `internal/httpapi` (P5); HTTP client timeout
+   (P4); fix swallowed CTB error; KMB envelope timestamp. (commit `638ce64`)
+3. ✅ Add `sync_meta` table (P3). (commit `f1b567b`)
+4. ✅ Bus refresh → `ReplaceCompanyData` in a transaction (P2). (`f1b567b`)
+5. ⬜ Run one full fetch; commit the compact-JSON baseline snapshot (P1).
+   **Blocked on a running Postgres** — with Docker up:
+   `docker compose -f docker-compose.dev.yml up db -d`, run the server once
+   to fetch, then `git add go-server/data && git commit`.
+6. ✅ `POST /api/admin/refresh` (guarded by `ADMIN_TOKEN`): GMB `last-update`
+   diff + KMB bulk re-fetch + CTB changed-route-only re-fetch.
+   (commit `e2f5f64`)
 
 ## Out of scope
 
