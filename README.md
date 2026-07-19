@@ -141,7 +141,7 @@ PostgreSQL 16. Tables are auto-created on startup.
 ## Data Sources
 
 - **KMB** — `https://data.etabus.gov.hk/v1/transport/kmb/`
-- **Citybus** — `https://data.etabus.gov.hk/v1/transport/citybus/`
+- **Citybus** — `https://rt.data.gov.hk/v2/transport/citybus/`
 - **GMB** — `https://data.etagmb.gov.hk/` (regions: HKI, KLN, NT)
 
 All data sourced from official Hong Kong government and operator APIs.
