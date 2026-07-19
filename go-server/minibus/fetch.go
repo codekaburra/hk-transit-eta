@@ -4,11 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
 	"hk-transit-eta/internal/syncmeta"
 )
+
+// gmbRequestInterval paces every GMB API call. The API returns HTTP 403 once
+// hammered with back-to-back requests (observed live during a full fetch),
+// so throttling is mandatory, not polite.
+const gmbRequestInterval = 300 * time.Millisecond
+
+func gmbFetch(apiURL string) (*httpapi.Response, error) {
+	time.Sleep(gmbRequestInterval)
+	return httpapi.FetchWithRetry(apiURL, 3, 5*time.Second)
+}
 
 func FetchMinibusRoutes() {
 	fmt.Println("=== Processing Minibus Route Data ===")
@@ -42,7 +53,7 @@ func fetchMinibusRoutesByRegion(region string) error {
 	// Step 1: Get route codes for the region
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route/%s", region)
 
-	response, err := httpapi.Fetch(apiURL)
+	response, err := gmbFetch(apiURL)
 	if err != nil {
 		return fmt.Errorf("error fetching minibus route codes for region %s: %v", region, err)
 	}
@@ -93,7 +104,7 @@ func fetchMinibusRoutesByRegion(region string) error {
 func fetchRouteDetail(region, routeCode string) ([]MinibusRoute, error) {
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route/%s/%s", region, routeCode)
 
-	response, err := httpapi.Fetch(apiURL)
+	response, err := gmbFetch(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching route detail: %v", err)
 	}
@@ -110,7 +121,7 @@ func fetchRouteDetail(region, routeCode string) ([]MinibusRoute, error) {
 func fetchRouteStops(routeID, routeSeq int) (*MinibusRouteStopResponse, error) {
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route-stop/%d/%d", routeID, routeSeq)
 
-	response, err := httpapi.Fetch(apiURL)
+	response, err := gmbFetch(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching route stops: %v", err)
 	}

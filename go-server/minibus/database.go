@@ -7,7 +7,6 @@ import (
 	"log"
 
 	"hk-transit-eta/internal/cache"
-	"hk-transit-eta/internal/httpapi"
 )
 
 var minibusDB *sql.DB
@@ -386,7 +385,7 @@ func FetchAndStoreStopCoordinates() error {
 
 func fetchStopCoordinates(stopID int) (*MinibusStopResponse, error) {
 	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/stop/%d", stopID)
-	response, err := httpapi.Fetch(apiURL)
+	response, err := gmbFetch(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching stop coordinates: %v", err)
 	}

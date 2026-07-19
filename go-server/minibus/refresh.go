@@ -4,21 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
-	"hk-transit-eta/internal/httpapi"
 	"hk-transit-eta/internal/syncmeta"
 )
 
-// routeLastUpdate mirrors one entry of GET /last-update/route
-// (spec section 8: data.data_timestamp[]).
+// routeLastUpdate mirrors one entry of GET /last-update/route. The spec's
+// table describes a wrapper object with a route_seq, but the live API
+// (verified 2026-07) returns a bare array keyed by route_id only, with
+// last_update_date in UTC while route details carry +08:00 timestamps —
+// so comparisons must parse the timestamps, not compare strings.
 type routeLastUpdate struct {
 	RouteID        int    `json:"route_id"`
-	RouteSeq       int    `json:"route_seq"`
 	LastUpdateDate string `json:"last_update_date"`
-}
-
-type lastUpdatePayload struct {
-	DataTimestamp []routeLastUpdate `json:"data_timestamp"`
 }
 
 // Refresh incrementally re-syncs GMB data using the official Last Update API,
@@ -35,26 +33,31 @@ type lastUpdatePayload struct {
 func Refresh() error {
 	fmt.Println("=== Refreshing GMB data ===")
 
-	// Stored state: route codes per region, timestamps and code lookup per ID.
+	// Stored state: route codes per region, newest direction timestamp and
+	// code lookup per route ID.
 	type regionCode struct{ region, code string }
 	dbCodes := map[regionCode]bool{}
-	dbTimestamps := map[[2]int]string{}
+	dbLatest := map[int]time.Time{}
 	codeByID := map[int]regionCode{}
 	rows, err := minibusDB.Query(
-		`SELECT region, route_code, route_id, route_seq, direction_data_timestamp FROM minibus_route`)
+		`SELECT region, route_code, route_id, direction_data_timestamp FROM minibus_route`)
 	if err != nil {
 		return err
 	}
 	for rows.Next() {
 		var rc regionCode
-		var id, seq int
+		var id int
 		var ts string
-		if err := rows.Scan(&rc.region, &rc.code, &id, &seq, &ts); err != nil {
+		if err := rows.Scan(&rc.region, &rc.code, &id, &ts); err != nil {
 			continue
 		}
 		dbCodes[rc] = true
-		dbTimestamps[[2]int{id, seq}] = ts
 		codeByID[id] = rc
+		if t, err := time.Parse(time.RFC3339, ts); err == nil {
+			if t.After(dbLatest[id]) {
+				dbLatest[id] = t
+			}
+		}
 	}
 	rows.Close()
 
@@ -62,7 +65,7 @@ func Refresh() error {
 	toFetch := map[regionCode]bool{}
 	upstreamCodes := map[regionCode]bool{}
 	for _, region := range []string{MinibusRegionHKI, MinibusRegionKLN, MinibusRegionNT} {
-		resp, err := httpapi.Fetch("https://data.etagmb.gov.hk/route/" + region)
+		resp, err := gmbFetch("https://data.etagmb.gov.hk/route/" + region)
 		if err != nil {
 			return fmt.Errorf("route listing for %s: %v", region, err)
 		}
@@ -87,18 +90,23 @@ func Refresh() error {
 	}
 
 	// Changed directions via the Last Update API.
-	resp, err := httpapi.Fetch("https://data.etagmb.gov.hk/last-update/route")
+	resp, err := gmbFetch("https://data.etagmb.gov.hk/last-update/route")
 	if err != nil {
 		return fmt.Errorf("last-update/route: %v", err)
 	}
-	var updates lastUpdatePayload
+	var updates []routeLastUpdate
 	if err := json.Unmarshal(resp.Data, &updates); err != nil {
 		return fmt.Errorf("unmarshal last-update/route: %v", err)
 	}
 	changedIDs := map[int]bool{}
-	for _, u := range updates.DataTimestamp {
-		stored, known := dbTimestamps[[2]int{u.RouteID, u.RouteSeq}]
-		if known && stored != u.LastUpdateDate {
+	for _, u := range updates {
+		stored, known := dbLatest[u.RouteID]
+		if !known {
+			continue // not in DB: either new (handled via listings) or out of scope
+		}
+		upstream, err := time.Parse(time.RFC3339, u.LastUpdateDate)
+		if err != nil || upstream.After(stored) {
+			// Unparseable timestamps err on the side of re-fetching.
 			changedIDs[u.RouteID] = true
 		}
 	}
