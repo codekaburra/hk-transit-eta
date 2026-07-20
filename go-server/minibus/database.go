@@ -40,11 +40,18 @@ func InitMinibusDatabase() {
 		remarks_en TEXT,
 		direction_data_timestamp TEXT,
 		data_timestamp TEXT,
+		last_update_date TEXT,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(region, route_code, route_id, route_seq)
 	);`
 	if _, err := minibusDB.Exec(createMinibusRouteTable); err != nil {
 		log.Fatal("Error creating minibus_route table:", err)
+	}
+
+	// Migration for tables created before last_update_date existed.
+	if _, err := minibusDB.Exec(
+		`ALTER TABLE minibus_route ADD COLUMN IF NOT EXISTS last_update_date TEXT`); err != nil {
+		log.Fatal("Error adding last_update_date column:", err)
 	}
 
 	createMinibusHeadwayTableSQL := `
