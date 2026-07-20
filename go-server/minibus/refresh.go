@@ -170,6 +170,11 @@ func Refresh() error {
 		log.Printf("Warning: GMB stop coordinate refresh incomplete: %v", err)
 	}
 
+	// Drop stops that no route references anymore (routes removed above).
+	if err := pruneOrphanStops(); err != nil {
+		log.Printf("Warning: %v", err)
+	}
+
 	if err := ExportSnapshot("data"); err != nil {
 		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}

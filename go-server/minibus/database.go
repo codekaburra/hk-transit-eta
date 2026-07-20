@@ -298,6 +298,21 @@ func deleteMinibusRouteIDs(routeIDs []int) error {
 	return nil
 }
 
+// pruneOrphanStops removes stops no longer referenced by any route-stop.
+// minibus_stop is otherwise only ever upserted, so stops belonging to
+// removed routes would linger forever.
+func pruneOrphanStops() error {
+	res, err := minibusDB.Exec(`DELETE FROM minibus_stop
+		WHERE stop_id NOT IN (SELECT DISTINCT stop_id FROM minibus_route_stop)`)
+	if err != nil {
+		return fmt.Errorf("error pruning orphan minibus stops: %v", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		fmt.Printf("Pruned %d orphan minibus stops\n", n)
+	}
+	return nil
+}
+
 // FetchAndStoreStopCoordinates fetches coordinates for stops not yet in minibus_stop
 func FetchAndStoreStopCoordinates() error {
 	fmt.Println("=== Fetching Minibus Stop Coordinates ===")
