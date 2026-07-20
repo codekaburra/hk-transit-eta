@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-
-	"hk-transit-eta/internal/cache"
 )
 
 var minibusDB *sql.DB
@@ -127,7 +125,7 @@ func ShouldFetchMinibusData() bool {
 	return false
 }
 
-func storeMinibusRoutes(routes []MinibusRoute, region string) error {
+func storeMinibusRoutes(routes []MinibusRoute, region string, fetchStops bool) error {
 	// Clear existing data for this region. Delete child tables first, while the
 	// parent minibus_route rows still exist for the subquery to match.
 	if _, err := minibusDB.Exec(`DELETE FROM minibus_headway WHERE route_id IN
@@ -142,12 +140,14 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
 	}
 
-	return upsertMinibusRoutes(routes)
+	return upsertMinibusRoutes(routes, fetchStops)
 }
 
-// upsertMinibusRoutes inserts or updates route directions plus their headways
-// and route-stops (route-stops are fetched live, one request per direction).
-func upsertMinibusRoutes(routes []MinibusRoute) error {
+// upsertMinibusRoutes inserts or updates route directions plus their headways.
+// When fetchStops is true, each direction's route-stops are fetched live (one
+// request per direction); seeding from a local snapshot passes false and
+// inserts route-stops from the snapshot instead.
+func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 	insertRouteSQL := `INSERT INTO minibus_route
 		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
 		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
@@ -255,6 +255,9 @@ func upsertMinibusRoutes(routes []MinibusRoute) error {
 				insertedHeadways++
 			}
 
+			if !fetchStops {
+				continue
+			}
 			fmt.Printf("Fetching route stops for route %d, sequence %d\n", route.RouteID, direction.RouteSeq)
 			routeStops, err := fetchRouteStops(route.RouteID, direction.RouteSeq)
 			if err != nil {
@@ -341,7 +344,6 @@ func FetchAndStoreStopCoordinates() error {
 	}
 	defer stopStmt.Close()
 
-	var cachedStops []cachedStop
 	insertedStops := 0
 	for _, stopID := range stopIDs {
 		fmt.Printf("Fetching coordinates for stop %d\n", stopID)
@@ -367,23 +369,7 @@ func FetchAndStoreStopCoordinates() error {
 			log.Printf("Error inserting stop %d: %v", stopID, err)
 			continue
 		}
-		cachedStops = append(cachedStops, cachedStop{
-			StopID:        stopID,
-			Latitude:      stopData.Coordinates.WGS84.Latitude,
-			Longitude:     stopData.Coordinates.WGS84.Longitude,
-			HK80Lat:       stopData.Coordinates.HK80.Latitude,
-			HK80Lng:       stopData.Coordinates.HK80.Longitude,
-			Enabled:       stopData.Enabled,
-			RemarksTC:     stopData.RemarksTC,
-			RemarksSC:     stopData.RemarksSC,
-			RemarksEN:     stopData.RemarksEN,
-			DataTimestamp: stopData.DataTimestamp,
-		})
 		insertedStops++
-	}
-
-	if err := cache.Save(minibusCacheDir+"/gmb_stops.json", cachedStops); err != nil {
-		log.Printf("Warning: could not save GMB stops cache: %v", err)
 	}
 
 	fmt.Printf("Inserted coordinates for %d stops\n", insertedStops)

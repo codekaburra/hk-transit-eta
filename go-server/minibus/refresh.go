@@ -143,7 +143,7 @@ func Refresh() error {
 		fetched = append(fetched, detail...)
 	}
 	if len(fetched) > 0 {
-		if err := upsertMinibusRoutes(fetched); err != nil {
+		if err := upsertMinibusRoutes(fetched, true); err != nil {
 			return err
 		}
 	}
@@ -168,6 +168,10 @@ func Refresh() error {
 	// Coordinates for stops that appeared in new/changed route-stops.
 	if err := FetchAndStoreStopCoordinates(); err != nil {
 		log.Printf("Warning: GMB stop coordinate refresh incomplete: %v", err)
+	}
+
+	if err := ExportSnapshot("data"); err != nil {
+		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}
 
 	return syncmeta.Record("gmb", resp.GeneratedTimestamp)
