@@ -6,7 +6,6 @@ import (
 	"log"
 	"time"
 
-	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
 	"hk-transit-eta/internal/syncmeta"
 )
@@ -42,6 +41,10 @@ func FetchMinibusRoutes() {
 	err := FetchAndStoreStopCoordinates()
 	if err != nil {
 		log.Printf("Error fetching stop coordinates: %v", err)
+	}
+
+	if err := ExportSnapshot("data"); err != nil {
+		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}
 
 	if err := syncmeta.Record("gmb", ""); err != nil {
@@ -89,11 +92,7 @@ func fetchMinibusRoutesByRegion(region string) error {
 
 	fmt.Printf("Successfully fetched detailed info for %d routes in region %s\n", len(detailedRoutes), region)
 
-	if err = cache.Save(minibusCacheDir+"/gmb_routes_"+region+".json", detailedRoutes); err != nil {
-		log.Printf("Warning: could not save GMB routes cache for %s: %v", region, err)
-	}
-
-	err = storeMinibusRoutes(detailedRoutes, region)
+	err = storeMinibusRoutes(detailedRoutes, region, true)
 	if err != nil {
 		return fmt.Errorf("error storing minibus routes for region %s: %v", region, err)
 	}

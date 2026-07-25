@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-
-	"hk-transit-eta/internal/cache"
 )
 
 var minibusDB *sql.DB
@@ -40,11 +38,18 @@ func InitMinibusDatabase() {
 		remarks_en TEXT,
 		direction_data_timestamp TEXT,
 		data_timestamp TEXT,
+		last_update_date TEXT,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		UNIQUE(region, route_code, route_id, route_seq)
 	);`
 	if _, err := minibusDB.Exec(createMinibusRouteTable); err != nil {
 		log.Fatal("Error creating minibus_route table:", err)
+	}
+
+	// Migration for tables created before last_update_date existed.
+	if _, err := minibusDB.Exec(
+		`ALTER TABLE minibus_route ADD COLUMN IF NOT EXISTS last_update_date TEXT`); err != nil {
+		log.Fatal("Error adding last_update_date column:", err)
 	}
 
 	createMinibusHeadwayTableSQL := `
@@ -120,7 +125,7 @@ func ShouldFetchMinibusData() bool {
 	return false
 }
 
-func storeMinibusRoutes(routes []MinibusRoute, region string) error {
+func storeMinibusRoutes(routes []MinibusRoute, region string, fetchStops bool) error {
 	// Clear existing data for this region. Delete child tables first, while the
 	// parent minibus_route rows still exist for the subquery to match.
 	if _, err := minibusDB.Exec(`DELETE FROM minibus_headway WHERE route_id IN
@@ -135,12 +140,14 @@ func storeMinibusRoutes(routes []MinibusRoute, region string) error {
 		return fmt.Errorf("error clearing minibus routes for region %s: %v", region, err)
 	}
 
-	return upsertMinibusRoutes(routes)
+	return upsertMinibusRoutes(routes, fetchStops)
 }
 
-// upsertMinibusRoutes inserts or updates route directions plus their headways
-// and route-stops (route-stops are fetched live, one request per direction).
-func upsertMinibusRoutes(routes []MinibusRoute) error {
+// upsertMinibusRoutes inserts or updates route directions plus their headways.
+// When fetchStops is true, each direction's route-stops are fetched live (one
+// request per direction); seeding from a local snapshot passes false and
+// inserts route-stops from the snapshot instead.
+func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 	insertRouteSQL := `INSERT INTO minibus_route
 		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
 		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
@@ -248,6 +255,9 @@ func upsertMinibusRoutes(routes []MinibusRoute) error {
 				insertedHeadways++
 			}
 
+			if !fetchStops {
+				continue
+			}
 			fmt.Printf("Fetching route stops for route %d, sequence %d\n", route.RouteID, direction.RouteSeq)
 			routeStops, err := fetchRouteStops(route.RouteID, direction.RouteSeq)
 			if err != nil {
@@ -284,6 +294,21 @@ func deleteMinibusRouteIDs(routeIDs []int) error {
 				return fmt.Errorf("error deleting route %d from %s: %v", id, table, err)
 			}
 		}
+	}
+	return nil
+}
+
+// pruneOrphanStops removes stops no longer referenced by any route-stop.
+// minibus_stop is otherwise only ever upserted, so stops belonging to
+// removed routes would linger forever.
+func pruneOrphanStops() error {
+	res, err := minibusDB.Exec(`DELETE FROM minibus_stop
+		WHERE stop_id NOT IN (SELECT DISTINCT stop_id FROM minibus_route_stop)`)
+	if err != nil {
+		return fmt.Errorf("error pruning orphan minibus stops: %v", err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n > 0 {
+		fmt.Printf("Pruned %d orphan minibus stops\n", n)
 	}
 	return nil
 }
@@ -334,7 +359,6 @@ func FetchAndStoreStopCoordinates() error {
 	}
 	defer stopStmt.Close()
 
-	var cachedStops []cachedStop
 	insertedStops := 0
 	for _, stopID := range stopIDs {
 		fmt.Printf("Fetching coordinates for stop %d\n", stopID)
@@ -360,23 +384,7 @@ func FetchAndStoreStopCoordinates() error {
 			log.Printf("Error inserting stop %d: %v", stopID, err)
 			continue
 		}
-		cachedStops = append(cachedStops, cachedStop{
-			StopID:        stopID,
-			Latitude:      stopData.Coordinates.WGS84.Latitude,
-			Longitude:     stopData.Coordinates.WGS84.Longitude,
-			HK80Lat:       stopData.Coordinates.HK80.Latitude,
-			HK80Lng:       stopData.Coordinates.HK80.Longitude,
-			Enabled:       stopData.Enabled,
-			RemarksTC:     stopData.RemarksTC,
-			RemarksSC:     stopData.RemarksSC,
-			RemarksEN:     stopData.RemarksEN,
-			DataTimestamp: stopData.DataTimestamp,
-		})
 		insertedStops++
-	}
-
-	if err := cache.Save(minibusCacheDir+"/gmb_stops.json", cachedStops); err != nil {
-		log.Printf("Warning: could not save GMB stops cache: %v", err)
 	}
 
 	fmt.Printf("Inserted coordinates for %d stops\n", insertedStops)

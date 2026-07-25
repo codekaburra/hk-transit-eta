@@ -4,16 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"time"
 
 	"hk-transit-eta/internal/syncmeta"
 )
 
 // routeLastUpdate mirrors one entry of GET /last-update/route. The spec's
 // table describes a wrapper object with a route_seq, but the live API
-// (verified 2026-07) returns a bare array keyed by route_id only, with
-// last_update_date in UTC while route details carry +08:00 timestamps —
-// so comparisons must parse the timestamps, not compare strings.
+// (verified 2026-07) returns a bare array keyed by route_id only. Its
+// last_update_date is a different event timestamp from the route detail's
+// direction_data_timestamp (and always later), so the diff must compare it
+// against the last_update_date stored by the previous refresh — never
+// against detail timestamps, which would re-fetch everything every run.
 type routeLastUpdate struct {
 	RouteID        int    `json:"route_id"`
 	LastUpdateDate string `json:"last_update_date"`
@@ -23,8 +24,8 @@ type routeLastUpdate struct {
 // so unchanged routes cost zero requests:
 //
 //  1. per-region route listings (3 requests) detect new and removed codes
-//  2. GET /last-update/route (1 request) detects changed directions, compared
-//     against the stored direction_data_timestamp
+//  2. GET /last-update/route (1 request) detects changed routes, compared
+//     against the last_update_date stored by the previous refresh
 //  3. only new/changed routes are re-fetched in full (detail + route-stops)
 //  4. stop coordinates are fetched only for stops we don't have yet
 //
@@ -33,14 +34,14 @@ type routeLastUpdate struct {
 func Refresh() error {
 	fmt.Println("=== Refreshing GMB data ===")
 
-	// Stored state: route codes per region, newest direction timestamp and
-	// code lookup per route ID.
+	// Stored state: route codes per region, the last_update_date recorded by
+	// the previous refresh, and code lookup per route ID.
 	type regionCode struct{ region, code string }
 	dbCodes := map[regionCode]bool{}
-	dbLatest := map[int]time.Time{}
+	dbLastUpdate := map[int]string{}
 	codeByID := map[int]regionCode{}
 	rows, err := minibusDB.Query(
-		`SELECT region, route_code, route_id, direction_data_timestamp FROM minibus_route`)
+		`SELECT region, route_code, route_id, COALESCE(last_update_date, '') FROM minibus_route`)
 	if err != nil {
 		return err
 	}
@@ -53,11 +54,7 @@ func Refresh() error {
 		}
 		dbCodes[rc] = true
 		codeByID[id] = rc
-		if t, err := time.Parse(time.RFC3339, ts); err == nil {
-			if t.After(dbLatest[id]) {
-				dbLatest[id] = t
-			}
-		}
+		dbLastUpdate[id] = ts
 	}
 	rows.Close()
 
@@ -98,15 +95,17 @@ func Refresh() error {
 	if err := json.Unmarshal(resp.Data, &updates); err != nil {
 		return fmt.Errorf("unmarshal last-update/route: %v", err)
 	}
+	// Comparing against the last_update_date stored by the previous refresh
+	// keeps the diff same-source: after one converging run it stays at zero
+	// until upstream actually changes. Routes with no stored value (first run
+	// after migration, or rows written by the initial fetch) are re-fetched
+	// once, then converge.
+	upstreamLastUpdate := map[int]string{}
 	changedIDs := map[int]bool{}
 	for _, u := range updates {
-		stored, known := dbLatest[u.RouteID]
-		if !known {
-			continue // not in DB: either new (handled via listings) or out of scope
-		}
-		upstream, err := time.Parse(time.RFC3339, u.LastUpdateDate)
-		if err != nil || upstream.After(stored) {
-			// Unparseable timestamps err on the side of re-fetching.
+		upstreamLastUpdate[u.RouteID] = u.LastUpdateDate
+		stored, known := dbLastUpdate[u.RouteID]
+		if known && stored != u.LastUpdateDate {
 			changedIDs[u.RouteID] = true
 		}
 	}
@@ -144,14 +143,40 @@ func Refresh() error {
 		fetched = append(fetched, detail...)
 	}
 	if len(fetched) > 0 {
-		if err := upsertMinibusRoutes(fetched); err != nil {
+		if err := upsertMinibusRoutes(fetched, true); err != nil {
 			return err
+		}
+	}
+
+	// Record the upstream last_update_date for every route just stored so the
+	// next diff compares like with like and converges to zero.
+	recorded := map[int]bool{}
+	for _, r := range fetched {
+		if recorded[r.RouteID] {
+			continue
+		}
+		recorded[r.RouteID] = true
+		if ts, ok := upstreamLastUpdate[r.RouteID]; ok {
+			if _, err := minibusDB.Exec(
+				`UPDATE minibus_route SET last_update_date = $1 WHERE route_id = $2`,
+				ts, r.RouteID); err != nil {
+				return fmt.Errorf("recording last_update_date for route %d: %v", r.RouteID, err)
+			}
 		}
 	}
 
 	// Coordinates for stops that appeared in new/changed route-stops.
 	if err := FetchAndStoreStopCoordinates(); err != nil {
 		log.Printf("Warning: GMB stop coordinate refresh incomplete: %v", err)
+	}
+
+	// Drop stops that no route references anymore (routes removed above).
+	if err := pruneOrphanStops(); err != nil {
+		log.Printf("Warning: %v", err)
+	}
+
+	if err := ExportSnapshot("data"); err != nil {
+		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}
 
 	return syncmeta.Record("gmb", resp.GeneratedTimestamp)
