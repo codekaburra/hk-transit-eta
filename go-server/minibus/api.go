@@ -196,7 +196,7 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
 			direction_data_timestamp, data_timestamp
 			FROM minibus_route
-			WHERE route_code LIKE $1 OR description_tc LIKE $2 OR description_sc LIKE $3 OR description_en LIKE $4
+			WHERE route_code ILIKE $1 OR description_tc ILIKE $2 OR description_sc ILIKE $3 OR description_en ILIKE $4
 			ORDER BY region, route_code, route_seq LIMIT 50`
 	rows, err := minibusDB.Query(sql, like, like, like, like)
 	if err != nil {
@@ -250,7 +250,7 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 			rs.name_tc, rs.name_sc, rs.name_en
 			FROM minibus_stop s
 			LEFT JOIN minibus_route_stop rs ON s.stop_id = rs.stop_id
-			WHERE rs.name_tc LIKE $1 OR rs.name_sc LIKE $2 OR rs.name_en LIKE $3
+			WHERE rs.name_tc ILIKE $1 OR rs.name_sc ILIKE $2 OR rs.name_en ILIKE $3
 			ORDER BY s.stop_id LIMIT 50`
 	rows, err := minibusDB.Query(sql, like, like, like)
 	if err != nil {
@@ -480,7 +480,7 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
 		"dest_tc": destTC, "dest_sc": destSC, "dest_en": destEN,
 		"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
-		"headways": headways,
+		"headways":                 headways,
 		"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
 	})
 }
