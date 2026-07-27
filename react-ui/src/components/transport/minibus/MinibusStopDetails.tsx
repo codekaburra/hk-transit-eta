@@ -14,23 +14,21 @@ export const MinibusStopDetails: React.FC = () => {
   const [routes, setRoutes] = useState<any[]>([]);
   const [etaData, setEtaData] = useState<{ [key: number]: MinibusETA[] }>({});
   const [loading, setLoading] = useState(true);
-  const [etaLoading, setEtaLoading] = useState(false);
+  const [, setEtaLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const {
     getBackgroundClass,
     getTextClass,
     getSecondaryTextClass,
-    getCardClass,
-    getButtonClass,
-    getHoverClass,
-    getAccentClass
+    getCardClass
   } = useThemeStyles();
 
   useEffect(() => {
     if (stopId) {
       fetchStopDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopId]);
 
   const fetchStopDetails = async () => {

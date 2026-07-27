@@ -30,6 +30,7 @@ export const MinibusRouteDetails: React.FC = () => {
     if (routeId && routeSeq) {
       fetchRouteDetails();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeId, routeSeq]);
 
   const fetchRouteDetails = async () => {

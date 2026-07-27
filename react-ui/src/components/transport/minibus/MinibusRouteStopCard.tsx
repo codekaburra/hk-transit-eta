@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
-import { formatETA, formatMinibusETA, MinibusETA } from '../../../services/utils';
+import { formatMinibusETA, MinibusETA } from '../../../services/utils';
 
 export interface MinibusRouteStopCardProps {
   routeStop: any;

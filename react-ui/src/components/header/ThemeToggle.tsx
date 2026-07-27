@@ -4,7 +4,7 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 
 export const ThemeToggle: React.FC = () => {
   const { themeMode, toggleTheme } = useTheme();
-  const { getGrayTextClass, getTitleClass, getAccentClass, getHoverClass } = useThemeStyles();
+  const { getTitleClass, getAccentClass, getHoverClass } = useThemeStyles();
 
   const getThemeIcon = () => {
     switch (themeMode) {

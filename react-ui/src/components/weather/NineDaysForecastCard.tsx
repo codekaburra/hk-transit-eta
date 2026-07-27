@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
-import { Header } from '../header/Header';
 import { UmbrellaIcon } from './UmbrellaIcon';
 
 // Types for the Hong Kong Observatory API response
@@ -53,20 +51,17 @@ interface WeatherData {
 }
 
 export const NineDaysForecastCard = () => {
-  const navigate = useNavigate();
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [, setLastUpdated] = useState<string>('');
 
   const {
-    getBackgroundClass,
     getCardClass,
     getTextClass,
     getSecondaryTextClass,
     getTitleClass,
     getForthTextClass,
-    getHoverClass,
     getBorderClass,
     getAccentClass
   } = useThemeStyles();
@@ -100,7 +95,6 @@ export const NineDaysForecastCard = () => {
   }, []);
 
   const formatDate = (dateStr: string) => {
-    const year = dateStr.substring(0, 4);
     const month = dateStr.substring(4, 6);
     const day = dateStr.substring(6, 8);
     return `${month}/${day}`;

@@ -9,7 +9,7 @@ import { BusRoute, BusStop } from '../../types';
 import { api } from '../../services/api';
 
 export const HomePage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'search' | 'about'>('search');
+  const [activeTab] = useState<'search' | 'about'>('search');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchType, setSearchType] = useState<'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr'>('bus-route');
   const [routes, setRoutes] = useState<BusRoute[]>([]);
@@ -23,11 +23,8 @@ export const HomePage: React.FC = () => {
   const {
     getBackgroundClass,
     getTextClass,
-    getSecondaryTextClass,
     getCardClass,
     getButtonClass,
-    getHoverClass,
-    getBorderClass,
     getTitleClass
   } = useThemeStyles();
   const navigate = useNavigate();
@@ -47,6 +44,7 @@ export const HomePage: React.FC = () => {
   useEffect(() => {
     loadInitialData();
     loadTotalRouteCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Debounced search effect
@@ -61,6 +59,7 @@ export const HomePage: React.FC = () => {
     }, 300);
 
     return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, searchType]);
 
   const loadTotalRouteCounts = async () => {
@@ -140,11 +139,6 @@ export const HomePage: React.FC = () => {
 
   const handleMinibusStopClick = (stop: any) => {
     navigate(`/minibus/stop/${stop.stop_id}`);
-  };
-
-  const tabOptionClass = (thisTab: string, thisSearchType: string) => {
-    const isActive = activeTab === thisTab && searchType === thisSearchType;
-    return `px-6 py-3 font-medium rounded-md transition-colors duration-300 ${getButtonClass(isActive)}`;
   };
 
   return (

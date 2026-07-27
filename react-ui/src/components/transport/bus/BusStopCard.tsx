@@ -4,7 +4,7 @@ import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { BusCompanyIcon } from './BusCompanyIcon';
 
 export const BusStopCard: React.FC<StopCardProps> = ({ stop, onClick }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getGrayTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
+  const { getCardClass, getSecondaryTextClass, getGrayTextClass, getHoverClass, getAccentClass2 } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg shadow-md p-4 transition-all duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}

@@ -79,11 +79,6 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
   const centerLat = latitudes.reduce((sum, lat) => sum + lat, 0) / latitudes.length;
   const centerLng = longitudes.reduce((sum, lng) => sum + lng, 0) / longitudes.length;
 
-  const minLat = Math.min(...latitudes);
-  const maxLat = Math.max(...latitudes);
-  const minLng = Math.min(...longitudes);
-  const maxLng = Math.max(...longitudes);
-
   // Create Google Maps embed URL - use view mode instead of directions for better reliability
   const firstStop = stopsWithCoords[0];
   const lastStop = stopsWithCoords[stopsWithCoords.length - 1];
