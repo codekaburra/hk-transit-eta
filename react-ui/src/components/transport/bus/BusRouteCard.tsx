@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusRoute, BusStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
-import { ETAData, api, getBusETA } from '../../../services/api';
+import { getBusETA } from '../../../services/api';
 import { formatETA } from '../../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteCodeIcon } from '../RouteCodeIcon';
@@ -17,8 +17,8 @@ export interface RouteCardProps {
 export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, shouldBusCompanyIcon = true }) => {
   const navigate = useNavigate();
   const [etaData, setEtaData] = useState<string[]>([]);
-  const [loadingETA, setLoadingETA] = useState(false);
-  const [etaError, setEtaError] = useState<string | null>(null);
+  const [, setLoadingETA] = useState(false);
+  const [, setEtaError] = useState<string | null>(null);
   
   const fetchETA = useCallback(async () => {
     if (!busStop) return; // Only fetch for Citybus stops
@@ -44,7 +44,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
   }, [fetchETA]);
   
 
-  const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass, getAccentClass } = useThemeStyles();
+  const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}

@@ -1,4 +1,3 @@
-version: '3.9'
 # Development compose — hot reload for both frontend and backend.
 # Usage: docker-compose -f docker-compose.dev.yml up --build
 #

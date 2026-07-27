@@ -7,7 +7,6 @@ import { isDebugMode } from './utils';
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms));
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
-const CITYBUS_ETA_BASE_URL = 'https://rt.data.gov.hk/v2/transport/citybus/eta';
 
 // ETA data interface
 export interface ETAData {

@@ -62,11 +62,8 @@ export const BusStopDetails: React.FC = () => {
     };
 
     fetchStopData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopId]);
-
-  const handleBackToSearch = () => {
-    navigate('/');
-  };
 
   // Group routes by route number and direction
   const groupedRoutes = routes.reduce((acc, route) => {

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { RouteStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
-import { formatETA, debugRender, debugLog } from '../../../services/utils';
+import { formatETA } from '../../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { getBusETA } from '../../../services/api';
@@ -14,8 +14,8 @@ export interface RouteStopCardProps {
 
 export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
   const [etaData, setEtaData] = useState<string[]>([]);
-  const [loadingETA, setLoadingETA] = useState(false);
-  const [etaError, setEtaError] = useState<string | null>(null);
+  const [, setLoadingETA] = useState(false);
+  const [, setEtaError] = useState<string | null>(null);
   const { getGrayTextClass, getAccentClass, getHoverClass, getSecondaryTextClass } = useThemeStyles();
   const navigate = useNavigate();
 

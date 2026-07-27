@@ -4,10 +4,8 @@ import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { 
   MTRLine, 
   MTRStation, 
-  MTR_LINE_STATIONS, 
-  MTR_LINE_NAMES, 
-  MTR_STATION_NAMES, 
-  getLineName, 
+  MTR_LINE_STATIONS,
+  getLineName,
   getStationName,
   getLineNameTC,
   getStationNameTC,

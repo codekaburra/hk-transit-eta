@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { Header } from '../../header/Header';
 import { MainNavigation } from '../MainNavigation';
@@ -23,7 +23,7 @@ interface TrainDisplayProps {
 }
 
 const TrainDisplay: React.FC<TrainDisplayProps> = ({ direction, trains, stationCode }) => {
-  const { getCardClass, getTextClass, getSecondaryTextClass, getAccentClass, getTitleClass, getForthTextClass } = useThemeStyles();
+  const { getCardClass, getTextClass, getSecondaryTextClass, getAccentClass, getTitleClass } = useThemeStyles();
 
   const formatTime = (timeStr: string) => {
     const time = new Date(timeStr);
@@ -93,7 +93,6 @@ const TrainDisplay: React.FC<TrainDisplayProps> = ({ direction, trains, stationC
 export const MTRStationDetails: React.FC = () => {
   const { stationCode } = useParams<{ stationCode: string }>();
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const lineCode = searchParams.get('line');
 
   const [scheduleData, setScheduleData] = useState<MTRScheduleResponse | null>(null);
@@ -160,6 +159,7 @@ export const MTRStationDetails: React.FC = () => {
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchSchedule, 30000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [line, station]);
 
   if (!line || !station) {

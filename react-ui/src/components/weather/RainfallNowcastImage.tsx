@@ -142,6 +142,7 @@ export const RainfallNowcastImage: React.FC = () => {
     // Auto-refresh every 5 minutes
     const interval = setInterval(fetchRainfallData, 5 * 60 * 1000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
