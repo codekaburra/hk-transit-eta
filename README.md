@@ -173,12 +173,88 @@ hk-transit-eta/
 └── .env.example
 ```
 
-## Deployment
+## Deployment (EC2)
+
+The production stack (`docker-compose.yaml`) runs Postgres, the Go backend, and the
+nginx frontend. Postgres is internal to the Docker network (no host port). The
+committed JSON snapshot ships in the backend image, so the database seeds offline on
+first boot (zero API calls).
+
+**TLS/HTTPS is handled by your own reverse proxy or load balancer** — the stack
+serves plain HTTP on `FRONTEND_PORT` (default 80). Point your existing HTTPS
+front end at that port.
+
+### 1. Security group
+
+Allow inbound **22** (SSH) and whatever port your TLS proxy forwards to the app on
+(`FRONTEND_PORT`, default 80).
+
+### 2. First-time bootstrap
+
+On a fresh Amazon Linux / Ubuntu instance:
 
 ```bash
-docker compose up --build -d   # build and start in background
-docker compose logs -f          # stream logs
-docker compose down             # stop
+curl -fsSL https://raw.githubusercontent.com/codekaburra/hk-transit-eta/main/deploy/setup-ec2.sh | bash
 ```
 
-Only port **80** needs to be open. The backend and database are internal to the Docker network.
+This installs Docker + the Compose plugin and clones the repo to `~/hk-transit-eta`.
+(If you were just added to the `docker` group, log out and back in first.)
+
+### 3. Configure environment
+
+```bash
+cd ~/hk-transit-eta
+cp .env.example .env
+$EDITOR .env    # set POSTGRES_PASSWORD, CORS_ORIGINS (https://your-domain), ADMIN_TOKEN, FRONTEND_PORT
+```
+
+`.env` is gitignored — secrets never get committed.
+
+### 4. Deploy / redeploy
+
+```bash
+./deploy/deploy.sh
+```
+
+Pulls the latest code, rebuilds, restarts, waits for the backend health check, and
+prunes old images. Idempotent — rerun it for every deploy.
+
+```bash
+docker compose logs -f            # stream all logs
+docker compose down               # stop the stack
+```
+
+### Automatic deployment (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys automatically **after CI passes on `main`**
+(and can be triggered manually from the Actions tab). It SSHes into the instance
+and runs `deploy/deploy.sh`.
+
+One-time setup — add these under **Settings → Secrets and variables → Actions**:
+
+| Secret | Required | Description |
+|---|---|---|
+| `EC2_HOST` | yes | Public IP or DNS of the instance |
+| `EC2_SSH_KEY` | yes | Private SSH key (PEM) authorized on the instance |
+| `EC2_USER` | no | SSH user (defaults to `ec2-user`) |
+| `EC2_APP_DIR` | no | Repo path on the box (defaults to `~/hk-transit-eta`) |
+
+Generate a dedicated deploy key and authorize it on the box:
+
+```bash
+ssh-keygen -t ed25519 -C "gha-deploy" -f gha_deploy -N ""
+ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to ~/.ssh/authorized_keys
+# paste the PRIVATE key (gha_deploy) into the EC2_SSH_KEY secret
+```
+
+Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
+before the secrets exist. The box still needs its `.env` in place (step 3 above).
+
+### Refreshing transit data
+
+Data seeds from the committed snapshot on first boot. To pull fresh data from the
+official APIs later, call the admin endpoint with your `ADMIN_TOKEN`:
+
+```bash
+curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/refresh
+```

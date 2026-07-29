@@ -3,18 +3,17 @@ services:
     image: postgres:16-alpine
     restart: always
     environment:
-      POSTGRES_DB: hkbus
-      POSTGRES_USER: hkbus
-      POSTGRES_PASSWORD: hkbus_password
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-hkbus}
+      POSTGRES_USER: ${POSTGRES_USER:-hkbus}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hkbus_password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hkbus"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hkbus}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    # No host port — Postgres stays internal to the compose network.
 
   backend:
     build:
@@ -22,24 +21,29 @@ services:
       dockerfile: go-server/Dockerfile
     restart: always
     environment:
-      DATABASE_URL: postgres://hkbus:hkbus_password@db:5432/hkbus?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-hkbus}:${POSTGRES_PASSWORD:-hkbus_password}@db:5432/${POSTGRES_DB:-hkbus}?sslmode=disable
       PORT: "8080"
-      CORS_ORIGINS: "http://localhost,http://localhost:80"
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
     expose:
       - "8080"
     depends_on:
       db:
         condition: service_healthy
 
+  # Serves the SPA and proxies /api to the backend, over plain HTTP.
+  # TLS is terminated upstream by your existing reverse proxy / load balancer,
+  # which should forward to this host on ${FRONTEND_PORT}.
   frontend:
     build:
       context: ./react-ui
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: /api
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        REACT_APP_GOOGLE_MAPS_API_KEY: ${REACT_APP_GOOGLE_MAPS_API_KEY:-}
     restart: always
     ports:
-      - "80:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
 
