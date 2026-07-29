@@ -224,6 +224,32 @@ docker compose logs -f            # stream all logs
 docker compose down               # stop the stack
 ```
 
+### Automatic deployment (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys automatically **after CI passes on `main`**
+(and can be triggered manually from the Actions tab). It SSHes into the instance
+and runs `deploy/deploy.sh`.
+
+One-time setup — add these under **Settings → Secrets and variables → Actions**:
+
+| Secret | Required | Description |
+|---|---|---|
+| `EC2_HOST` | yes | Public IP or DNS of the instance |
+| `EC2_SSH_KEY` | yes | Private SSH key (PEM) authorized on the instance |
+| `EC2_USER` | no | SSH user (defaults to `ec2-user`) |
+| `EC2_APP_DIR` | no | Repo path on the box (defaults to `~/hk-transit-eta`) |
+
+Generate a dedicated deploy key and authorize it on the box:
+
+```bash
+ssh-keygen -t ed25519 -C "gha-deploy" -f gha_deploy -N ""
+ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to ~/.ssh/authorized_keys
+# paste the PRIVATE key (gha_deploy) into the EC2_SSH_KEY secret
+```
+
+Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
+before the secrets exist. The box still needs its `.env` in place (step 3 above).
+
 ### Refreshing transit data
 
 Data seeds from the committed snapshot on first boot. To pull fresh data from the
