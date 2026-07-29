@@ -11,6 +11,9 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /app/hk-bus-tool .
+# Ship the committed JSON snapshot so the DB seeds offline on first boot
+# (zero API calls) instead of fetching from the official APIs.
+COPY --from=builder /app/data ./data
 ENV PORT=8080
 EXPOSE 8080
 CMD ["./hk-bus-tool"]
