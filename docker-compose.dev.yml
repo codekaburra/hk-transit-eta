@@ -50,6 +50,7 @@ services:
       - ./react-ui/public:/app/public # node_modules stays in the container
     environment:
       REACT_APP_API_URL: "http://localhost:8080/api"
+      REACT_APP_GOOGLE_MAPS_API_KEY: ${REACT_APP_GOOGLE_MAPS_API_KEY:-}
       CHOKIDAR_USEPOLLING: "true"   # required for file-watch inside Docker on macOS
       CI: "false"                   # prevent warnings from killing the dev server
     ports:

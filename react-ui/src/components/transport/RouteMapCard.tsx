@@ -96,8 +96,8 @@ export const RouteMapCard: React.FC<RouteMapCardProps> = ({ routeStops }) => {
 
   // Use view mode with center and zoom for better reliability
   const mapUrl = waypoints.length > 0
-    ? `https://www.google.com/maps/embed/v1/directions?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&origin=${firstStop.lat},${firstStop.long}&destination=${lastStop.lat},${lastStop.long}&waypoints=${waypoints}&mode=transit&avoid=tolls&zoom=14`
-    : `https://www.google.com/maps/embed/v1/view?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dZWTgaQzuU17R8&center=${centerLat},${centerLng}&zoom=13&maptype=roadmap`;
+    ? `https://www.google.com/maps/embed/v1/directions?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&origin=${firstStop.lat},${firstStop.long}&destination=${lastStop.lat},${lastStop.long}&waypoints=${waypoints}&mode=transit&avoid=tolls&zoom=14`
+    : `https://www.google.com/maps/embed/v1/view?key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}&center=${centerLat},${centerLng}&zoom=13&maptype=roadmap`;
 /**
    1-3:   World view
    4-6:   Country view  
