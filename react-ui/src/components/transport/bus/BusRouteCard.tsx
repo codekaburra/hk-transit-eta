@@ -52,7 +52,9 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         if (onClick) {
           onClick(route);
         } else {
-          navigate(`/bus/route/${route.route}`);
+          // Route numbers can be shared between operators (e.g. KMB and
+          // Citybus both run a "1"), so carry the company through.
+          navigate(`/bus/route/${route.route}?company=${encodeURIComponent(route.company)}`);
         }
       }}
     >
