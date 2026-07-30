@@ -130,30 +130,8 @@ func refreshCitybus() error {
 		}
 	}
 
-	// Fetch details for stops referenced by route_stops but not stored yet.
-	missingRows, err := database.Query(`
-		SELECT DISTINCT rs.stop FROM route_stops rs
-		WHERE rs.company = $1 AND rs.stop NOT IN (SELECT stop FROM stops)`,
-		DatabaseCompany_CityBus)
-	if err != nil {
+	if err := BackfillCitybusStops(); err != nil {
 		return err
-	}
-	var missing []string
-	for missingRows.Next() {
-		var id string
-		if err := missingRows.Scan(&id); err == nil {
-			missing = append(missing, id)
-		}
-	}
-	missingRows.Close()
-	if len(missing) > 0 {
-		stops, err := fetchCitybusStops(missing)
-		if err != nil {
-			log.Printf("Warning: Citybus stop refresh incomplete (%d fetched): %v", len(stops), err)
-		}
-		if err := storeStops(stops); err != nil {
-			return err
-		}
 	}
 
 	var ts string
@@ -173,4 +151,44 @@ func replaceCitybusRouteStops(route string, routeStops []RouteStop) error {
 		}
 		return insertRouteStopsTx(tx, routeStops)
 	})
+}
+
+// BackfillCitybusStops fetches details for stops that route-stops reference but
+// that are not stored yet, then refreshes the snapshot.
+//
+// The stop query inner-joins route_stops against stops, so a stop missing here
+// is silently dropped from route pages — a route shows fewer stops than its
+// sequence numbers imply. Citybus stops are fetched one at a time and a run can
+// come back incomplete, so this reconciles the gap on each refresh.
+func BackfillCitybusStops() error {
+	rows, err := database.Query(`
+		SELECT DISTINCT rs.stop FROM route_stops rs
+		WHERE rs.company = $1 AND rs.stop NOT IN (SELECT stop FROM stops)`,
+		DatabaseCompany_CityBus)
+	if err != nil {
+		return err
+	}
+	var missing []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			missing = append(missing, id)
+		}
+	}
+	rows.Close()
+
+	if len(missing) > 0 {
+		fmt.Printf("Backfilling %d Citybus stops referenced by route-stops\n", len(missing))
+		stops, err := fetchCitybusStops(missing)
+		if err != nil {
+			log.Printf("Warning: Citybus stop backfill incomplete (%d fetched): %v", len(stops), err)
+		}
+		if err := storeStops(stops); err != nil {
+			return err
+		}
+	}
+
+	// Snapshot from the database so the committed baseline picks up anything
+	// backfilled above.
+	return exportStopsSnapshot(DatabaseCompany_CityBus, ctbCacheDir+"/ctb_stops.json")
 }
