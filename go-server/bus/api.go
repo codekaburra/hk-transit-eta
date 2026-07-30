@@ -144,36 +144,76 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(allStops)
 }
 
-// GetStopsByRouteId returns all stops for a specific route
-func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
+// buildStopsByRouteQuery builds the stop lookup for a route. Each non-empty
+// filter narrows the result; company and serviceType matter because a route
+// number can be served by two operators and can run several service types in
+// the same direction, and those form separate stop sequences.
+func buildStopsByRouteQuery(routeId, company, direction, serviceType string) (string, []interface{}) {
+	sql := `SELECT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, rs.stop,
+		s.name_en, s.name_tc, s.lat, s.long
+		FROM route_stops rs
+		JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
+		WHERE rs.route = $1`
+	args := []interface{}{routeId}
+
+	for _, f := range []struct {
+		column string
+		value  string
+	}{
+		{"rs.company", company},
+		{"rs.direction", direction},
+		{"rs.service_type", serviceType},
+	} {
+		if f.value == "" {
+			continue
+		}
+		args = append(args, f.value)
+		sql += fmt.Sprintf(" AND %s = $%d", f.column, len(args))
+	}
+
+	// Keep each (company, direction, service_type) sequence contiguous and in
+	// stop order; seq is stored as text, so it must be cast to sort correctly.
+	sql += ` ORDER BY rs.company, rs.direction, rs.service_type, CAST(rs.seq AS INTEGER)`
+	return sql, args
+}
+
+// buildRouteVariantsQuery builds the exact-match route lookup, ordered
+// outbound before inbound so the UI ordering is stable.
+func buildRouteVariantsQuery(routeId, company string) (string, []interface{}) {
+	sql := `SELECT company, route, direction, service_type,
+		orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc, COALESCE(data_timestamp, '')
+		FROM routes
+		WHERE route = $1`
+	args := []interface{}{routeId}
+	if company != "" {
+		args = append(args, company)
+		sql += fmt.Sprintf(" AND company = $%d", len(args))
+	}
+	sql += ` ORDER BY company,
+		CASE direction WHEN 'O' THEN 0 WHEN 'I' THEN 1 ELSE 2 END,
+		service_type`
+	return sql, args
+}
+
+// GetRouteVariants returns the route rows for an exact route number — one per
+// travelling direction (and service type, for routes with special departures).
+//
+// This exists because route detail pages previously resolved a route via the
+// fuzzy search endpoint, which is unsuitable for exact lookup: it matches
+// substrings (searching "1" also matches 1A, 10, 100 and any origin or
+// destination containing "1" — several hundred rows), caps the result at 50
+// and has no ORDER BY, so whether the wanted route is returned at all is left
+// to the database.
+func GetRouteVariants(w http.ResponseWriter, r *http.Request) {
 	routeId := r.URL.Query().Get("routeId")
-	direction := r.URL.Query().Get("direction")
-	fmt.Printf("GetStopsByRouteId - RouteId: %s, Direction: %s\n", routeId, direction)
+	company := r.URL.Query().Get("company")
+	fmt.Printf("GetRouteVariants - RouteId: %s, Company: %s\n", routeId, company)
 	if routeId == "" {
 		http.Error(w, "Query parameter 'routeId' is required", http.StatusBadRequest)
 		return
 	}
 
-	var sql string
-	var args []interface{}
-
-	if direction != "" {
-		sql = `SELECT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, rs.stop,
-			s.name_en, s.name_tc, s.lat, s.long
-			FROM route_stops rs
-			JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
-			WHERE rs.route = $1 AND rs.direction = $2
-			ORDER BY CAST(rs.seq AS INTEGER)`
-		args = []interface{}{routeId, direction}
-	} else {
-		sql = `SELECT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, rs.stop,
-			s.name_en, s.name_tc, s.lat, s.long
-			FROM route_stops rs
-			JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
-			WHERE rs.route = $1
-			ORDER BY rs.direction, CAST(rs.seq AS INTEGER)`
-		args = []interface{}{routeId}
-	}
+	sql, args := buildRouteVariantsQuery(routeId, company)
 
 	rows, err := database.Query(sql, args...)
 	if err != nil {
@@ -182,7 +222,55 @@ func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routeStopsWithDetails []map[string]interface{}
+	variants := []map[string]interface{}{}
+	for rows.Next() {
+		var company, route, direction, serviceType string
+		var origEn, origTc, origSc, destEn, destTc, destSc, dataTimestamp string
+		if err := rows.Scan(&company, &route, &direction, &serviceType,
+			&origEn, &origTc, &origSc, &destEn, &destTc, &destSc, &dataTimestamp); err != nil {
+			continue
+		}
+		variants = append(variants, map[string]interface{}{
+			"company": company, "route": route,
+			"direction": direction, "service_type": serviceType,
+			"orig_en": origEn, "orig_tc": origTc, "orig_sc": origSc,
+			"dest_en": destEn, "dest_tc": destTc, "dest_sc": destSc,
+			"data_timestamp": dataTimestamp,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(variants)
+}
+
+// GetStopsByRouteId returns the stops of a route. company, direction and
+// serviceType are optional filters; without them a route number shared by two
+// operators (e.g. KMB and Citybus both run a "1") returns both operators'
+// stops for every direction interleaved, which cannot be rendered as a
+// sequence.
+func GetStopsByRouteId(w http.ResponseWriter, r *http.Request) {
+	routeId := r.URL.Query().Get("routeId")
+	direction := r.URL.Query().Get("direction")
+	company := r.URL.Query().Get("company")
+	serviceType := r.URL.Query().Get("serviceType")
+	fmt.Printf("GetStopsByRouteId - RouteId: %s, Company: %s, Direction: %s, ServiceType: %s\n",
+		routeId, company, direction, serviceType)
+	if routeId == "" {
+		http.Error(w, "Query parameter 'routeId' is required", http.StatusBadRequest)
+		return
+	}
+
+	sql, args := buildStopsByRouteQuery(routeId, company, direction, serviceType)
+
+	rows, err := database.Query(sql, args...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	// Non-nil so an empty result encodes as [] rather than null.
+	routeStopsWithDetails := []map[string]interface{}{}
 	for rows.Next() {
 		var company, route, direction, serviceType, seq, stop, nameEn, nameTc, lat, long string
 		err := rows.Scan(&company, &route, &direction, &serviceType, &seq, &stop, &nameEn, &nameTc, &lat, &long)

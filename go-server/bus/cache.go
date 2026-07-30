@@ -8,6 +8,35 @@ import (
 	"hk-transit-eta/internal/syncmeta"
 )
 
+// exportStopsSnapshot writes one operator's stored stops to its snapshot file.
+//
+// The snapshot is taken from the database rather than from a fetch result:
+// Citybus stops are fetched one request at a time and a run can legitimately
+// come back incomplete, so writing the fetch result directly would shrink the
+// snapshot. The database accumulates via upsert, so exporting from it never
+// regresses.
+func exportStopsSnapshot(company, path string) error {
+	rows, err := database.Query(`SELECT company, stop, name_en, name_tc, name_sc,
+		lat, long, COALESCE(data_timestamp, '')
+		FROM stops WHERE company = $1 ORDER BY stop`, company)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	stops := []Stop{}
+	for rows.Next() {
+		var s Stop
+		if err := rows.Scan(&s.Company, &s.Stop, &s.NameEn, &s.NameTc, &s.NameSc,
+			&s.Lat, &s.Long, &s.DataTimestamp); err != nil {
+			return err
+		}
+		stops = append(stops, s)
+	}
+	fmt.Printf("Exported %d %s stops to %s\n", len(stops), company, path)
+	return cache.Save(path, stops)
+}
+
 // SeedFromCache loads bus data from JSON cache files and stores it in the DB.
 // Returns false if any cache file is missing.
 func SeedFromCache(dataDir string) bool {

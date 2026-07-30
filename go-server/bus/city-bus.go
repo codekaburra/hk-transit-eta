@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"time"
 
 	"hk-transit-eta/internal/cache"
 	"hk-transit-eta/internal/httpapi"
@@ -75,14 +76,16 @@ func FetchCitybusData() {
 		log.Printf("Warning: Citybus stop fetch incomplete (%d fetched): %v", len(stops), err)
 	}
 
-	if err = cache.Save(ctbCacheDir+"/ctb_stops.json", stops); err != nil {
-		log.Printf("Warning: could not save CTB stops cache: %v", err)
-	}
-
 	if err = storeStops(stops); err != nil {
 		log.Printf("Warning: failed to store Citybus stops: %v", err)
 	}
 	fmt.Println("Successfully stored Citybus stops")
+
+	// Export from the database, not from `stops`: a partial fetch would
+	// otherwise overwrite the snapshot with fewer stops than it already had.
+	if err = exportStopsSnapshot(DatabaseCompany_CityBus, ctbCacheDir+"/ctb_stops.json"); err != nil {
+		log.Printf("Warning: could not save CTB stops cache: %v", err)
+	}
 
 	var ts string
 	if len(routes) > 0 {
@@ -127,31 +130,67 @@ func fetchCitybusRoutes() ([]Route, error) {
 	return routes, nil
 }
 
+// citybusStopInterval paces the per-stop lookups. Citybus exposes no bulk stop
+// endpoint, so the whole stop list is fetched one request at a time.
+const citybusStopInterval = 50 * time.Millisecond
+
+// fetchCitybusStops looks up each stop's details individually.
+//
+// A failure on one stop must not abandon the rest: this previously returned on
+// the first error, so a single timeout part-way through ~2,500 sequential
+// requests left every later stop unfetched. Those stops then disappeared from
+// route pages entirely, because the stop query inner-joins route_stops against
+// stops. Failures are retried, then skipped and reported, so the caller can
+// store what did come back and fill the gaps on the next run.
 func fetchCitybusStops(stopIds []string) ([]Stop, error) {
 	stopCount := len(stopIds)
-	var stops []Stop
+	stops := make([]Stop, 0, stopCount)
+	var failed []string
+
 	for i, stopId := range stopIds {
-		var _stop CitybusStop
-		fmt.Printf("🖍️ Stop %d / %d - %s\n", i+1, stopCount, stopId)
+		if i > 0 {
+			time.Sleep(citybusStopInterval)
+		}
+		if i%100 == 0 {
+			fmt.Printf("Citybus stop %d / %d\n", i+1, stopCount)
+		}
+
 		apiURL := "https://rt.data.gov.hk/v2/transport/citybus/stop/" + stopId
-		apiResponse, err := httpapi.Fetch(apiURL)
+		apiResponse, err := httpapi.FetchWithRetry(apiURL, 3, 2*time.Second)
 		if err != nil {
-			return stops, err
+			log.Printf("Warning: skipping Citybus stop %s: %v", stopId, err)
+			failed = append(failed, stopId)
+			continue
 		}
-		err = json.Unmarshal(apiResponse.Data, &_stop)
-		if err != nil {
-			return stops, fmt.Errorf("error unmarshaling stops data: %v", err)
+
+		var _stop CitybusStop
+		if err := json.Unmarshal(apiResponse.Data, &_stop); err != nil {
+			log.Printf("Warning: skipping Citybus stop %s: unmarshal: %v", stopId, err)
+			failed = append(failed, stopId)
+			continue
 		}
-		var stop Stop
-		stop.Company = DatabaseCompany_CityBus
-		stop.Stop = _stop.Stop
-		stop.NameEn = _stop.NameEn
-		stop.NameTc = _stop.NameTc
-		stop.NameSc = _stop.NameSc
-		stop.Lat = _stop.Lat
-		stop.Long = _stop.Long
-		stop.DataTimestamp = _stop.DataTimestamp
-		stops = append(stops, stop)
+		// An unknown stop id yields an empty payload rather than an error.
+		if _stop.Stop == "" {
+			log.Printf("Warning: Citybus stop %s returned no data", stopId)
+			failed = append(failed, stopId)
+			continue
+		}
+
+		stops = append(stops, Stop{
+			Company:       DatabaseCompany_CityBus,
+			Stop:          _stop.Stop,
+			NameEn:        _stop.NameEn,
+			NameTc:        _stop.NameTc,
+			NameSc:        _stop.NameSc,
+			Lat:           _stop.Lat,
+			Long:          _stop.Long,
+			DataTimestamp: _stop.DataTimestamp,
+		})
+	}
+
+	fmt.Printf("Fetched %d / %d Citybus stops\n", len(stops), stopCount)
+	if len(failed) > 0 {
+		return stops, fmt.Errorf("%d of %d Citybus stops could not be fetched", len(failed), stopCount)
 	}
 	return stops, nil
 }

@@ -150,6 +150,7 @@ func startServer() {
 	api.HandleFunc("/bus/search/stops", bus.SearchStops).Methods("GET")
 
 	// New relationship endpoints
+	api.HandleFunc("/bus/route-variants", bus.GetRouteVariants).Methods("GET")
 	api.HandleFunc("/bus/stops-by-route", bus.GetStopsByRouteId).Methods("GET")
 	api.HandleFunc("/bus/routes-by-stop", bus.GetRoutesByStopId).Methods("GET")
 	api.HandleFunc("/bus/stops-nearby", bus.GetStopsNearby).Methods("GET")

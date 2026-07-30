@@ -98,17 +98,52 @@ export const getBusStopsByRoute = async (route: string): Promise<BusStop[]> => {
   }
 };
 
-export const getBusRouteStops = async (route: string, direction: string): Promise<RouteStop[]> => {
+// Returns the variants of an exact route number: one entry per travelling
+// direction, plus extra entries for routes that run special service types.
+// Uses an exact-match endpoint — the fuzzy search endpoint cannot be used to
+// resolve a route, since it matches substrings and caps at 50 rows.
+export const getBusRouteVariants = async (
+  route: string,
+  company?: string
+): Promise<BusRoute[]> => {
+  try {
+    const params = new URLSearchParams({ routeId: route });
+    if (company) params.set('company', company);
+    const response = await fetch(`${API_BASE_URL}/bus/route-variants?${params}`);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching route variants:', error);
+    return [];
+  }
+};
+
+export interface RouteStopFilter {
+  company?: string;
+  direction?: string;
+  serviceType?: string;
+}
+
+export const getBusRouteStops = async (
+  route: string,
+  filter: RouteStopFilter = {}
+): Promise<RouteStop[]> => {
   try {
     // Validate parameters
     if (!route) {
-      throw new Error(`Missing required parameters: route=${route}, direction=${direction}`);
+      throw new Error(`Missing required parameter: route=${route}`);
     }
 
-    // Properly encode URL parameters
-    const url = `${API_BASE_URL}/bus/stops-by-route?routeId=${encodeURIComponent(route)}&direction=${encodeURIComponent(direction)}`;
-    console.log('API URL:', url);
-    console.log('Parameters:', { route, direction });
+    // Without these filters a shared route number returns both operators'
+    // stops for every direction at once, which is not a usable sequence.
+    const params = new URLSearchParams({ routeId: route });
+    if (filter.company) params.set('company', filter.company);
+    if (filter.direction) params.set('direction', filter.direction);
+    if (filter.serviceType) params.set('serviceType', filter.serviceType);
+
+    const url = `${API_BASE_URL}/bus/stops-by-route?${params}`;
 
     const response = await fetch(url);
     if (!response.ok) {
@@ -117,7 +152,6 @@ export const getBusRouteStops = async (route: string, direction: string): Promis
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
     const data = await response.json();
-    console.log('API Response data:', data);
 
     // Transform the data to match RouteStop interface
     return data.map((item: any) => ({
@@ -344,6 +378,7 @@ export const api = {
   getBusStops,
   getBusStopsByRoute,
   getBusRouteStops,
+  getBusRouteVariants,
   getBusRoutesByStop,
   getBusStopsNearby,
   getBusStopById,

@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Header } from '../../header/Header';
 import { BusRoute, RouteStop } from '../../../types';
 import { api } from '../../../services/api';
@@ -9,16 +9,23 @@ import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
 import { MainNavigation } from '../MainNavigation';
 import { RouteCodeIcon } from '../RouteCodeIcon';
+import { groupStopsIntoVariants } from './routeVariants';
 
 export const BusRouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [route, setRoute] = useState<BusRoute | null>(null);
+
+  // `company` disambiguates route numbers served by more than one operator
+  // (both KMB and Citybus run a route "1"). It travels in the URL so a refresh
+  // or shared link resolves to the same route.
+  const companyParam = searchParams.get('company') || undefined;
+
+  const [variantMeta, setVariantMeta] = useState<BusRoute[]>([]);
+  const [stops, setStops] = useState<RouteStop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [routeStops, setRouteStops] = useState<RouteStop[]>([]);
-  const [loadingStops, setLoadingStops] = useState(false);
-  const [stopsError, setStopsError] = useState<string | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
   const {
     getBackgroundClass,
@@ -39,16 +46,27 @@ export const BusRouteDetails: React.FC = () => {
       try {
         setLoading(true);
         setError(null);
+        setSelectedKey(null);
 
-        // Search for the route by ID
-        const routes = await api.searchRoutes(routeId);
+        // route-variants is an exact-match lookup. The fuzzy search endpoint
+        // cannot resolve a route number: it matches substrings, caps at 50
+        // rows and has no ordering, so the wanted route may not come back.
+        const meta = await api.getBusRouteVariants(routeId, companyParam);
+        const resolvedCompany = companyParam || meta[0]?.company;
 
-        if (routes.length > 0) {
-          // Use the first matching route
-          setRoute(routes[0]);
-        } else {
+        // Filtering by company matters: without it a shared route number
+        // returns both operators' stops interleaved.
+        const routeStops = await api.getBusRouteStops(routeId, {
+          company: resolvedCompany,
+        });
+
+        if (meta.length === 0 && routeStops.length === 0) {
           setError('Route not found');
+          return;
         }
+
+        setVariantMeta(meta);
+        setStops(routeStops);
       } catch (err) {
         setError('Failed to load route');
         console.error('Error fetching route:', err);
@@ -58,38 +76,22 @@ export const BusRouteDetails: React.FC = () => {
     };
 
     fetchRoute();
-  }, [routeId]);
+  }, [routeId, companyParam]);
 
-  const fetchRouteStops = useCallback(async () => {
-    if (!route) return;
+  const company = useMemo(
+    () => companyParam || variantMeta[0]?.company || stops[0]?.company || '',
+    [companyParam, variantMeta, stops]
+  );
 
-    // Validate route parameter
-    if (!route.route) {
-      setStopsError(`Missing route parameter: ${route.route}`);
-      return;
-    }
+  const variants = useMemo(
+    () => groupStopsIntoVariants(stops, variantMeta),
+    [stops, variantMeta]
+  );
 
-    setLoadingStops(true);
-    setStopsError(null);
-    try {
-      const stops = await api.getBusRouteStops(route.route, route.direction ?? '');
-      setRouteStops(stops);
-    } catch (error) {
-      console.error('Error fetching route stops:', error);
-      setStopsError(`Failed to load route stops: ${error}`);
-    } finally {
-      setLoadingStops(false);
-    }
-  }, [route]);
-
-  // Load route stops when route is loaded
-  useEffect(() => {
-    if (route) {
-      fetchRouteStops();
-    }
-  }, [route, fetchRouteStops]);
-
-
+  const selected = useMemo(
+    () => variants.find((v) => v.key === selectedKey) || variants[0] || null,
+    [variants, selectedKey]
+  );
 
   if (loading) {
     return (
@@ -102,7 +104,7 @@ export const BusRouteDetails: React.FC = () => {
     );
   }
 
-  if (error || !route) {
+  if (error || !selected) {
     return (
       <div className={`min-h-screen transition-colors duration-300 ${getBackgroundClass()}`}>
         <Header />
@@ -134,35 +136,65 @@ export const BusRouteDetails: React.FC = () => {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <div className="flex items-center space-x-4 mb-4">
-                <RouteCodeIcon routeCode={route.route} type={route.company as 'KMB' | 'CTB'} size="lg" />
+                <RouteCodeIcon routeCode={routeId || ''} type={company as 'KMB' | 'CTB'} size="lg" />
                 <div>
                   <h1 className={`text-3xl font-bold mb-2 transition-colors duration-300 ${getTextClass()}`}>
-                    <BusCompanyIcon company={route.company} />
+                    <BusCompanyIcon company={company} />
                   </h1>
                   <h2 className={`text-xl mb-2 transition-colors duration-300 ${getGrayTextClass()}`}>
-                    {route.orig_en} → {route.dest_en}
+                    {selected.origEn} → {selected.destEn}
                   </h2>
                   <p className={`text-lg transition-colors duration-300 ${getGrayTextClass()}`}>
-                    {route.orig_tc} → {route.dest_tc}
+                    {selected.origTc} → {selected.destTc}
                   </p>
                 </div>
               </div>
+
+              {/* Direction switcher — one button per direction, plus extra
+                  entries for routes that run special service types. */}
+              {variants.length > 1 && (
+                <div className="flex flex-wrap gap-2">
+                  {variants.map((variant) => {
+                    const isActive = variant.key === selected.key;
+                    return (
+                      <button
+                        key={variant.key}
+                        onClick={() => setSelectedKey(variant.key)}
+                        className={`px-4 py-2 rounded-lg text-sm transition-colors duration-300 ${
+                          isActive
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        往 {variant.destTc || variant.destEn}
+                        {variant.serviceType && variant.serviceType !== '1' && (
+                          <span className="ml-1 opacity-75">(特別班 {variant.serviceType})</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
+
         {/* Two-column layout: Route Stops and Map */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Route Stops - Left Column */}
           <div className={`rounded-lg shadow-md p-6 transition-colors duration-300 ${getCardClass()}`}>
-            <h3 className={`text-lg font-semibold mb-3 ${getGrayTextClass()}`}>途經巴士站 Route Stops</h3>
-            {loadingStops ? (
-              <p className={`text-sm ${getSecondaryTextClass()}`}>Loading stops...</p>
-            ) : stopsError ? (
-              <p className={`text-sm text-red-500`}>{stopsError}</p>
-            ) : routeStops.length > 0 ? (
+            <h3 className={`text-lg font-semibold mb-3 ${getGrayTextClass()}`}>
+              途經巴士站 Route Stops ({selected.stops.length})
+            </h3>
+            {selected.stops.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {routeStops.sort((a, b) => parseInt(a.seq) - parseInt(b.seq)).map((routeStop, index) => (
-                  <BusRouteStopCard key={index} shouldBusCompanyIcon={false} routeStop={routeStop} onClick={() => navigate(`/bus/stop/${routeStop.stop}`)} />
+                {selected.stops.map((routeStop) => (
+                  <BusRouteStopCard
+                    key={`${routeStop.direction}-${routeStop.service_type}-${routeStop.seq}-${routeStop.stop}`}
+                    shouldBusCompanyIcon={false}
+                    routeStop={routeStop}
+                    onClick={() => navigate(`/bus/stop/${routeStop.stop}`)}
+                  />
                 ))}
               </div>
             ) : (
@@ -172,12 +204,12 @@ export const BusRouteDetails: React.FC = () => {
 
           {/* Route Map - Right Column */}
           <div className="lg:sticky lg:top-6 lg:h-fit">
-            {routeStops.length > 0 && (
-              <RouteMapCard routeStops={convertBusRouteStopsToMapStops(routeStops)} />
+            {selected.stops.length > 0 && (
+              <RouteMapCard routeStops={convertBusRouteStopsToMapStops(selected.stops)} />
             )}
           </div>
         </div>
       </main>
     </div>
   );
-}; 
+};
