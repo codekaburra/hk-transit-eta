@@ -9,27 +9,7 @@ import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteMapCard, convertBusRouteStopsToMapStops } from '../RouteMapCard';
 import { MainNavigation } from '../MainNavigation';
 import { RouteCodeIcon } from '../RouteCodeIcon';
-
-// One travelling direction of a route. KMB models these as (direction,
-// service_type) pairs — outbound/inbound plus extra service types for special
-// departures — and each has its own ordered stop sequence.
-interface RouteVariant {
-  key: string;
-  direction: string;
-  serviceType: string;
-  stops: RouteStop[];
-  origEn: string;
-  origTc: string;
-  destEn: string;
-  destTc: string;
-}
-
-// Outbound first, then inbound, then anything else.
-const directionRank = (direction: string): number => {
-  if (direction === 'O') return 0;
-  if (direction === 'I') return 1;
-  return 2;
-};
+import { groupStopsIntoVariants } from './routeVariants';
 
 export const BusRouteDetails: React.FC = () => {
   const { routeId } = useParams<{ routeId: string }>();
@@ -68,9 +48,9 @@ export const BusRouteDetails: React.FC = () => {
         setError(null);
         setSelectedKey(null);
 
-        // route-variants is an exact-match lookup; the fuzzy search endpoint
-        // cannot resolve a route number (it matches substrings and caps at 50
-        // rows, so e.g. "3" never returned the route itself).
+        // route-variants is an exact-match lookup. The fuzzy search endpoint
+        // cannot resolve a route number: it matches substrings, caps at 50
+        // rows and has no ordering, so the wanted route may not come back.
         const meta = await api.getBusRouteVariants(routeId, companyParam);
         const resolvedCompany = companyParam || meta[0]?.company;
 
@@ -103,50 +83,10 @@ export const BusRouteDetails: React.FC = () => {
     [companyParam, variantMeta, stops]
   );
 
-  const variants = useMemo<RouteVariant[]>(() => {
-    // Group by the stop data rather than the route rows: it is the only
-    // source that always carries a direction (Citybus route rows do not).
-    const grouped = new Map<string, RouteStop[]>();
-    for (const stop of stops) {
-      const key = `${stop.direction}|${stop.service_type}`;
-      const bucket = grouped.get(key);
-      if (bucket) {
-        bucket.push(stop);
-      } else {
-        grouped.set(key, [stop]);
-      }
-    }
-
-    return Array.from(grouped.entries())
-      .map(([key, group]) => {
-        const ordered = [...group].sort((a, b) => parseInt(a.seq) - parseInt(b.seq));
-        const [direction, serviceType] = key.split('|');
-
-        // Prefer the operator's own origin/destination naming, falling back to
-        // the first and last stop of the sequence.
-        const meta = variantMeta.find(
-          (r) => r.direction === direction && r.service_type === serviceType
-        );
-        const first = ordered[0];
-        const last = ordered[ordered.length - 1];
-
-        return {
-          key,
-          direction,
-          serviceType,
-          stops: ordered,
-          origEn: meta?.orig_en || first?.name_en || '',
-          origTc: meta?.orig_tc || first?.name_tc || '',
-          destEn: meta?.dest_en || last?.name_en || '',
-          destTc: meta?.dest_tc || last?.name_tc || '',
-        };
-      })
-      .sort(
-        (a, b) =>
-          directionRank(a.direction) - directionRank(b.direction) ||
-          a.serviceType.localeCompare(b.serviceType)
-      );
-  }, [stops, variantMeta]);
+  const variants = useMemo(
+    () => groupStopsIntoVariants(stops, variantMeta),
+    [stops, variantMeta]
+  );
 
   const selected = useMemo(
     () => variants.find((v) => v.key === selectedKey) || variants[0] || null,
