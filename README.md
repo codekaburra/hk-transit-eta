@@ -250,11 +250,26 @@ ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to 
 Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
 before the secrets exist. The box still needs its `.env` in place (step 3 above).
 
-### Refreshing transit data
+### Updating transit data
 
-Data seeds from the committed snapshot on first boot. To pull fresh data from the
-official APIs later, call the admin endpoint with your `ADMIN_TOKEN`:
+The database seeds from the committed snapshot on first boot **only when it is
+empty** — a deploy carrying an updated snapshot therefore leaves an existing
+database on the old data. Two admin endpoints update it in place, without a
+redeploy or dropping the volume. Both need `ADMIN_TOKEN` and run in the
+background; only one may run at a time.
+
+| Endpoint | Source | Time | Use when |
+|---|---|---|---|
+| `POST /api/admin/reseed` | Snapshot in the image | seconds | A deploy shipped updated data |
+| `POST /api/admin/refresh` | Official APIs | minutes | You want data newer than the snapshot |
 
 ```bash
+# Apply the snapshot shipped with the current image — offline, no API calls
+curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/reseed
+
+# Pull fresh data from the official APIs
 curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/refresh
 ```
+
+Both upsert, so they are safe to repeat. Watch progress with
+`docker compose logs -f backend`.

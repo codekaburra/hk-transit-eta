@@ -21,39 +21,84 @@ import (
 
 var database *sql.DB
 
-var refreshInFlight atomic.Bool
+// dataDir holds the JSON snapshots baked into the image at build time.
+const dataDir = "data"
 
-// handleAdminRefresh triggers an incremental data refresh in the background.
-// Protected by ADMIN_TOKEN (X-Admin-Token header); disabled when unset.
-// Intended to be driven by host cron or invoked manually — deliberately not
-// an in-process ticker, since container restarts make wall-clock scheduling
-// inside the process unreliable.
-func handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
+// Data-changing admin operations share one slot: reseeding while a refresh is
+// writing would interleave two sets of writes over the same tables.
+var dataJobInFlight atomic.Bool
+
+// authorizeAdmin reports whether an admin request may proceed, writing the
+// rejection itself when it may not. Admin endpoints stay disabled entirely
+// until ADMIN_TOKEN is configured.
+func authorizeAdmin(w http.ResponseWriter, r *http.Request) bool {
 	token := os.Getenv("ADMIN_TOKEN")
 	if token == "" {
-		http.Error(w, "refresh disabled: ADMIN_TOKEN not set", http.StatusServiceUnavailable)
-		return
+		http.Error(w, "admin endpoints disabled: ADMIN_TOKEN not set", http.StatusServiceUnavailable)
+		return false
 	}
 	if r.Header.Get("X-Admin-Token") != token {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
-		return
+		return false
 	}
-	if !refreshInFlight.CompareAndSwap(false, true) {
-		http.Error(w, "refresh already running", http.StatusConflict)
+	return true
+}
+
+// startDataJob runs work in the background under the shared single-flight
+// guard, replying 202 on success and 409 if another job is already running.
+func startDataJob(w http.ResponseWriter, name string, work func()) {
+	if !dataJobInFlight.CompareAndSwap(false, true) {
+		http.Error(w, "another data job is already running", http.StatusConflict)
 		return
 	}
 	go func() {
-		defer refreshInFlight.Store(false)
+		defer dataJobInFlight.Store(false)
+		work()
+		log.Printf("%s finished", name)
+	}()
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprintf(w, "{\"status\":\"%s started\"}\n", name)
+}
+
+// handleAdminRefresh pulls fresh data from the official APIs. Intended to be
+// driven by host cron or invoked manually — deliberately not an in-process
+// ticker, since container restarts make wall-clock scheduling unreliable.
+//
+// This reaches the network and can run for many minutes; use reseed when the
+// bundled snapshot is already the data you want.
+func handleAdminRefresh(w http.ResponseWriter, r *http.Request) {
+	if !authorizeAdmin(w, r) {
+		return
+	}
+	startDataJob(w, "refresh", func() {
 		if err := bus.Refresh(); err != nil {
 			log.Printf("Bus refresh failed: %v", err)
 		}
 		if err := minibus.Refresh(); err != nil {
 			log.Printf("Minibus refresh failed: %v", err)
 		}
-		log.Println("Data refresh finished")
-	}()
-	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprintln(w, `{"status":"refresh started"}`)
+	})
+}
+
+// handleAdminReseed reloads the database from the JSON snapshot shipped in the
+// image, without touching the network.
+//
+// Startup only seeds when the database is empty, so a deployment carrying an
+// updated snapshot leaves an existing database on the old data. This applies it
+// in seconds — the alternative being to drop the volume and restart, or to wait
+// out a full API refresh. Seeding upserts, so it is safe to repeat.
+func handleAdminReseed(w http.ResponseWriter, r *http.Request) {
+	if !authorizeAdmin(w, r) {
+		return
+	}
+	startDataJob(w, "reseed", func() {
+		if !bus.SeedFromCache(dataDir) {
+			log.Println("Reseed: bus snapshot missing or incomplete")
+		}
+		if !minibus.SeedFromCache(dataDir) {
+			log.Println("Reseed: minibus snapshot missing or incomplete")
+		}
+	})
 }
 
 // getRouteCount handles the /num-routes endpoint and routes to appropriate count function
@@ -75,7 +120,6 @@ func main() {
 	// Initialize databases
 	initDatabases()
 
-	const dataDir = "data"
 	if shouldFetchData() {
 		// Seed from local JSON cache if available (fast), otherwise fetch from APIs (slow).
 		if !bus.SeedFromCache(dataDir) {
@@ -139,6 +183,7 @@ func startServer() {
 
 	// Admin: trigger incremental data refresh
 	api.HandleFunc("/admin/refresh", handleAdminRefresh).Methods("POST")
+	api.HandleFunc("/admin/reseed", handleAdminReseed).Methods("POST")
 
 	// Bus API endpoints
 	api.HandleFunc("/bus/routes", bus.GetRoutes).Methods("GET")
