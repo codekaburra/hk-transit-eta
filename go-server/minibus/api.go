@@ -31,7 +31,7 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetMinibusRoutes", err)
 		return
 	}
 	defer rows.Close()
@@ -48,7 +48,7 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
 			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetMinibusRoutes", err)
 			return
 		}
 
@@ -60,6 +60,10 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
 			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "GetMinibusRoutes") {
+		return
 	}
 
 	httpjson.Write(w, routes)
@@ -77,7 +81,7 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 			  ORDER BY s.stop_id LIMIT 100`
 	rows, err := minibusDB.Query(query)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetMinibusStops", err)
 		return
 	}
 	defer rows.Close()
@@ -94,7 +98,7 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng, &enabled,
 			&remarksTC, &remarksSC, &remarksEN, &dataTimestamp, &nameTC, &nameSC, &nameEN)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetMinibusStops", err)
 			return
 		}
 
@@ -104,6 +108,10 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
 			"data_timestamp": dataTimestamp, "name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "GetMinibusStops") {
+		return
 	}
 
 	httpjson.Write(w, stops)
@@ -126,7 +134,7 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 	if routeSeqStr != "" {
 		routeSeq, err := strconv.Atoi(routeSeqStr)
 		if err != nil {
-			http.Error(w, "Invalid routeSeq", http.StatusBadRequest)
+			httpjson.BadRequest(w, "Query parameter 'routeSeq' must be a number")
 			return
 		}
 		query = `SELECT rs.route_id, rs.route_seq, rs.stop_seq, rs.stop_id, rs.name_tc, rs.name_sc, rs.name_en,
@@ -148,7 +156,7 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := minibusDB.Query(query, args...)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetMinibusRouteStops", err)
 		return
 	}
 	defer rows.Close()
@@ -163,7 +171,7 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 
 		err := rows.Scan(&routeID, &routeSeq, &stopSeq, &stopID, &nameTC, &nameSC, &nameEN, &lat, &lng, &enabled)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetMinibusRouteStops", err)
 			return
 		}
 
@@ -172,6 +180,10 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 			"name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
 			"latitude": lat, "longitude": lng, "enabled": enabled,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "GetMinibusRouteStops") {
+		return
 	}
 
 	httpjson.Write(w, routeStops)
@@ -194,7 +206,7 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			ORDER BY region, route_code, route_seq LIMIT 50`
 	rows, err := minibusDB.Query(sql, like, like, like, like)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "SearchMinibusRoutes", err)
 		return
 	}
 	defer rows.Close()
@@ -211,7 +223,7 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
 			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "SearchMinibusRoutes", err)
 			return
 		}
 
@@ -223,6 +235,10 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
 			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "SearchMinibusRoutes") {
+		return
 	}
 
 	httpjson.Write(w, routes)
@@ -247,7 +263,7 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 			ORDER BY s.stop_id LIMIT 50`
 	rows, err := minibusDB.Query(sql, like, like, like)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "SearchMinibusStops", err)
 		return
 	}
 	defer rows.Close()
@@ -264,7 +280,7 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 		err := rows.Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng, &enabled,
 			&remarksTC, &remarksSC, &remarksEN, &dataTimestamp, &nameTC, &nameSC, &nameEN)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "SearchMinibusStops", err)
 			return
 		}
 
@@ -274,6 +290,10 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
 			"data_timestamp": dataTimestamp, "name_tc": nameTC, "name_sc": nameSC, "name_en": nameEN,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "SearchMinibusStops") {
+		return
 	}
 
 	httpjson.Write(w, stops)
@@ -308,7 +328,7 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 		if err.Error() == "sql: no rows in result set" {
 			httpjson.NotFound(w, "Stop not found")
 		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetMinibusStopById", err)
 		}
 		return
 	}
@@ -341,7 +361,7 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := minibusDB.Query(query, stopId)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetMinibusRoutesByStopId", err)
 		return
 	}
 	defer rows.Close()
@@ -358,7 +378,7 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 			&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
 			&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetMinibusRoutesByStopId", err)
 			return
 		}
 
@@ -370,6 +390,10 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 			"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
 			"direction_data_timestamp": directionDataTimestamp, "data_timestamp": dataTimestamp,
 		})
+	}
+
+	if !httpjson.CheckRows(w, rows, "GetMinibusRoutesByStopId") {
+		return
 	}
 
 	httpjson.Write(w, routes)
@@ -413,7 +437,7 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 
 	headwayRows, err := minibusDB.Query(headwayQuery, routeId, routeSeq)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetRouteByRouteIdAndDirection", err)
 		return
 	}
 	defer headwayRows.Close()
@@ -429,7 +453,7 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		err := headwayRows.Scan(&headwaySeq, &mon, &tue, &wed, &thu, &fri, &sat, &sun,
 			&publicHoliday, &startTime, &endTime, &frequency, &frequencyUpper)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			httpjson.Internal(w, "GetRouteByRouteIdAndDirection", err)
 			return
 		}
 
@@ -442,6 +466,10 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 			"frequency":       frequency,
 			"frequency_upper": frequencyUpper,
 		})
+	}
+
+	if !httpjson.CheckRows(w, headwayRows, "GetRouteByRouteIdAndDirection") {
+		return
 	}
 
 	httpjson.Write(w, map[string]interface{}{
@@ -460,7 +488,7 @@ func GetRouteCount(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("GetRouteCount - Type: minibus\n")
 	var count int
 	if err := minibusDB.QueryRow("SELECT COUNT(*) FROM minibus_route").Scan(&count); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		httpjson.Internal(w, "GetRouteCount", err)
 		return
 	}
 

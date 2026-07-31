@@ -45,6 +45,23 @@ func Internal(w http.ResponseWriter, context string, err error) {
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
+// Rows is the part of *sql.Rows this package needs.
+type Rows interface{ Err() error }
+
+// CheckRows reports whether a result set was iterated to completion.
+//
+// Rows.Next() returns false both at the end of the set and on a failure
+// part-way through, so a handler that only ranges over Next() serves a
+// truncated list as if it were complete. It writes the 500 itself and reports
+// false, so the handler only has to return.
+func CheckRows(w http.ResponseWriter, rows Rows, context string) bool {
+	if err := rows.Err(); err != nil {
+		Internal(w, context, err)
+		return false
+	}
+	return true
+}
+
 // RequiredQuery reads a query parameter that must be present. It writes the 400
 // itself and reports false, so the handler only has to return.
 func RequiredQuery(w http.ResponseWriter, r *http.Request, name string) (string, bool) {
@@ -69,4 +86,3 @@ func RequiredIntQuery(w http.ResponseWriter, r *http.Request, name string) (int,
 	}
 	return value, true
 }
-
