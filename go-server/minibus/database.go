@@ -392,7 +392,7 @@ func FetchAndStoreStopCoordinates() error {
 }
 
 func fetchStopCoordinates(stopID int) (*MinibusStopResponse, error) {
-	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/stop/%d", stopID)
+	apiURL := fmt.Sprintf("%s/stop/%d", gmbAPIBase, stopID)
 	response, err := gmbFetch(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching stop coordinates: %v", err)

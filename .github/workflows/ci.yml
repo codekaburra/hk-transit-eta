@@ -12,6 +12,28 @@ jobs:
     defaults:
       run:
         working-directory: go-server
+
+    # The handlers and seeding are mostly SQL, so they are tested against a
+    # real engine — well-formed SQL can still join, order or upsert wrongly.
+    # Without TEST_DATABASE_URL those tests skip, so CI must provide one.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hkbus
+          POSTGRES_PASSWORD: hkbus_password
+          POSTGRES_DB: hkbus_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hkbus"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      TEST_DATABASE_URL: postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable
+
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7

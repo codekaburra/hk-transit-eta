@@ -13,7 +13,17 @@ import (
 // gmbRequestInterval paces every GMB API call. The API returns HTTP 403 once
 // hammered with back-to-back requests (observed live during a full fetch),
 // so throttling is mandatory, not polite.
-const gmbRequestInterval = 300 * time.Millisecond
+// These are variables rather than constants so tests can point at a local
+// server and drop the pacing.
+var (
+	gmbAPIBase         = "https://data.etagmb.gov.hk"
+	gmbRequestInterval = 300 * time.Millisecond
+
+	// snapshotDir is relative to the working directory the server runs from.
+	// Tests point it at a temporary directory so a test run does not write
+	// snapshot files into the package directory.
+	snapshotDir = "data"
+)
 
 func gmbFetch(apiURL string) (*httpapi.Response, error) {
 	time.Sleep(gmbRequestInterval)
@@ -43,7 +53,7 @@ func FetchMinibusRoutes() {
 		log.Printf("Error fetching stop coordinates: %v", err)
 	}
 
-	if err := ExportSnapshot("data"); err != nil {
+	if err := ExportSnapshot(snapshotDir); err != nil {
 		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}
 
@@ -54,7 +64,7 @@ func FetchMinibusRoutes() {
 
 func fetchMinibusRoutesByRegion(region string) error {
 	// Step 1: Get route codes for the region
-	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route/%s", region)
+	apiURL := fmt.Sprintf("%s/route/%s", gmbAPIBase, region)
 
 	response, err := gmbFetch(apiURL)
 	if err != nil {
@@ -101,7 +111,7 @@ func fetchMinibusRoutesByRegion(region string) error {
 }
 
 func fetchRouteDetail(region, routeCode string) ([]MinibusRoute, error) {
-	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route/%s/%s", region, routeCode)
+	apiURL := fmt.Sprintf("%s/route/%s/%s", gmbAPIBase, region, routeCode)
 
 	response, err := gmbFetch(apiURL)
 	if err != nil {
@@ -118,7 +128,7 @@ func fetchRouteDetail(region, routeCode string) ([]MinibusRoute, error) {
 }
 
 func fetchRouteStops(routeID, routeSeq int) (*MinibusRouteStopResponse, error) {
-	apiURL := fmt.Sprintf("https://data.etagmb.gov.hk/route-stop/%d/%d", routeID, routeSeq)
+	apiURL := fmt.Sprintf("%s/route-stop/%d/%d", gmbAPIBase, routeID, routeSeq)
 
 	response, err := gmbFetch(apiURL)
 	if err != nil {
