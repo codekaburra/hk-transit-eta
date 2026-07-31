@@ -376,8 +376,18 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
-		FROM stops
+	// Coordinates are stored as text, so the cast is applied to every row that
+	// reaches it — a single unparseable value anywhere in the table would fail
+	// the whole query and take every nearby search down with it. The CTE is
+	// MATERIALIZED so the filter is applied first and the cast only ever sees
+	// numeric text.
+	sql := `WITH numeric_stops AS MATERIALIZED (
+			SELECT company, stop, name_en, name_tc, name_sc, lat, long
+			FROM stops
+			WHERE lat ~ '^-?[0-9]+(\.[0-9]+)?$' AND long ~ '^-?[0-9]+(\.[0-9]+)?$'
+		)
+		SELECT company, stop, name_en, name_tc, name_sc, lat, long
+		FROM numeric_stops
 		WHERE CAST(lat AS DOUBLE PRECISION) BETWEEN $1 AND $2
 		AND CAST(long AS DOUBLE PRECISION) BETWEEN $3 AND $4
 		ORDER BY ABS(CAST(lat AS DOUBLE PRECISION) - $5) + ABS(CAST(long AS DOUBLE PRECISION) - $6), stop`

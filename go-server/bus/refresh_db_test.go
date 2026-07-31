@@ -32,6 +32,13 @@ func withCitybusServer(t *testing.T, srv *httptest.Server) {
 // citybusServer answers the three endpoints a Citybus refresh calls. routes
 // maps a route number to the data_timestamp the API reports for it.
 func citybusServer(t *testing.T, routes map[string]string, onRouteStops func(route string)) *httptest.Server {
+	return citybusServerFailing(t, routes, nil, onRouteStops)
+}
+
+// citybusServerFailing additionally rejects the route-stop request for any
+// route in failRouteStops, simulating a transient upstream failure.
+func citybusServerFailing(t *testing.T, routes map[string]string,
+	failRouteStops map[string]bool, onRouteStops func(route string)) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -51,6 +58,10 @@ func citybusServer(t *testing.T, routes map[string]string, onRouteStops func(rou
 			route := strings.Split(strings.TrimPrefix(path, "/route-stop/ctb/"), "/")[0]
 			if onRouteStops != nil {
 				onRouteStops(route)
+			}
+			if failRouteStops[route] {
+				http.Error(w, "upstream unavailable", http.StatusInternalServerError)
+				return
 			}
 			// One stop per direction keeps the fixture small.
 			fmt.Fprintf(w, `{"type":"RouteStop","version":"2.0",
@@ -183,5 +194,77 @@ func TestBackfillCitybusStopsFillsMissingStops(t *testing.T) {
 	db := testdb.Connect(t)
 	if n := testdb.Count(t, db, "stops", "company = 'CTB' AND stop = '001026'"); n != 1 {
 		t.Errorf("the referenced stop was not backfilled (%d rows)", n)
+	}
+}
+
+// A route-stop fetch that fails must not leave the route marked as up to date.
+// Recording the new timestamp before the stops were actually fetched made the
+// next diff see no change, so the stale sequence survived until the operator
+// happened to publish another update.
+func TestRefreshCitybusRetriesRoutesWhoseStopsFailed(t *testing.T) {
+	setupDB(t)
+
+	// First run establishes a stored sequence.
+	srv := citybusServer(t, map[string]string{"1": "2026-07-01T05:00:00+08:00"}, nil)
+	withCitybusServer(t, srv)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("first refresh: %v", err)
+	}
+	srv.Close()
+
+	// The operator publishes an update, but its route-stop endpoint fails.
+	changed := map[string]string{"1": "2026-07-15T05:00:00+08:00"}
+	srv2 := citybusServerFailing(t, changed, map[string]bool{"1": true}, nil)
+	withCitybusServer(t, srv2)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("second refresh: %v", err)
+	}
+	srv2.Close()
+
+	// The stored timestamp must still be the old one, so the route stays in
+	// the diff rather than being treated as already updated.
+	db := testdb.Connect(t)
+	var stored string
+	if err := db.QueryRow(
+		`SELECT data_timestamp FROM routes WHERE company = 'CTB' AND route = '1'`).
+		Scan(&stored); err != nil {
+		t.Fatalf("reading data_timestamp: %v", err)
+	}
+	if stored == changed["1"] {
+		t.Fatal("the new timestamp was recorded even though the stops were never fetched; " +
+			"the next refresh will skip this route and keep the stale sequence")
+	}
+
+	// Third run, upstream healthy again: the route must be retried.
+	var refetched []string
+	srv3 := citybusServer(t, changed, func(route string) { refetched = append(refetched, route) })
+	defer srv3.Close()
+	withCitybusServer(t, srv3)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("third refresh: %v", err)
+	}
+	if len(refetched) == 0 {
+		t.Error("the route was not retried after its stop fetch had failed")
+	}
+}
+
+// A new route whose stops cannot be fetched still has to be stored, so it is
+// visible and can be completed later; it must not be dropped entirely.
+func TestRefreshCitybusStoresNewRouteEvenIfItsStopsFail(t *testing.T) {
+	setupDB(t)
+
+	srv := citybusServerFailing(t,
+		map[string]string{"NEW": "2026-07-01T05:00:00+08:00"},
+		map[string]bool{"NEW": true}, nil)
+	defer srv.Close()
+	withCitybusServer(t, srv)
+
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+
+	db := testdb.Connect(t)
+	if n := testdb.Count(t, db, "routes", "company = 'CTB' AND route = 'NEW'"); n != 1 {
+		t.Errorf("the new route was not stored (%d rows)", n)
 	}
 }

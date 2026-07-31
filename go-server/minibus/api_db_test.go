@@ -359,27 +359,32 @@ func TestMinibusGetRouteCount(t *testing.T) {
 	}
 }
 
-func TestMinibusHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
+// Every list handler must encode an empty result as [] with a 200. null would
+// crash a client mapping over the response, and a 500 would be masked by an
+// assertion that only excludes null.
+func TestMinibusListHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
 	setupDB(t)
 
-	// null would break clients that map over the response.
-	for name, target := range map[string]string{
-		"routes":         "/",
-		"stops":          "/",
-		"routes-by-stop": "/?stopId=99999",
-	} {
-		var h http.HandlerFunc
-		switch name {
-		case "routes":
-			h = GetMinibusRoutes
-		case "stops":
-			h = GetMinibusStops
-		case "routes-by-stop":
-			h = GetMinibusRoutesByStopId
-		}
-		rec := callJSON(t, h, target, nil)
-		if body := rec.Body.String(); body == "null\n" {
-			t.Errorf("%s returned null, want an empty array", name)
-		}
+	cases := map[string]struct {
+		handler http.HandlerFunc
+		target  string
+	}{
+		"routes":         {GetMinibusRoutes, "/"},
+		"stops":          {GetMinibusStops, "/"},
+		"route-stops":    {GetMinibusRouteStops, "/?routeId=99999"},
+		"routes-by-stop": {GetMinibusRoutesByStopId, "/?stopId=99999"},
+		"search-routes":  {SearchMinibusRoutes, "/?q=NOPE"},
+		"search-stops":   {SearchMinibusStops, "/?q=NOPE"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			rec := callJSON(t, tc.handler, tc.target, nil)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200", rec.Code)
+			}
+			if body := rec.Body.String(); body != "[]\n" {
+				t.Errorf("body = %q, want exactly an empty JSON array", body)
+			}
+		})
 	}
 }

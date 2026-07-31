@@ -128,7 +128,9 @@ jobs:
           docker compose logs --tail=50 >&2
           exit 1
 
-      - run: npx playwright test --project=chromium
+      # Both projects: the app is mobile-first, so its mobile layout is the
+      # one most users see and is worth covering rather than assuming.
+      - run: npx playwright test
 
       - name: Collect logs on failure
         if: failure()

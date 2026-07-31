@@ -115,16 +115,38 @@ func refreshCitybus() error {
 		}
 	}
 
-	if err := storeRoutes(routes); err != nil {
-		return err
-	}
-
+	// Fetch the new stop sequences before recording the new timestamps. A route
+	// whose stops could not be fetched must keep its stored timestamp, or the
+	// next diff sees no change, skips it, and the stale sequence survives until
+	// the operator happens to publish another update.
+	fetchedStops := map[string][]RouteStop{}
 	for _, route := range changed {
 		routeStops, err := fetchCitybusRouteStops(route)
 		if err != nil {
-			log.Printf("Warning: skipping route-stops refresh for Citybus route %s: %v", route, err)
+			log.Printf("Warning: keeping the stored data for Citybus route %s until its stops can be fetched: %v",
+				route, err)
 			continue
 		}
+		fetchedStops[route] = routeStops
+	}
+
+	// Roll the timestamp back for routes whose stops are still outstanding, so
+	// they remain in the diff next time. New routes have no stored timestamp to
+	// fall back on, so they are stored as-is and retried via the same path.
+	toStore := make([]Route, 0, len(routes))
+	for _, r := range routes {
+		if _, ok := fetchedStops[r.Route]; !ok {
+			if previous, seen := existing[r.Route]; seen && previous != r.DataTimestamp {
+				r.DataTimestamp = previous
+			}
+		}
+		toStore = append(toStore, r)
+	}
+	if err := storeRoutes(toStore); err != nil {
+		return err
+	}
+
+	for route, routeStops := range fetchedStops {
 		if err := replaceCitybusRouteStops(route, routeStops); err != nil {
 			return err
 		}

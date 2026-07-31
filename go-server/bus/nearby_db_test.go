@@ -2,6 +2,7 @@ package bus
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -95,7 +96,7 @@ func TestGetStopsNearbyErrors(t *testing.T) {
 
 	// Coordinates are stored as text, so a malformed value reaches the handler
 	// rather than being rejected by the column type.
-	t.Run("a malformed latitude is reported, not rendered", func(t *testing.T) {
+	t.Run("a malformed latitude on the target is reported, not rendered", func(t *testing.T) {
 		if err := storeStops([]Stop{stopAt("KMB", "BAD_LAT", "not-a-number", "114.2")}); err != nil {
 			t.Fatalf("seeding: %v", err)
 		}
@@ -104,6 +105,51 @@ func TestGetStopsNearbyErrors(t *testing.T) {
 			t.Error("a stop with an unparseable latitude should not return results")
 		}
 	})
+}
+
+// The query casts every row it reaches, so one unparseable coordinate anywhere
+// in the table would fail the cast and take every nearby search down with it —
+// not just searches for the offending stop.
+func TestGetStopsNearbyToleratesMalformedCoordinatesElsewhere(t *testing.T) {
+	setupDB(t)
+	if err := storeStops([]Stop{
+		stopAt("KMB", "CENTRE", "22.300000", "114.200000"),
+		stopAt("KMB", "NEAR", "22.300500", "114.200500"),
+		// Unrelated to the search, and far from it, but in the same table.
+		stopAt("CTB", "CORRUPT", "not-a-number", "also-not-a-number"),
+		stopAt("CTB", "EMPTY_COORDS", "", ""),
+	}); err != nil {
+		t.Fatalf("seeding: %v", err)
+	}
+
+	var got []Stop
+	rec := callJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — one bad row must not fail every search", rec.Code)
+	}
+	found := map[string]bool{}
+	for _, s := range got {
+		found[s.Stop] = true
+	}
+	if !found["NEAR"] {
+		t.Error("the valid nearby stop was not returned")
+	}
+	if found["CORRUPT"] || found["EMPTY_COORDS"] {
+		t.Error("a stop with unparseable coordinates was returned as a result")
+	}
+}
+
+// assertEmptyJSONArray checks the response is exactly an empty array with a
+// 200, rather than merely "not null" — which a 500 or an object would pass.
+func assertEmptyJSONArray(t *testing.T, rec *httptest.ResponseRecorder) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if body := rec.Body.String(); body != "[]\n" {
+		t.Errorf("body = %q, want exactly an empty JSON array", body)
+	}
 }
 
 func TestGetRoutesByStopId(t *testing.T) {
@@ -140,11 +186,8 @@ func TestGetRoutesByStopId(t *testing.T) {
 		}
 	})
 
-	t.Run("an unserved stop yields an empty array, not null", func(t *testing.T) {
-		rec := callJSON(t, GetRoutesByStopId, "/?stopId=NOBODY", nil)
-		if body := rec.Body.String(); body == "null\n" {
-			t.Error("returned null, want an empty array")
-		}
+	t.Run("an unserved stop yields exactly an empty array", func(t *testing.T) {
+		assertEmptyJSONArray(t, callJSON(t, GetRoutesByStopId, "/?stopId=NOBODY", nil))
 	})
 }
 

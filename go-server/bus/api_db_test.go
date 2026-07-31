@@ -178,11 +178,29 @@ func TestGetStopsByRouteIdRequiresRouteId(t *testing.T) {
 
 // An empty result must encode as [] — null would break clients that map over
 // the response.
-func TestGetStopsByRouteIdEncodesEmptyAsArray(t *testing.T) {
+// Every list handler must encode an empty result as [] with a 200. null would
+// crash a client mapping over the response, and a 500 would be masked by an
+// assertion that only excludes null.
+func TestBusListHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
 	setupDB(t)
-	rec := callJSON(t, GetStopsByRouteId, "/?routeId=NOPE", nil)
-	if body := rec.Body.String(); body != "[]\n" {
-		t.Errorf("body = %q, want an empty JSON array", body)
+
+	cases := map[string]struct {
+		handler http.HandlerFunc
+		target  string
+	}{
+		"routes":         {GetRoutes, "/"},
+		"stops":          {GetStops, "/"},
+		"route-stops":    {GetRouteStops, "/"},
+		"stops-by-route": {GetStopsByRouteId, "/?routeId=NOPE"},
+		"route-variants": {GetRouteVariants, "/?routeId=NOPE"},
+		"routes-by-stop": {GetRoutesByStopId, "/?stopId=NOPE"},
+		"search-routes":  {SearchRoutes, "/?q=NOPE"},
+		"search-stops":   {SearchStops, "/?q=NOPE"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			assertEmptyJSONArray(t, callJSON(t, tc.handler, tc.target, nil))
+		})
 	}
 }
 
@@ -221,13 +239,6 @@ func TestGetRouteVariants(t *testing.T) {
 			if v["route"] != "1" {
 				t.Errorf("returned route %v; the lookup must be exact", v["route"])
 			}
-		}
-	})
-
-	t.Run("an unknown route yields an empty array", func(t *testing.T) {
-		rec := callJSON(t, GetRouteVariants, "/?routeId=NOPE", nil)
-		if body := rec.Body.String(); body != "[]\n" {
-			t.Errorf("body = %q, want an empty JSON array", body)
 		}
 	})
 
