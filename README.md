@@ -1,12 +1,6 @@
 # HK Transit ETA
 
 [![CI](https://github.com/codekaburra/hk-transit-eta/actions/workflows/ci.yml/badge.svg)](https://github.com/codekaburra/hk-transit-eta/actions/workflows/ci.yml)
-[![backend coverage](https://codecov.io/gh/codekaburra/hk-transit-eta/branch/main/graph/badge.svg?flag=backend)](https://codecov.io/gh/codekaburra/hk-transit-eta?flags[]=backend)
-[![frontend coverage](https://codecov.io/gh/codekaburra/hk-transit-eta/branch/main/graph/badge.svg?flag=frontend)](https://codecov.io/gh/codekaburra/hk-transit-eta?flags[]=frontend)
-
-> Coverage is low today — most of the backend is HTTP handlers and database
-> access, which needs a Postgres-backed integration suite that does not exist
-> yet. The pure logic that has been extracted is well covered (87–91%).
 
 Real-time ETA and route information for Hong Kong public transport — buses (KMB, Citybus), green minibuses (GMB), and MTR. Includes a weather dashboard with HK Observatory data.
 

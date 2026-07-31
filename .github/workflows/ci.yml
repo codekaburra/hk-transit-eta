@@ -20,16 +20,28 @@ jobs:
           cache-dependency-path: go-server/go.sum
       - run: go build ./...
       - run: go vet ./...
-      - run: go test -coverprofile=coverage.out ./...
-      # Reported under its own flag so backend and frontend coverage stay
-      # separate — they have very different shapes and move independently.
-      - uses: codecov/codecov-action@v5
-        with:
-          files: ./go-server/coverage.out
-          flags: backend
-          token: ${{ secrets.CODECOV_TOKEN }}
-          # Coverage reporting must never be what fails a build.
-          fail_ci_if_error: false
+
+      # Coverage goes to the run summary rather than a badge: a badge needs a
+      # third-party service, an account and a token — a lot of setup for one
+      # number. This appears on every run with none of that.
+      - name: Test with coverage
+        run: |
+          go test -coverprofile=coverage.out ./... | tee /tmp/go-test.txt
+          {
+            echo "### Backend coverage"
+            echo
+            echo '```'
+            go tool cover -func=coverage.out | tail -1
+            echo '```'
+            echo
+            echo "<details><summary>Per package</summary>"
+            echo
+            echo '```'
+            cat /tmp/go-test.txt
+            echo '```'
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   web:
     name: React (test)
@@ -45,12 +57,17 @@ jobs:
           cache: npm
           cache-dependency-path: react-ui/package-lock.json
       - run: npm ci
-      - run: npm test -- --coverage --watchAll=false
+
+      - name: Test with coverage
         env:
           CI: "true"
-      - uses: codecov/codecov-action@v5
-        with:
-          files: ./react-ui/coverage/lcov.info
-          flags: frontend
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+        run: |
+          npm test -- --coverage --watchAll=false \
+            --coverageReporters=text-summary | tee /tmp/web-test.txt
+          {
+            echo "### Frontend coverage"
+            echo
+            echo '```'
+            grep -E "Statements|Branches|Functions|Lines" /tmp/web-test.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
