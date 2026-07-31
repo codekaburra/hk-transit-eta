@@ -353,3 +353,125 @@ func TestRefreshCitybusRollsBackTimestampWhenStopReplacementFails(t *testing.T) 
 		t.Error("route was not retried after the database replacement failure")
 	}
 }
+
+// withCitybusBatchSize shrinks the batch so a handful of routes spans several
+// transactions.
+func withCitybusBatchSize(t *testing.T, size int) {
+	t.Helper()
+	original := citybusBatchSize
+	t.Cleanup(func() { citybusBatchSize = original })
+	citybusBatchSize = size
+}
+
+// Splitting the work across transactions must not drop or duplicate anything.
+func TestRefreshCitybusWritesEveryRouteAcrossBatches(t *testing.T) {
+	setupDB(t)
+	withCitybusBatchSize(t, 2)
+
+	upstream := map[string]string{}
+	for _, code := range []string{"1", "2", "3", "4", "5"} {
+		upstream[code] = "2026-07-01T05:00:00+08:00"
+	}
+	srv := citybusServer(t, upstream, nil)
+	defer srv.Close()
+	withCitybusServer(t, srv)
+
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+
+	db := testdb.Connect(t)
+	if n := testdb.Count(t, db, "routes", "company = 'CTB'"); n != len(upstream) {
+		t.Errorf("routes = %d, want %d — a batch was dropped", n, len(upstream))
+	}
+	for code := range upstream {
+		if n := testdb.Count(t, db, "route_stops",
+			"company = 'CTB' AND route = $1", code); n == 0 {
+			t.Errorf("route %s has no stop sequence", code)
+		}
+	}
+}
+
+// Batching trades all-or-nothing for bounded transactions, so a failure leaves
+// earlier batches applied. That is only safe because each route is written
+// with its own stops: a route that was not reached keeps its stored timestamp
+// and is therefore retried, rather than being skipped as already current.
+func TestRefreshCitybusRetriesRoutesLeftUnwrittenByAFailedBatch(t *testing.T) {
+	setupDB(t)
+	withCitybusBatchSize(t, 1)
+
+	const oldTimestamp = "2026-07-01T05:00:00+08:00"
+	const newTimestamp = "2026-07-15T05:00:00+08:00"
+	codes := []string{"1", "2", "3"}
+
+	initial := map[string]string{}
+	for _, c := range codes {
+		initial[c] = oldTimestamp
+	}
+	srv := citybusServer(t, initial, nil)
+	withCitybusServer(t, srv)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("initial refresh: %v", err)
+	}
+	srv.Close()
+
+	// Reject writes for route 3 only, so its batch fails while 1 and 2 commit.
+	db := testdb.Connect(t)
+	const constraint = "test_reject_citybus_route_three"
+	if _, err := db.Exec("ALTER TABLE route_stops ADD CONSTRAINT " + constraint +
+		" CHECK (route <> '3') NOT VALID"); err != nil {
+		t.Fatalf("adding test constraint: %v", err)
+	}
+	dropped := false
+	t.Cleanup(func() {
+		if !dropped {
+			_, _ = db.Exec("ALTER TABLE route_stops DROP CONSTRAINT IF EXISTS " + constraint)
+		}
+	})
+
+	updated := map[string]string{}
+	for _, c := range codes {
+		updated[c] = newTimestamp
+	}
+	srv2 := citybusServer(t, updated, nil)
+	withCitybusServer(t, srv2)
+	if err := refreshCitybus(); err == nil {
+		t.Fatal("refresh succeeded despite the forced failure")
+	}
+	srv2.Close()
+
+	// Route 3 must still carry the old timestamp so the next diff picks it up.
+	var stored string
+	if err := db.QueryRow(
+		`SELECT data_timestamp FROM routes WHERE company = 'CTB' AND route = '3'`).
+		Scan(&stored); err != nil {
+		t.Fatalf("reading route 3 timestamp: %v", err)
+	}
+	if stored != oldTimestamp {
+		t.Errorf("route 3 timestamp = %q, want the previous %q so it is retried",
+			stored, oldTimestamp)
+	}
+
+	if _, err := db.Exec("ALTER TABLE route_stops DROP CONSTRAINT " + constraint); err != nil {
+		t.Fatalf("removing test constraint: %v", err)
+	}
+	dropped = true
+
+	var refetched []string
+	srv3 := citybusServer(t, updated, func(route string) { refetched = append(refetched, route) })
+	defer srv3.Close()
+	withCitybusServer(t, srv3)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("recovery refresh: %v", err)
+	}
+
+	found := false
+	for _, r := range refetched {
+		if r == "3" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("route 3 was not retried; refetched %v", refetched)
+	}
+}

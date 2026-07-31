@@ -135,38 +135,19 @@ func refreshCitybus() error {
 		toStore = append(toStore, r)
 	}
 
-	// The route timestamp and its replacement stop sequence are one unit. If
-	// either write fails, roll everything back so the next refresh still sees
-	// the route as changed and retries it. Withdrawals are included for the same
-	// reason: a refresh must not leave only half of a removed route behind.
-	if err := runInTx(func(tx *sql.Tx) error {
-		for _, route := range removed {
-			if _, err := tx.Exec(
-				"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-				DatabaseCompany_CityBus, route); err != nil {
-				return err
-			}
-			if _, err := tx.Exec(
-				"DELETE FROM routes WHERE company = $1 AND route = $2",
-				DatabaseCompany_CityBus, route); err != nil {
-				return err
-			}
-		}
-		if err := insertRoutesTx(tx, toStore); err != nil {
-			return err
-		}
-		for route, routeStops := range fetchedStops {
-			if _, err := tx.Exec(
-				"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-				DatabaseCompany_CityBus, route); err != nil {
-				return err
-			}
-			if err := insertRouteStopsTx(tx, routeStops); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
+	// The unit that must be atomic is one route: its timestamp and its stop
+	// sequence have to move together, or a failure between the two leaves the
+	// timestamp ahead of stale stops and the next diff skips the route. That
+	// invariant is per route, not per run, so the work is committed in batches
+	// rather than as one transaction — Citybus rewrites every timestamp daily,
+	// which would otherwise put ~20,000 inserts and their locks in a single
+	// transaction. A batch that fails leaves earlier batches applied and later
+	// ones untouched, and every route in them is individually consistent: those
+	// not yet written keep their stored timestamp and are retried next run.
+	if err := applyCitybusRemovals(removed); err != nil {
+		return err
+	}
+	if err := applyCitybusRoutes(toStore, fetchedStops); err != nil {
 		return err
 	}
 
@@ -219,4 +200,77 @@ func BackfillCitybusStops() error {
 	// Snapshot from the database so the committed baseline picks up anything
 	// backfilled above.
 	return exportStopsSnapshot(DatabaseCompany_CityBus, busCacheDir+"/ctb_stops.json")
+}
+
+// citybusBatchSize bounds how many routes share one transaction. Large enough
+// that the per-transaction overhead stays negligible, small enough that no
+// single transaction holds locks over the whole dataset. A variable so tests
+// can shrink it rather than build a fixture of hundreds of routes.
+var citybusBatchSize = 100
+
+// applyCitybusRemovals deletes withdrawn routes with their stop sequences. A
+// route and its stops go in the same transaction so a removal can never leave
+// orphaned stops behind.
+func applyCitybusRemovals(removed []string) error {
+	for start := 0; start < len(removed); start += citybusBatchSize {
+		end := start + citybusBatchSize
+		if end > len(removed) {
+			end = len(removed)
+		}
+		batch := removed[start:end]
+		if err := runInTx(func(tx *sql.Tx) error {
+			for _, route := range batch {
+				if _, err := tx.Exec(
+					"DELETE FROM route_stops WHERE company = $1 AND route = $2",
+					DatabaseCompany_CityBus, route); err != nil {
+					return err
+				}
+				if _, err := tx.Exec(
+					"DELETE FROM routes WHERE company = $1 AND route = $2",
+					DatabaseCompany_CityBus, route); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// applyCitybusRoutes writes the route rows, replacing the stop sequence of any
+// route whose stops were refetched. Each route's row and stops are written in
+// the same transaction, so the two never diverge.
+func applyCitybusRoutes(routes []Route, fetchedStops map[string][]RouteStop) error {
+	for start := 0; start < len(routes); start += citybusBatchSize {
+		end := start + citybusBatchSize
+		if end > len(routes) {
+			end = len(routes)
+		}
+		batch := routes[start:end]
+		if err := runInTx(func(tx *sql.Tx) error {
+			if err := insertRoutesTx(tx, batch); err != nil {
+				return err
+			}
+			for _, r := range batch {
+				routeStops, ok := fetchedStops[r.Route]
+				if !ok {
+					continue
+				}
+				if _, err := tx.Exec(
+					"DELETE FROM route_stops WHERE company = $1 AND route = $2",
+					DatabaseCompany_CityBus, r.Route); err != nil {
+					return err
+				}
+				if err := insertRouteStopsTx(tx, routeStops); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
