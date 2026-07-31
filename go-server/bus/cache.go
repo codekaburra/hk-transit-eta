@@ -1,6 +1,7 @@
 package bus
 
 import (
+	"database/sql"
 	"fmt"
 	"path/filepath"
 
@@ -37,8 +38,22 @@ func exportStopsSnapshot(company, path string) error {
 	return cache.Save(path, stops)
 }
 
-// SeedFromCache loads bus data from JSON cache files and stores it in the DB.
-// Returns false if any cache file is missing.
+// busSnapshot is the full set of snapshot files, loaded before anything is
+// written so a malformed or missing file cannot leave a half-applied dataset.
+type busSnapshot struct {
+	routes     []Route
+	stops      []Stop
+	routeStops []RouteStop
+}
+
+// SeedFromCache replaces the bus dataset with the JSON snapshot on disk.
+// Returns false if any file is missing or unreadable.
+//
+// This replaces rather than merges: upserting alone would leave routes, stops
+// and stop sequences that the snapshot no longer contains, so the database
+// would not match the snapshot it was seeded from. Everything is applied in one
+// transaction, so a failure part-way through rolls back rather than leaving a
+// mix of old and new data.
 func SeedFromCache(dataDir string) bool {
 	busDir := filepath.Join(dataDir, "bus")
 	files := []string{
@@ -55,75 +70,71 @@ func SeedFromCache(dataDir string) bool {
 
 	fmt.Println("=== Seeding bus data from cache ===")
 
-	var kmbRoutes []Route
-	if err := cache.Load(files[0], &kmbRoutes); err != nil {
-		fmt.Printf("Error loading KMB routes cache: %v\n", err)
+	snap, err := loadBusSnapshot(files)
+	if err != nil {
+		fmt.Printf("Error loading bus snapshot: %v\n", err)
 		return false
 	}
-	if err := storeRoutes(kmbRoutes); err != nil {
-		fmt.Printf("Error storing KMB routes: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d KMB routes\n", len(kmbRoutes))
 
-	var kmbStops []Stop
-	if err := cache.Load(files[1], &kmbStops); err != nil {
-		fmt.Printf("Error loading KMB stops cache: %v\n", err)
+	if err := replaceAllBusData(snap); err != nil {
+		fmt.Printf("Error applying bus snapshot: %v\n", err)
 		return false
 	}
-	if err := storeStops(kmbStops); err != nil {
-		fmt.Printf("Error storing KMB stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d KMB stops\n", len(kmbStops))
 
-	var kmbRouteStops []RouteStop
-	if err := cache.Load(files[2], &kmbRouteStops); err != nil {
-		fmt.Printf("Error loading KMB route-stops cache: %v\n", err)
-		return false
-	}
-	if err := storeRouteStops(kmbRouteStops); err != nil {
-		fmt.Printf("Error storing KMB route-stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d KMB route-stops\n", len(kmbRouteStops))
-
-	var ctbRoutes []Route
-	if err := cache.Load(files[3], &ctbRoutes); err != nil {
-		fmt.Printf("Error loading CTB routes cache: %v\n", err)
-		return false
-	}
-	if err := storeRoutes(ctbRoutes); err != nil {
-		fmt.Printf("Error storing CTB routes: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d CTB routes\n", len(ctbRoutes))
-
-	var ctbStops []Stop
-	if err := cache.Load(files[4], &ctbStops); err != nil {
-		fmt.Printf("Error loading CTB stops cache: %v\n", err)
-		return false
-	}
-	if err := storeStops(ctbStops); err != nil {
-		fmt.Printf("Error storing CTB stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d CTB stops\n", len(ctbStops))
-
-	var ctbRouteStops []RouteStop
-	if err := cache.Load(files[5], &ctbRouteStops); err != nil {
-		fmt.Printf("Error loading CTB route-stops cache: %v\n", err)
-		return false
-	}
-	if err := storeRouteStops(ctbRouteStops); err != nil {
-		fmt.Printf("Error storing CTB route-stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d CTB route-stops\n", len(ctbRouteStops))
-
+	fmt.Printf("Seeded %d routes, %d stops, %d route-stops\n",
+		len(snap.routes), len(snap.stops), len(snap.routeStops))
 	fmt.Println("=== Bus cache seeding complete ===")
 	if err := syncmeta.Record("bus_seed", ""); err != nil {
 		fmt.Printf("Warning: could not record bus seed: %v\n", err)
 	}
 	return true
+}
+
+// loadBusSnapshot reads every snapshot file into memory, combining both
+// operators. Nothing is written until all six parse successfully.
+func loadBusSnapshot(files []string) (busSnapshot, error) {
+	var snap busSnapshot
+
+	for _, i := range []int{0, 3} { // kmb_routes, ctb_routes
+		var routes []Route
+		if err := cache.Load(files[i], &routes); err != nil {
+			return snap, fmt.Errorf("%s: %v", files[i], err)
+		}
+		snap.routes = append(snap.routes, routes...)
+	}
+	for _, i := range []int{1, 4} { // kmb_stops, ctb_stops
+		var stops []Stop
+		if err := cache.Load(files[i], &stops); err != nil {
+			return snap, fmt.Errorf("%s: %v", files[i], err)
+		}
+		snap.stops = append(snap.stops, stops...)
+	}
+	for _, i := range []int{2, 5} { // kmb_route_stops, ctb_route_stops
+		var routeStops []RouteStop
+		if err := cache.Load(files[i], &routeStops); err != nil {
+			return snap, fmt.Errorf("%s: %v", files[i], err)
+		}
+		snap.routeStops = append(snap.routeStops, routeStops...)
+	}
+	return snap, nil
+}
+
+// replaceAllBusData swaps the entire bus dataset in a single transaction, so
+// the tables either match the snapshot or are left untouched.
+func replaceAllBusData(snap busSnapshot) error {
+	return runInTx(func(tx *sql.Tx) error {
+		// route_stops first: it references the other two.
+		for _, table := range []string{"route_stops", "routes", "stops"} {
+			if _, err := tx.Exec("DELETE FROM " + table); err != nil {
+				return fmt.Errorf("clearing %s: %v", table, err)
+			}
+		}
+		if err := insertRoutesTx(tx, snap.routes); err != nil {
+			return err
+		}
+		if err := insertStopsTx(tx, snap.stops); err != nil {
+			return err
+		}
+		return insertRouteStopsTx(tx, snap.routeStops)
+	})
 }

@@ -62,8 +62,18 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
         {routeStop.seq}
       </div>
       <div className="flex-1">
-        <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
-        <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_en}</p>
+        {routeStop.name_tc || routeStop.name_en ? (
+          <>
+            <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
+            <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_en}</p>
+          </>
+        ) : (
+          // The operator publishes no details for this stop, but it is still
+          // part of the sequence, so show it rather than leaving a blank row.
+          <p className={`text-sm italic ${getGrayTextClass()}`}>
+            未有站名資料 Stop {routeStop.stop}
+          </p>
+        )}
       </div>
       {/* <div className="flex-1">
         <p className={`text-sm font-medium ${getSecondaryTextClass()}`}>stopID: {routeStop.stop}</p>

@@ -102,7 +102,7 @@ func fetchCitybusRoutes() ([]Route, error) {
 	var routes []Route
 	var _routes []CitybusRoute
 
-	apiURL := "https://rt.data.gov.hk/v2/transport/citybus/route/ctb"
+	apiURL := citybusAPIBase + "/route/ctb"
 	apiResponse, err := httpapi.Fetch(apiURL)
 	if err != nil {
 		return nil, err
@@ -130,9 +130,15 @@ func fetchCitybusRoutes() ([]Route, error) {
 	return routes, nil
 }
 
-// citybusStopInterval paces the per-stop lookups. Citybus exposes no bulk stop
-// endpoint, so the whole stop list is fetched one request at a time.
-const citybusStopInterval = 50 * time.Millisecond
+// Citybus exposes no bulk stop endpoint, so the whole stop list is fetched one
+// request at a time. These are variables rather than constants so tests can
+// point at a local server and drop the pacing.
+var (
+	citybusAPIBase       = "https://rt.data.gov.hk/v2/transport/citybus"
+	citybusStopInterval  = 50 * time.Millisecond
+	citybusRetryAttempts = 3
+	citybusRetryDelay    = 2 * time.Second
+)
 
 // fetchCitybusStops looks up each stop's details individually.
 //
@@ -155,8 +161,8 @@ func fetchCitybusStops(stopIds []string) ([]Stop, error) {
 			fmt.Printf("Citybus stop %d / %d\n", i+1, stopCount)
 		}
 
-		apiURL := "https://rt.data.gov.hk/v2/transport/citybus/stop/" + stopId
-		apiResponse, err := httpapi.FetchWithRetry(apiURL, 3, 2*time.Second)
+		apiURL := citybusAPIBase + "/stop/" + stopId
+		apiResponse, err := httpapi.FetchWithRetry(apiURL, citybusRetryAttempts, citybusRetryDelay)
 		if err != nil {
 			log.Printf("Warning: skipping Citybus stop %s: %v", stopId, err)
 			failed = append(failed, stopId)
@@ -196,7 +202,7 @@ func fetchCitybusStops(stopIds []string) ([]Stop, error) {
 }
 
 func fetchCitybusRouteStops(route string) ([]RouteStop, error) {
-	apiURL := "https://rt.data.gov.hk/v2/transport/citybus/route-stop/ctb/" + route
+	apiURL := citybusAPIBase + "/route-stop/ctb/" + route
 	var routeStops []RouteStop
 	for _, dir := range []string{"inbound", "outbound"} {
 		fmt.Printf("💬 Citybus RouteStop %s %s \n", route, dir)
