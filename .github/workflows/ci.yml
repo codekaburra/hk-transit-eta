@@ -20,7 +20,16 @@ jobs:
           cache-dependency-path: go-server/go.sum
       - run: go build ./...
       - run: go vet ./...
-      - run: go test ./...
+      - run: go test -coverprofile=coverage.out ./...
+      # Reported under its own flag so backend and frontend coverage stay
+      # separate — they have very different shapes and move independently.
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./go-server/coverage.out
+          flags: backend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # Coverage reporting must never be what fails a build.
+          fail_ci_if_error: false
 
   web:
     name: React (test)
@@ -36,6 +45,12 @@ jobs:
           cache: npm
           cache-dependency-path: react-ui/package-lock.json
       - run: npm ci
-      - run: npm test
+      - run: npm test -- --coverage --watchAll=false
         env:
           CI: "true"
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./react-ui/coverage/lcov.info
+          flags: frontend
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
