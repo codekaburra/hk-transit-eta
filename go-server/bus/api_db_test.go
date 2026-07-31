@@ -51,18 +51,30 @@ func seedTwoOperatorRoute(t *testing.T) {
 func TestGetStopsByRouteIdFilters(t *testing.T) {
 	setupDB(t)
 	seedTwoOperatorRoute(t)
+	if err := storeStops([]Stop{stop("KMB", "K3")}); err != nil {
+		t.Fatalf("seeding special-service stop: %v", err)
+	}
+	if err := storeRouteStops([]RouteStop{
+		routeStop("KMB", "1", "O", "2", "1", "K3"),
+	}); err != nil {
+		t.Fatalf("seeding special-service route-stop: %v", err)
+	}
 
 	cases := []struct {
-		name   string
-		target string
-		want   int
+		name          string
+		target        string
+		want          int
+		wantCompany   string
+		wantDirection string
+		wantService   string
 	}{
-		{"unfiltered returns every operator and direction", "/?routeId=1", 4},
-		{"company narrows to one operator", "/?routeId=1&company=KMB", 3},
-		{"company and direction give one sequence", "/?routeId=1&company=KMB&direction=O", 2},
-		{"the opposite direction is reachable", "/?routeId=1&company=KMB&direction=I", 1},
-		{"the other operator is unaffected", "/?routeId=1&company=CTB", 1},
-		{"an unknown route yields nothing", "/?routeId=NOPE", 0},
+		{"unfiltered returns every operator and direction", "/?routeId=1", 5, "", "", ""},
+		{"company narrows to one operator", "/?routeId=1&company=KMB", 4, "KMB", "", ""},
+		{"company and direction retain both services", "/?routeId=1&company=KMB&direction=O", 3, "KMB", "O", ""},
+		{"service type selects one sequence", "/?routeId=1&company=KMB&direction=O&serviceType=2", 1, "KMB", "O", "2"},
+		{"the opposite direction is reachable", "/?routeId=1&company=KMB&direction=I", 1, "KMB", "I", ""},
+		{"the other operator is unaffected", "/?routeId=1&company=CTB", 1, "CTB", "", ""},
+		{"an unknown route yields nothing", "/?routeId=NOPE", 0, "", "", ""},
 	}
 
 	for _, tc := range cases {
@@ -74,6 +86,17 @@ func TestGetStopsByRouteIdFilters(t *testing.T) {
 			}
 			if len(got) != tc.want {
 				t.Errorf("got %d stops, want %d", len(got), tc.want)
+			}
+			for _, row := range got {
+				if tc.wantCompany != "" && row["company"] != tc.wantCompany {
+					t.Errorf("company = %v, want %s", row["company"], tc.wantCompany)
+				}
+				if tc.wantDirection != "" && row["direction"] != tc.wantDirection {
+					t.Errorf("direction = %v, want %s", row["direction"], tc.wantDirection)
+				}
+				if tc.wantService != "" && row["service_type"] != tc.wantService {
+					t.Errorf("service_type = %v, want %s", row["service_type"], tc.wantService)
+				}
 			}
 		})
 	}

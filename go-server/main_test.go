@@ -3,7 +3,9 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 )
 
 // Only the auth / single-flight gating is tested here; the actual refresh and
@@ -66,4 +68,46 @@ func TestAdminHandlersShareSingleFlight(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStartDataJobAcceptsRunsAndReleasesTheSlot(t *testing.T) {
+	dataJobInFlight.Store(false)
+	t.Cleanup(func() { dataJobInFlight.Store(false) })
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	rec := httptest.NewRecorder()
+
+	startDataJob(rec, "test-job", func() {
+		close(started)
+		<-release
+	})
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("status = %d, want 202", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, `"status":"test-job started"`) {
+		t.Errorf("body = %q, want the started status", body)
+	}
+	<-started
+	if !dataJobInFlight.Load() {
+		t.Fatal("single-flight slot was released before work completed")
+	}
+
+	close(release)
+	deadline := time.Now().Add(time.Second)
+	for dataJobInFlight.Load() && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if dataJobInFlight.Load() {
+		t.Fatal("single-flight slot was not released after work completed")
+	}
+
+	secondRan := make(chan struct{})
+	second := httptest.NewRecorder()
+	startDataJob(second, "second-job", func() { close(secondRan) })
+	if second.Code != http.StatusAccepted {
+		t.Fatalf("second status = %d, want 202 after the first job completed", second.Code)
+	}
+	<-secondRan
 }
