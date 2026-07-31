@@ -69,6 +69,14 @@ export const BusRouteDetails: React.FC = () => {
           return;
         }
 
+        // A handful of routes are listed by the operator but published with no
+        // stop sequence at all. Saying "not found" would be wrong — the route
+        // exists, its stops just are not available.
+        if (routeStops.length === 0) {
+          setError('This route has no stop information available.');
+          return;
+        }
+
         setVariantMeta(meta);
         setStops(routeStops);
       } catch (err) {

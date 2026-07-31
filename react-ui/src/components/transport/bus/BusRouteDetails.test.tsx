@@ -156,6 +156,20 @@ describe('BusRouteDetails', () => {
     await waitFor(() => expect(screen.getByText(/Route not found/)).toBeInTheDocument());
   });
 
+  // Seven Citybus routes are listed by the operator with no stop sequence at
+  // all. The route exists, so reporting it as missing would be wrong.
+  it('distinguishes a route with no stop data from a missing route', async () => {
+    mockedApi.getBusRouteVariants.mockResolvedValue([variant('', '', '終點')]);
+    mockedApi.getBusRouteStops.mockResolvedValue([]);
+
+    renderRoute('NT3', '?company=CTB');
+
+    await waitFor(() =>
+      expect(screen.getByText(/no stop information available/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/Route not found/)).not.toBeInTheDocument();
+  });
+
   // ...whereas a failure is an outage, and must not be reported as a missing
   // route. The API layer used to swallow both into an empty list.
   it('distinguishes a backend outage from a missing route', async () => {

@@ -178,11 +178,29 @@ func TestGetStopsByRouteIdRequiresRouteId(t *testing.T) {
 
 // An empty result must encode as [] — null would break clients that map over
 // the response.
-func TestGetStopsByRouteIdEncodesEmptyAsArray(t *testing.T) {
+// Every list handler must encode an empty result as [] with a 200. null would
+// crash a client mapping over the response, and a 500 would be masked by an
+// assertion that only excludes null.
+func TestBusListHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
 	setupDB(t)
-	rec := callJSON(t, GetStopsByRouteId, "/?routeId=NOPE", nil)
-	if body := rec.Body.String(); body != "[]\n" {
-		t.Errorf("body = %q, want an empty JSON array", body)
+
+	cases := map[string]struct {
+		handler http.HandlerFunc
+		target  string
+	}{
+		"routes":         {GetRoutes, "/"},
+		"stops":          {GetStops, "/"},
+		"route-stops":    {GetRouteStops, "/"},
+		"stops-by-route": {GetStopsByRouteId, "/?routeId=NOPE"},
+		"route-variants": {GetRouteVariants, "/?routeId=NOPE"},
+		"routes-by-stop": {GetRoutesByStopId, "/?stopId=NOPE"},
+		"search-routes":  {SearchRoutes, "/?q=NOPE"},
+		"search-stops":   {SearchStops, "/?q=NOPE"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			assertEmptyJSONArray(t, callJSON(t, tc.handler, tc.target, nil))
+		})
 	}
 }
 
@@ -224,13 +242,6 @@ func TestGetRouteVariants(t *testing.T) {
 		}
 	})
 
-	t.Run("an unknown route yields an empty array", func(t *testing.T) {
-		rec := callJSON(t, GetRouteVariants, "/?routeId=NOPE", nil)
-		if body := rec.Body.String(); body != "[]\n" {
-			t.Errorf("body = %q, want an empty JSON array", body)
-		}
-	})
-
 	t.Run("requires routeId", func(t *testing.T) {
 		rec := callJSON(t, GetRouteVariants, "/", nil)
 		if rec.Code != http.StatusBadRequest {
@@ -243,34 +254,56 @@ func TestGetRouteVariants(t *testing.T) {
 // SQLite the queries were originally written against.
 func TestSearchRoutesIsCaseInsensitive(t *testing.T) {
 	setupDB(t)
-	r := route("KMB", "1", "O", "1")
-	r.OrigEn = "Central"
-	if err := storeRoutes([]Route{r}); err != nil {
+	var routes []Route
+	for _, code := range []string{"2", "10", "1"} {
+		r := route("KMB", code, "O", "1")
+		r.OrigEn = "Central"
+		routes = append(routes, r)
+	}
+	if err := storeRoutes(routes); err != nil {
 		t.Fatalf("seeding: %v", err)
 	}
 
+	want := []string{"1", "10", "2"}
 	for _, q := range []string{"central", "CENTRAL", "Central"} {
 		var got []Route
 		callJSON(t, SearchRoutes, "/?q="+url.QueryEscape(q), &got)
-		if len(got) != 1 {
-			t.Errorf("q=%q returned %d routes, want 1", q, len(got))
+		if len(got) != len(want) {
+			t.Fatalf("q=%q returned %d routes, want %d", q, len(got), len(want))
+		}
+		for i := range want {
+			if got[i].Route != want[i] {
+				t.Errorf("q=%q result[%d] = %q, want deterministic order %q",
+					q, i, got[i].Route, want[i])
+			}
 		}
 	}
 }
 
 func TestSearchStopsIsCaseInsensitive(t *testing.T) {
 	setupDB(t)
-	s := stop("KMB", "A1")
-	s.NameEn = "Star Ferry"
-	if err := storeStops([]Stop{s}); err != nil {
+	var stops []Stop
+	for _, id := range []string{"C3", "A1", "B2"} {
+		s := stop("KMB", id)
+		s.NameEn = "Central " + id
+		stops = append(stops, s)
+	}
+	if err := storeStops(stops); err != nil {
 		t.Fatalf("seeding: %v", err)
 	}
 
-	for _, q := range []string{"star ferry", "STAR FERRY", "Star Ferry"} {
+	want := []string{"A1", "B2", "C3"}
+	for _, q := range []string{"central", "CENTRAL", "Central"} {
 		var got []Stop
 		callJSON(t, SearchStops, "/?q="+url.QueryEscape(q), &got)
-		if len(got) != 1 {
-			t.Errorf("q=%q returned %d stops, want 1", q, len(got))
+		if len(got) != len(want) {
+			t.Fatalf("q=%q returned %d stops, want %d", q, len(got), len(want))
+		}
+		for i := range want {
+			if got[i].Stop != want[i] {
+				t.Errorf("q=%q result[%d] = %q, want deterministic order %q",
+					q, i, got[i].Stop, want[i])
+			}
 		}
 	}
 }

@@ -35,7 +35,8 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routes []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routes := []map[string]interface{}{}
 	for rows.Next() {
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
@@ -81,7 +82,8 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var stops []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	stops := []map[string]interface{}{}
 	for rows.Next() {
 		var stopID int
 		var lat, lng, hk80Lat, hk80Lng float64
@@ -158,7 +160,8 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routeStops []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routeStops := []map[string]interface{}{}
 	for rows.Next() {
 		var routeID, routeSeq, stopSeq, stopID int
 		var nameTC, nameSC, nameEN string
@@ -205,7 +208,8 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routes []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routes := []map[string]interface{}{}
 	for rows.Next() {
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
@@ -259,7 +263,8 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var stops []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	stops := []map[string]interface{}{}
 	for rows.Next() {
 		var stopID int
 		var lat, lng, hk80Lat, hk80Lng float64
@@ -366,7 +371,8 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routes []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routes := []map[string]interface{}{}
 	for rows.Next() {
 		var region, routeCode, descTC, descSC, descEN string
 		var origTC, origSC, origEN, destTC, destSC, destEN string
@@ -448,7 +454,8 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 	}
 	defer headwayRows.Close()
 
-	var headways []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	headways := []map[string]interface{}{}
 	for headwayRows.Next() {
 		var headwaySeq, frequency int
 		var frequencyUpper *int

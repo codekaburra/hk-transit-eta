@@ -51,7 +51,7 @@ func refreshKmb() error {
 		"kmb_stops.json":       stops,
 		"kmb_route_stops.json": routeStops,
 	} {
-		if err := cache.Save(kmbCacheDir+"/"+name, v); err != nil {
+		if err := cache.Save(busCacheDir+"/"+name, v); err != nil {
 			log.Printf("Warning: could not save %s: %v", name, err)
 		}
 	}
@@ -102,32 +102,72 @@ func refreshCitybus() error {
 	fmt.Printf("Citybus diff: %d changed/new, %d removed (of %d upstream routes)\n",
 		len(changed), len(removed), len(routes))
 
-	for _, route := range removed {
-		if _, err := database.Exec(
-			"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-			DatabaseCompany_CityBus, route); err != nil {
-			return err
-		}
-		if _, err := database.Exec(
-			"DELETE FROM routes WHERE company = $1 AND route = $2",
-			DatabaseCompany_CityBus, route); err != nil {
-			return err
-		}
-	}
-
-	if err := storeRoutes(routes); err != nil {
-		return err
-	}
-
+	// Fetch the new stop sequences before recording the new timestamps. A route
+	// whose stops could not be fetched must keep its stored timestamp, or the
+	// next diff sees no change, skips it, and the stale sequence survives until
+	// the operator happens to publish another update.
+	fetchedStops := map[string][]RouteStop{}
 	for _, route := range changed {
 		routeStops, err := fetchCitybusRouteStops(route)
 		if err != nil {
-			log.Printf("Warning: skipping route-stops refresh for Citybus route %s: %v", route, err)
+			log.Printf("Warning: keeping the stored data for Citybus route %s until its stops can be fetched: %v",
+				route, err)
 			continue
 		}
-		if err := replaceCitybusRouteStops(route, routeStops); err != nil {
+		fetchedStops[route] = routeStops
+	}
+
+	// Roll the timestamp back for routes whose stops are still outstanding, so
+	// they remain in the diff next time. A new route whose first stop fetch
+	// failed is not stored yet: without a previous timestamp to retain, storing
+	// the current one would incorrectly mark the incomplete route as current.
+	toStore := make([]Route, 0, len(routes))
+	for _, r := range routes {
+		if _, ok := fetchedStops[r.Route]; !ok {
+			previous, seen := existing[r.Route]
+			if !seen {
+				continue
+			}
+			if previous != r.DataTimestamp {
+				r.DataTimestamp = previous
+			}
+		}
+		toStore = append(toStore, r)
+	}
+
+	// The route timestamp and its replacement stop sequence are one unit. If
+	// either write fails, roll everything back so the next refresh still sees
+	// the route as changed and retries it. Withdrawals are included for the same
+	// reason: a refresh must not leave only half of a removed route behind.
+	if err := runInTx(func(tx *sql.Tx) error {
+		for _, route := range removed {
+			if _, err := tx.Exec(
+				"DELETE FROM route_stops WHERE company = $1 AND route = $2",
+				DatabaseCompany_CityBus, route); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(
+				"DELETE FROM routes WHERE company = $1 AND route = $2",
+				DatabaseCompany_CityBus, route); err != nil {
+				return err
+			}
+		}
+		if err := insertRoutesTx(tx, toStore); err != nil {
 			return err
 		}
+		for route, routeStops := range fetchedStops {
+			if _, err := tx.Exec(
+				"DELETE FROM route_stops WHERE company = $1 AND route = $2",
+				DatabaseCompany_CityBus, route); err != nil {
+				return err
+			}
+			if err := insertRouteStopsTx(tx, routeStops); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	if err := BackfillCitybusStops(); err != nil {
@@ -139,18 +179,6 @@ func refreshCitybus() error {
 		ts = routes[0].DataTimestamp
 	}
 	return syncmeta.Record("ctb", ts)
-}
-
-// replaceCitybusRouteStops atomically swaps the stop sequence of one route.
-func replaceCitybusRouteStops(route string, routeStops []RouteStop) error {
-	return runInTx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(
-			"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-			DatabaseCompany_CityBus, route); err != nil {
-			return err
-		}
-		return insertRouteStopsTx(tx, routeStops)
-	})
 }
 
 // BackfillCitybusStops fetches details for stops that route-stops reference but
@@ -190,5 +218,5 @@ func BackfillCitybusStops() error {
 
 	// Snapshot from the database so the committed baseline picks up anything
 	// backfilled above.
-	return exportStopsSnapshot(DatabaseCompany_CityBus, ctbCacheDir+"/ctb_stops.json")
+	return exportStopsSnapshot(DatabaseCompany_CityBus, busCacheDir+"/ctb_stops.json")
 }

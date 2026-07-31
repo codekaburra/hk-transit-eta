@@ -21,7 +21,7 @@ func FetchCitybusData() {
 	}
 	fmt.Printf("Fetched %d Citybus routes from API\n", len(routes))
 
-	if err = cache.Save(ctbCacheDir+"/ctb_routes.json", routes); err != nil {
+	if err = cache.Save(busCacheDir+"/ctb_routes.json", routes); err != nil {
 		log.Printf("Warning: could not save CTB routes cache: %v", err)
 	}
 
@@ -47,7 +47,7 @@ func FetchCitybusData() {
 		}
 	}
 
-	if err = cache.Save(ctbCacheDir+"/ctb_route_stops.json", allRouteStops); err != nil {
+	if err = cache.Save(busCacheDir+"/ctb_route_stops.json", allRouteStops); err != nil {
 		log.Printf("Warning: could not save CTB route-stops cache: %v", err)
 	}
 
@@ -83,7 +83,7 @@ func FetchCitybusData() {
 
 	// Export from the database, not from `stops`: a partial fetch would
 	// otherwise overwrite the snapshot with fewer stops than it already had.
-	if err = exportStopsSnapshot(DatabaseCompany_CityBus, ctbCacheDir+"/ctb_stops.json"); err != nil {
+	if err = exportStopsSnapshot(DatabaseCompany_CityBus, busCacheDir+"/ctb_stops.json"); err != nil {
 		log.Printf("Warning: could not save CTB stops cache: %v", err)
 	}
 
@@ -96,7 +96,10 @@ func FetchCitybusData() {
 	}
 }
 
-const ctbCacheDir = "data/bus"
+// busCacheDir is relative to the working directory the server runs from.
+// Tests point it at a temporary directory so a run does not write snapshot
+// files into the package directory.
+var busCacheDir = "data/bus"
 
 func fetchCitybusRoutes() ([]Route, error) {
 	var routes []Route

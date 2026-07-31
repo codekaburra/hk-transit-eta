@@ -16,7 +16,8 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routes []Route
+	// Non-nil so an empty result encodes as [] rather than null.
+	routes := []Route{}
 	for rows.Next() {
 		var route Route
 		err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
@@ -40,7 +41,8 @@ func GetStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var stops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	stops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
@@ -64,7 +66,8 @@ func GetRouteStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routeStops []RouteStop
+	// Non-nil so an empty result encodes as [] rather than null.
+	routeStops := []RouteStop{}
 	for rows.Next() {
 		var routeStop RouteStop
 		err := rows.Scan(&routeStop.Company, &routeStop.Route, &routeStop.Direction, &routeStop.ServiceType, &routeStop.Seq, &routeStop.Stop)
@@ -90,6 +93,7 @@ func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 	sql := `SELECT company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc
 		FROM routes
 		WHERE route ILIKE $1 OR orig_en ILIKE $2 OR dest_en ILIKE $3 OR orig_tc ILIKE $4 OR dest_tc ILIKE $5
+		ORDER BY route, company, direction, service_type
 		LIMIT 50`
 	rows, err := database.Query(sql, like, like, like, like, like)
 	if err != nil {
@@ -98,7 +102,8 @@ func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var allRoutes []Route
+	// Non-nil so an empty result encodes as [] rather than null.
+	allRoutes := []Route{}
 	for rows.Next() {
 		var route Route
 		err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
@@ -123,6 +128,7 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
 		FROM stops
 		WHERE stop ILIKE $1 OR name_en ILIKE $2 OR name_tc ILIKE $3 OR name_sc ILIKE $4
+		ORDER BY stop, company
 		LIMIT 50`
 	rows, err := database.Query(sql, like, like, like, like)
 	if err != nil {
@@ -131,7 +137,8 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var allStops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	allStops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
@@ -321,7 +328,8 @@ func GetRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routesWithDetails []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routesWithDetails := []map[string]interface{}{}
 	for rows.Next() {
 		var company, route, direction, serviceType, seq, stop string
 		err := rows.Scan(&company, &route, &direction, &serviceType, &seq, &stop)
@@ -370,8 +378,18 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
-		FROM stops
+	// Coordinates are stored as text, so the cast is applied to every row that
+	// reaches it — a single unparseable value anywhere in the table would fail
+	// the whole query and take every nearby search down with it. The CTE is
+	// MATERIALIZED so the filter is applied first and the cast only ever sees
+	// numeric text.
+	sql := `WITH numeric_stops AS MATERIALIZED (
+			SELECT company, stop, name_en, name_tc, name_sc, lat, long
+			FROM stops
+			WHERE lat ~ '^-?[0-9]+(\.[0-9]+)?$' AND long ~ '^-?[0-9]+(\.[0-9]+)?$'
+		)
+		SELECT company, stop, name_en, name_tc, name_sc, lat, long
+		FROM numeric_stops
 		WHERE CAST(lat AS DOUBLE PRECISION) BETWEEN $1 AND $2
 		AND CAST(long AS DOUBLE PRECISION) BETWEEN $3 AND $4
 		ORDER BY ABS(CAST(lat AS DOUBLE PRECISION) - $5) + ABS(CAST(long AS DOUBLE PRECISION) - $6), stop`
@@ -386,7 +404,8 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var nearbyStops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	nearbyStops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)

@@ -85,7 +85,17 @@ test.describe('API', () => {
     const upper = await (await request.get('/api/bus/search/stops?q=CENTRAL')).json();
 
     expect(lower.length).toBeGreaterThan(0);
-    expect(upper.length).toBe(lower.length);
+    const identities = (stops: Array<{ company: string; stop: string }>) =>
+      stops.map((stop) => `${stop.company}:${stop.stop}`).sort();
+    expect(identities(upper)).toEqual(identities(lower));
+
+    for (const stop of lower) {
+      const searchable = [stop.stop, stop.name_en, stop.name_tc, stop.name_sc]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      expect(searchable).toContain('central');
+    }
   });
 
   test('reports an unknown route as an empty array, not null', async ({ request }) => {
@@ -108,19 +118,39 @@ test.describe('bus route page', () => {
 
     const heading = page.getByText(/Route Stops \(\d+\)/);
     await expect(heading).toBeVisible();
-    const firstDirection = await heading.textContent();
 
-    // Route 1 runs both ways, so a second direction button exists.
+    // Capture what the first direction actually renders: the destination in
+    // the header and the first stop in the list. Asserting only that the
+    // heading is still present would pass even if nothing changed.
+    const header = page.locator('h2').first();
+    const firstDestination = await header.textContent();
+    const stopList = page.locator('.overflow-y-auto').first();
+    const firstStop = await stopList.locator('> div').first().textContent();
+
     const buttons = page.getByRole('button', { name: /往 / });
-    await expect(buttons.first()).toBeVisible();
+    await expect(buttons).toHaveCount(2);
     await buttons.nth(1).click();
 
-    // The stop list is replaced by the other direction's.
-    await expect(page.getByText(/Route Stops \(\d+\)/)).toBeVisible();
-    const secondDirection = await page.getByText(/Route Stops \(\d+\)/).textContent();
-    expect(secondDirection).toBeTruthy();
-    // Both directions render a list; the origin and destination swap.
-    expect(firstDirection).toBeTruthy();
+    // The header must now show the opposite direction, and the list must
+    // start somewhere else.
+    await expect(header).not.toHaveText(firstDestination || '');
+    await expect(stopList.locator('> div').first()).not.toHaveText(firstStop || '');
+  });
+
+  // Selecting a direction must survive the debounce and leave a usable list,
+  // not an empty one.
+  test('shows a non-empty stop list in both directions', async ({ page }) => {
+    await page.goto('/bus/route/1?company=KMB');
+
+    const buttons = page.getByRole('button', { name: /往 / });
+    await expect(buttons).toHaveCount(2);
+
+    for (const index of [0, 1]) {
+      await buttons.nth(index).click();
+      const count = await page.getByText(/Route Stops \(\d+\)/).textContent();
+      const parsed = parseInt((count || '').match(/\((\d+)\)/)?.[1] || '0', 10);
+      expect(parsed).toBeGreaterThan(0);
+    }
   });
 
   test('reports a route that does not exist', async ({ page }) => {
