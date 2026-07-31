@@ -248,9 +248,10 @@ func TestRefreshCitybusRetriesRoutesWhoseStopsFailed(t *testing.T) {
 	}
 }
 
-// A new route whose stops cannot be fetched still has to be stored, so it is
-// visible and can be completed later; it must not be dropped entirely.
-func TestRefreshCitybusStoresNewRouteEvenIfItsStopsFail(t *testing.T) {
+// A new route has no previous timestamp to retain. If its current timestamp
+// were stored after a failed stop fetch, the next diff would treat the
+// incomplete route as current and never retry it.
+func TestRefreshCitybusRetriesNewRouteWhoseStopsFailed(t *testing.T) {
 	setupDB(t)
 
 	srv := citybusServerFailing(t,
@@ -262,9 +263,93 @@ func TestRefreshCitybusStoresNewRouteEvenIfItsStopsFail(t *testing.T) {
 	if err := refreshCitybus(); err != nil {
 		t.Fatalf("refresh: %v", err)
 	}
+	srv.Close()
 
 	db := testdb.Connect(t)
+	if n := testdb.Count(t, db, "routes", "company = 'CTB' AND route = 'NEW'"); n != 0 {
+		t.Fatalf("incomplete new route was marked current (%d rows)", n)
+	}
+
+	var refetched []string
+	srv2 := citybusServer(t,
+		map[string]string{"NEW": "2026-07-01T05:00:00+08:00"},
+		func(route string) { refetched = append(refetched, route) })
+	defer srv2.Close()
+	withCitybusServer(t, srv2)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("healthy refresh: %v", err)
+	}
+	if len(refetched) == 0 {
+		t.Fatal("the new route was not retried after its first stop fetch failed")
+	}
 	if n := testdb.Count(t, db, "routes", "company = 'CTB' AND route = 'NEW'"); n != 1 {
-		t.Errorf("the new route was not stored (%d rows)", n)
+		t.Errorf("completed new route count = %d, want 1", n)
+	}
+	if n := testdb.Count(t, db, "route_stops", "company = 'CTB' AND route = 'NEW'"); n == 0 {
+		t.Error("the retried new route has no stored stop sequence")
+	}
+}
+
+// Advancing a route timestamp and replacing its stop sequence must be atomic.
+// Otherwise a database error during replacement marks stale stops as current
+// and suppresses the next retry just like an upstream fetch failure did.
+func TestRefreshCitybusRollsBackTimestampWhenStopReplacementFails(t *testing.T) {
+	setupDB(t)
+
+	const oldTimestamp = "2026-07-01T05:00:00+08:00"
+	const newTimestamp = "2026-07-15T05:00:00+08:00"
+	srv := citybusServer(t, map[string]string{"1": oldTimestamp}, nil)
+	withCitybusServer(t, srv)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("initial refresh: %v", err)
+	}
+	srv.Close()
+
+	db := testdb.Connect(t)
+	const constraint = "test_reject_citybus_route_one"
+	if _, err := db.Exec("ALTER TABLE route_stops DROP CONSTRAINT IF EXISTS " + constraint); err != nil {
+		t.Fatalf("dropping stale test constraint: %v", err)
+	}
+	if _, err := db.Exec("ALTER TABLE route_stops ADD CONSTRAINT " + constraint +
+		" CHECK (route <> '1') NOT VALID"); err != nil {
+		t.Fatalf("adding test constraint: %v", err)
+	}
+	t.Cleanup(func() {
+		_, _ = db.Exec("ALTER TABLE route_stops DROP CONSTRAINT IF EXISTS " + constraint)
+	})
+
+	srv2 := citybusServer(t, map[string]string{"1": newTimestamp}, nil)
+	withCitybusServer(t, srv2)
+	if err := refreshCitybus(); err == nil {
+		t.Fatal("refresh succeeded despite the forced route-stop insert failure")
+	}
+	srv2.Close()
+
+	var stored string
+	if err := db.QueryRow(
+		`SELECT data_timestamp FROM routes WHERE company = 'CTB' AND route = '1'`).
+		Scan(&stored); err != nil {
+		t.Fatalf("reading timestamp after rollback: %v", err)
+	}
+	if stored != oldTimestamp {
+		t.Errorf("timestamp = %q after failed replacement, want previous %q", stored, oldTimestamp)
+	}
+	if n := testdb.Count(t, db, "route_stops", "company = 'CTB' AND route = '1'"); n == 0 {
+		t.Error("the previous stop sequence was not restored by the rollback")
+	}
+
+	if _, err := db.Exec("ALTER TABLE route_stops DROP CONSTRAINT " + constraint); err != nil {
+		t.Fatalf("removing test constraint: %v", err)
+	}
+	var refetched []string
+	srv3 := citybusServer(t, map[string]string{"1": newTimestamp},
+		func(route string) { refetched = append(refetched, route) })
+	defer srv3.Close()
+	withCitybusServer(t, srv3)
+	if err := refreshCitybus(); err != nil {
+		t.Fatalf("recovery refresh: %v", err)
+	}
+	if len(refetched) == 0 {
+		t.Error("route was not retried after the database replacement failure")
 	}
 }

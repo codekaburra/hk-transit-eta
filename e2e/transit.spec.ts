@@ -85,7 +85,17 @@ test.describe('API', () => {
     const upper = await (await request.get('/api/bus/search/stops?q=CENTRAL')).json();
 
     expect(lower.length).toBeGreaterThan(0);
-    expect(upper.length).toBe(lower.length);
+    const identities = (stops: Array<{ company: string; stop: string }>) =>
+      stops.map((stop) => `${stop.company}:${stop.stop}`).sort();
+    expect(identities(upper)).toEqual(identities(lower));
+
+    for (const stop of lower) {
+      const searchable = [stop.stop, stop.name_en, stop.name_tc, stop.name_sc]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      expect(searchable).toContain('central');
+    }
   });
 
   test('reports an unknown route as an empty array, not null', async ({ request }) => {

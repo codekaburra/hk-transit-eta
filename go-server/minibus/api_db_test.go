@@ -320,6 +320,24 @@ func TestGetRouteByRouteIdAndDirectionAssemblesHeadways(t *testing.T) {
 	}
 }
 
+func TestGetRouteByRouteIdAndDirectionEncodesEmptyHeadwaysAsArray(t *testing.T) {
+	setupDB(t)
+	insertRoute(t, MinibusRegionHKI, "1", 101, 1, "route", "銅鑼灣")
+
+	var got map[string]interface{}
+	rec := callJSON(t, GetRouteByRouteIdAndDirection, "/?routeId=101&routeSeq=1", &got)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	headways, ok := got["headways"].([]interface{})
+	if !ok {
+		t.Fatalf("headways = %#v, want an array", got["headways"])
+	}
+	if len(headways) != 0 {
+		t.Errorf("headways = %#v, want an empty array", headways)
+	}
+}
+
 func TestGetRouteByRouteIdAndDirectionErrors(t *testing.T) {
 	setupDB(t)
 

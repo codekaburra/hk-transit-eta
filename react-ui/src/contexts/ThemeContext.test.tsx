@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider, useTheme } from './ThemeContext';
+import { THEME_MODES } from '../hooks/useThemeStyles';
 
 // Exercises the context through a consumer, which is the only way it is used.
 const Consumer: React.FC = () => {
@@ -52,20 +53,15 @@ describe('ThemeContext', () => {
 
   it('returns to the first theme after cycling through all of them', async () => {
     renderWithProvider();
-    const seen = new Set<string>();
 
-    // Cycle until a mode repeats; it must come back round rather than
-    // sticking on the last one.
-    for (let i = 0; i < 10; i++) {
-      const mode = screen.getByTestId('mode').textContent as string;
-      if (seen.has(mode)) break;
-      seen.add(mode);
+    // beforeEach clears storage and the shared matchMedia stub reports no dark
+    // preference, so the provider intentionally starts at THEME_MODES[0].
+    for (const expected of THEME_MODES) {
+      expect(screen.getByTestId('mode')).toHaveTextContent(expected);
       // eslint-disable-next-line no-await-in-loop
       await userEvent.click(screen.getByRole('button', { name: 'toggle' }));
     }
-
-    expect(seen.size).toBeGreaterThan(1);
-    expect(seen.has(screen.getByTestId('mode').textContent as string)).toBe(true);
+    expect(screen.getByTestId('mode')).toHaveTextContent(THEME_MODES[0]);
   });
 
   // An unrecognised stored value must not leave the UI unstyled.

@@ -93,6 +93,7 @@ func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 	sql := `SELECT company, route, direction, service_type, orig_en, orig_tc, orig_sc, dest_en, dest_tc, dest_sc
 		FROM routes
 		WHERE route ILIKE $1 OR orig_en ILIKE $2 OR dest_en ILIKE $3 OR orig_tc ILIKE $4 OR dest_tc ILIKE $5
+		ORDER BY route, company, direction, service_type
 		LIMIT 50`
 	rows, err := database.Query(sql, like, like, like, like, like)
 	if err != nil {
@@ -127,6 +128,7 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 	sql := `SELECT company, stop, name_en, name_tc, name_sc, lat, long
 		FROM stops
 		WHERE stop ILIKE $1 OR name_en ILIKE $2 OR name_tc ILIKE $3 OR name_sc ILIKE $4
+		ORDER BY stop, company
 		LIMIT 50`
 	rows, err := database.Query(sql, like, like, like, like)
 	if err != nil {
