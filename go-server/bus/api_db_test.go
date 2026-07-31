@@ -1,25 +1,12 @@
 package bus
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
-)
 
-// callJSON invokes a handler and decodes its JSON body.
-func callJSON(t *testing.T, h http.HandlerFunc, target string, out interface{}) *httptest.ResponseRecorder {
-	t.Helper()
-	rec := httptest.NewRecorder()
-	h(rec, httptest.NewRequest(http.MethodGet, target, nil))
-	if out != nil && rec.Code == http.StatusOK {
-		if err := json.NewDecoder(rec.Body).Decode(out); err != nil {
-			t.Fatalf("decoding response for %s: %v", target, err)
-		}
-	}
-	return rec
-}
+	"hk-transit-eta/internal/testhttp"
+)
 
 // seedTwoOperatorRoute sets up route "1" as both KMB (two directions) and CTB,
 // which is the real shape that made the route page render four interleaved
@@ -80,7 +67,7 @@ func TestGetStopsByRouteIdFilters(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var got []map[string]interface{}
-			rec := callJSON(t, GetStopsByRouteId, tc.target, &got)
+			rec := testhttp.CallJSON(t, GetStopsByRouteId, tc.target, &got)
 			if rec.Code != http.StatusOK {
 				t.Fatalf("status = %d, want 200", rec.Code)
 			}
@@ -120,7 +107,7 @@ func TestGetStopsByRouteIdOrdersSequenceNumerically(t *testing.T) {
 	}
 
 	var got []map[string]interface{}
-	callJSON(t, GetStopsByRouteId, "/?routeId=1&company=KMB&direction=O", &got)
+	testhttp.CallJSON(t, GetStopsByRouteId, "/?routeId=1&company=KMB&direction=O", &got)
 
 	var seqs []string
 	for _, s := range got {
@@ -151,7 +138,7 @@ func TestGetStopsByRouteIdKeepsStopsWithoutDetails(t *testing.T) {
 	}
 
 	var got []map[string]interface{}
-	callJSON(t, GetStopsByRouteId, "/?routeId=50M&company=CTB", &got)
+	testhttp.CallJSON(t, GetStopsByRouteId, "/?routeId=50M&company=CTB", &got)
 
 	if len(got) != 2 {
 		t.Fatalf("got %d stops, want both — the one without details must not be dropped", len(got))
@@ -170,7 +157,7 @@ func TestGetStopsByRouteIdKeepsStopsWithoutDetails(t *testing.T) {
 
 func TestGetStopsByRouteIdRequiresRouteId(t *testing.T) {
 	setupDB(t)
-	rec := callJSON(t, GetStopsByRouteId, "/", nil)
+	rec := testhttp.CallJSON(t, GetStopsByRouteId, "/", nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400 when routeId is absent", rec.Code)
 	}
@@ -199,7 +186,7 @@ func TestBusListHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			assertEmptyJSONArray(t, callJSON(t, tc.handler, tc.target, nil))
+			testhttp.AssertEmptyJSONArray(t, testhttp.CallJSON(t, tc.handler, tc.target, nil))
 		})
 	}
 }
@@ -210,7 +197,7 @@ func TestGetRouteVariants(t *testing.T) {
 
 	t.Run("returns one entry per direction, outbound first", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetRouteVariants, "/?routeId=1&company=KMB", &got)
+		testhttp.CallJSON(t, GetRouteVariants, "/?routeId=1&company=KMB", &got)
 
 		if len(got) != 2 {
 			t.Fatalf("got %d variants, want one per direction", len(got))
@@ -223,7 +210,7 @@ func TestGetRouteVariants(t *testing.T) {
 
 	t.Run("without a company both operators are returned", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetRouteVariants, "/?routeId=1", &got)
+		testhttp.CallJSON(t, GetRouteVariants, "/?routeId=1", &got)
 		if len(got) != 3 {
 			t.Errorf("got %d variants, want all 3 across both operators", len(got))
 		}
@@ -234,7 +221,7 @@ func TestGetRouteVariants(t *testing.T) {
 			t.Fatalf("seeding 1A: %v", err)
 		}
 		var got []map[string]interface{}
-		callJSON(t, GetRouteVariants, "/?routeId=1&company=KMB", &got)
+		testhttp.CallJSON(t, GetRouteVariants, "/?routeId=1&company=KMB", &got)
 		for _, v := range got {
 			if v["route"] != "1" {
 				t.Errorf("returned route %v; the lookup must be exact", v["route"])
@@ -243,7 +230,7 @@ func TestGetRouteVariants(t *testing.T) {
 	})
 
 	t.Run("requires routeId", func(t *testing.T) {
-		rec := callJSON(t, GetRouteVariants, "/", nil)
+		rec := testhttp.CallJSON(t, GetRouteVariants, "/", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
@@ -267,7 +254,7 @@ func TestSearchRoutesIsCaseInsensitive(t *testing.T) {
 	want := []string{"1", "10", "2"}
 	for _, q := range []string{"central", "CENTRAL", "Central"} {
 		var got []Route
-		callJSON(t, SearchRoutes, "/?q="+url.QueryEscape(q), &got)
+		testhttp.CallJSON(t, SearchRoutes, "/?q="+url.QueryEscape(q), &got)
 		if len(got) != len(want) {
 			t.Fatalf("q=%q returned %d routes, want %d", q, len(got), len(want))
 		}
@@ -295,7 +282,7 @@ func TestSearchStopsIsCaseInsensitive(t *testing.T) {
 	want := []string{"A1", "B2", "C3"}
 	for _, q := range []string{"central", "CENTRAL", "Central"} {
 		var got []Stop
-		callJSON(t, SearchStops, "/?q="+url.QueryEscape(q), &got)
+		testhttp.CallJSON(t, SearchStops, "/?q="+url.QueryEscape(q), &got)
 		if len(got) != len(want) {
 			t.Fatalf("q=%q returned %d stops, want %d", q, len(got), len(want))
 		}
@@ -316,14 +303,14 @@ func TestGetStopByStopId(t *testing.T) {
 
 	t.Run("returns the stop", func(t *testing.T) {
 		var got Stop
-		callJSON(t, GetStopByStopId, "/?stopId=A1", &got)
+		testhttp.CallJSON(t, GetStopByStopId, "/?stopId=A1", &got)
 		if got.Stop != "A1" {
 			t.Errorf("stop = %q, want A1", got.Stop)
 		}
 	})
 
 	t.Run("unknown stop is a 404", func(t *testing.T) {
-		rec := callJSON(t, GetStopByStopId, "/?stopId=NOPE", nil)
+		rec := testhttp.CallJSON(t, GetStopByStopId, "/?stopId=NOPE", nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", rec.Code)
 		}
