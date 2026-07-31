@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback } from 'react';
 import { RouteStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { formatETA } from '../../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { getBusETA } from '../../../services/api';
+import { usePollingFetch } from '../../../hooks/usePollingFetch';
 
 export interface RouteStopCardProps {
   routeStop: RouteStop;
@@ -13,39 +14,20 @@ export interface RouteStopCardProps {
 }
 
 export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
-  const [etaData, setEtaData] = useState<string[]>([]);
-  const [, setLoadingETA] = useState(false);
-  const [, setEtaError] = useState<string | null>(null);
   const { getGrayTextClass, getAccentClass, getHoverClass, getSecondaryTextClass } = useThemeStyles();
   const navigate = useNavigate();
 
-  const fetchETA = useCallback(async () => {
-    if (!routeStop) return;
-    setLoadingETA(true);
-    setEtaError(null);
-    try {
-      const etaList = await getBusETA(
-        routeStop.company,
-        routeStop.stop,
-        routeStop.route,
-        routeStop.service_type,
-        routeStop.direction
-      );
-      setEtaData(etaList);
-    } catch (error) {
-      setEtaError('Failed to load ETA data');
-      console.error('Error fetching ETA:', error);
-    } finally {
-      setLoadingETA(false);
-    }
-  }, [routeStop]);
-
-  // Auto-refresh ETA data every 30 seconds
-  useEffect(() => {
-    fetchETA();
-    const interval = setInterval(fetchETA, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
-  }, [fetchETA]);
+  const fetchETA = useCallback(
+    () => getBusETA(
+      routeStop.company,
+      routeStop.stop,
+      routeStop.route,
+      routeStop.service_type,
+      routeStop.direction
+    ),
+    [routeStop]
+  );
+  const { data: etaData } = usePollingFetch<string[]>(routeStop ? fetchETA : null, []);
 
   return (
     <div

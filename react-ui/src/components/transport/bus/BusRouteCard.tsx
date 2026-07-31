@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusRoute, BusStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
+import { usePollingFetch } from '../../../hooks/usePollingFetch';
 import { getBusETA } from '../../../services/api';
 import { formatETA } from '../../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
@@ -16,33 +17,13 @@ export interface RouteCardProps {
 
 export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClick, shouldBusCompanyIcon = true }) => {
   const navigate = useNavigate();
-  const [etaData, setEtaData] = useState<string[]>([]);
-  const [, setLoadingETA] = useState(false);
-  const [, setEtaError] = useState<string | null>(null);
-  
-  const fetchETA = useCallback(async () => {
-    if (!busStop) return; // Only fetch for Citybus stops
-    
-    setLoadingETA(true);
-    setEtaError(null);
-    try {
-      const etaResults = await getBusETA(route.company, busStop.stop, route.route, route.service_type, route.direction);
-      setEtaData(etaResults);
-    } catch (error) {
-      setEtaError('Failed to load ETA data');
-      console.error('Error fetching ETA:', error);
-    } finally {
-      setLoadingETA(false);
-    }
-  }, [busStop, route]);
-  
-  // Auto-refresh ETA data every 30 seconds
-  useEffect(() => {
-      fetchETA();
-      const interval = setInterval(fetchETA, 30000); // Refresh every 30 seconds
-      return () => clearInterval(interval);
-  }, [fetchETA]);
-  
+
+  // Only a card rendered against a stop has an ETA to show.
+  const fetchETA = useCallback(
+    () => getBusETA(route.company, busStop!.stop, route.route, route.service_type, route.direction),
+    [busStop, route]
+  );
+  const { data: etaData } = usePollingFetch<string[]>(busStop ? fetchETA : null, []);
 
   const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
   return (
