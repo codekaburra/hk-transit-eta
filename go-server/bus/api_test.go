@@ -164,3 +164,21 @@ func TestBuildRouteVariantsQuery(t *testing.T) {
 		}
 	})
 }
+
+// A stop whose details are missing must still appear in the sequence. An inner
+// join drops it silently, leaving a route rendered with a hole: Citybus 50M
+// references stop 003759, for which the operator returns an empty payload, and
+// outbound showed 19 stops numbered 1 to 20.
+func TestBuildStopsByRouteQueryKeepsStopsWithoutDetails(t *testing.T) {
+	sql, _ := buildStopsByRouteQuery("50M", "CTB", "O", "")
+
+	if !strings.Contains(sql, "LEFT JOIN stops") {
+		t.Errorf("stops must be left-joined so missing details do not drop the row, got:\n%s", sql)
+	}
+	// Left-joined columns come back NULL; the scan targets are strings.
+	for _, col := range []string{"s.name_en", "s.name_tc", "s.lat", "s.long"} {
+		if !strings.Contains(sql, "COALESCE("+col) {
+			t.Errorf("%s must be COALESCEd for the left join, got:\n%s", col, sql)
+		}
+	}
+}

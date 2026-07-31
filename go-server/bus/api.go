@@ -149,10 +149,16 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 // number can be served by two operators and can run several service types in
 // the same direction, and those form separate stop sequences.
 func buildStopsByRouteQuery(routeId, company, direction, serviceType string) (string, []interface{}) {
+	// LEFT JOIN, not INNER: a stop whose details are missing must still appear
+	// in the sequence. An inner join drops it silently, so the route renders
+	// with a hole — Citybus 50M is missing stop 003759, for which the operator
+	// returns an empty payload, and outbound then showed 19 stops numbered
+	// 1 to 20. Missing columns come back empty for the client to fall back on.
 	sql := `SELECT rs.company, rs.route, rs.direction, rs.service_type, rs.seq, rs.stop,
-		s.name_en, s.name_tc, s.lat, s.long
+		COALESCE(s.name_en, ''), COALESCE(s.name_tc, ''),
+		COALESCE(s.lat, ''), COALESCE(s.long, '')
 		FROM route_stops rs
-		JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
+		LEFT JOIN stops s ON rs.stop = s.stop AND rs.company = s.company
 		WHERE rs.route = $1`
 	args := []interface{}{routeId}
 

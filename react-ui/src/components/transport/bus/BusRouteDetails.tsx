@@ -60,6 +60,10 @@ export const BusRouteDetails: React.FC = () => {
           company: resolvedCompany,
         });
 
+        // Reaching here means the backend answered; empty results therefore
+        // mean the route genuinely does not exist. A request that failed
+        // throws instead, and is reported as an error below rather than being
+        // shown to the user as a missing route.
         if (meta.length === 0 && routeStops.length === 0) {
           setError('Route not found');
           return;
@@ -68,7 +72,7 @@ export const BusRouteDetails: React.FC = () => {
         setVariantMeta(meta);
         setStops(routeStops);
       } catch (err) {
-        setError('Failed to load route');
+        setError('Could not reach the server. Please try again.');
         console.error('Error fetching route:', err);
       } finally {
         setLoading(false);

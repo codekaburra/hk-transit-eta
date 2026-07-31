@@ -102,22 +102,22 @@ export const getBusStopsByRoute = async (route: string): Promise<BusStop[]> => {
 // direction, plus extra entries for routes that run special service types.
 // Uses an exact-match endpoint — the fuzzy search endpoint cannot be used to
 // resolve a route, since it matches substrings and caps at 50 rows.
+//
+// Throws on failure rather than returning an empty list: an empty list means
+// "this route does not exist", and callers must be able to tell that apart
+// from the backend being unreachable — otherwise an outage is reported to the
+// user as a missing route.
 export const getBusRouteVariants = async (
   route: string,
   company?: string
 ): Promise<BusRoute[]> => {
-  try {
-    const params = new URLSearchParams({ routeId: route });
-    if (company) params.set('company', company);
-    const response = await fetch(`${API_BASE_URL}/bus/route-variants?${params}`);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching route variants:', error);
-    return [];
+  const params = new URLSearchParams({ routeId: route });
+  if (company) params.set('company', company);
+  const response = await fetch(`${API_BASE_URL}/bus/route-variants?${params}`);
+  if (!response.ok) {
+    throw new Error(`Route variants request failed with status ${response.status}`);
   }
+  return await response.json();
 };
 
 export interface RouteStopFilter {
@@ -126,50 +126,47 @@ export interface RouteStopFilter {
   serviceType?: string;
 }
 
+// Throws on failure for the same reason as getBusRouteVariants: an empty list
+// must only ever mean the route has no stops.
 export const getBusRouteStops = async (
   route: string,
   filter: RouteStopFilter = {}
 ): Promise<RouteStop[]> => {
-  try {
-    // Validate parameters
-    if (!route) {
-      throw new Error(`Missing required parameter: route=${route}`);
-    }
-
-    // Without these filters a shared route number returns both operators'
-    // stops for every direction at once, which is not a usable sequence.
-    const params = new URLSearchParams({ routeId: route });
-    if (filter.company) params.set('company', filter.company);
-    if (filter.direction) params.set('direction', filter.direction);
-    if (filter.serviceType) params.set('serviceType', filter.serviceType);
-
-    const url = `${API_BASE_URL}/bus/stops-by-route?${params}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error Response:', errorText);
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
-    }
-    const data = await response.json();
-
-    // Transform the data to match RouteStop interface
-    return data.map((item: any) => ({
-      company: item.company,
-      route: item.route,
-      direction: item.direction,
-      service_type: item.service_type,
-      seq: item.seq,
-      stop: item.stop,
-      name_en: item.name_en,
-      name_tc: item.name_tc,
-      lat: item.lat,
-      long: item.long,
-    }));
-  } catch (error) {
-    console.error('Error fetching route stops:', error);
-    return [];
+  if (!route) {
+    throw new Error(`Missing required parameter: route=${route}`);
   }
+
+  // Without these filters a shared route number returns both operators'
+  // stops for every direction at once, which is not a usable sequence.
+  const params = new URLSearchParams({ routeId: route });
+  if (filter.company) params.set('company', filter.company);
+  if (filter.direction) params.set('direction', filter.direction);
+  if (filter.serviceType) params.set('serviceType', filter.serviceType);
+
+  const url = `${API_BASE_URL}/bus/stops-by-route?${params}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Route stops request failed with status ${response.status}: ${errorText}`
+    );
+  }
+  const data = await response.json();
+
+  // Transform the data to match RouteStop interface
+  return data.map((item: any) => ({
+    company: item.company,
+    route: item.route,
+    direction: item.direction,
+    service_type: item.service_type,
+    seq: item.seq,
+    stop: item.stop,
+    name_en: item.name_en,
+    name_tc: item.name_tc,
+    lat: item.lat,
+    long: item.long,
+  }));
 };
 
 export const getBusRoutesByStop = async (stopId: string): Promise<BusRoute[]> => {
