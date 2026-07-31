@@ -1,10 +1,11 @@
 package minibus
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
+
+	"hk-transit-eta/internal/httpjson"
 )
 
 // GetMinibusRoutes returns all minibus routes with optional region filter
@@ -61,8 +62,7 @@ func GetMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routes)
+	httpjson.Write(w, routes)
 }
 
 // GetMinibusStops returns all minibus stops with coordinates
@@ -106,8 +106,7 @@ func GetMinibusStops(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stops)
+	httpjson.Write(w, stops)
 }
 
 // GetMinibusRouteStops returns stops for a specific route and direction
@@ -116,14 +115,8 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 	routeSeqStr := r.URL.Query().Get("routeSeq")
 	fmt.Printf("GetMinibusRouteStops - RouteId: %s, RouteSeq: %s\n", routeIDStr, routeSeqStr)
 
-	if routeIDStr == "" {
-		http.Error(w, "routeId parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	routeID, err := strconv.Atoi(routeIDStr)
-	if err != nil {
-		http.Error(w, "Invalid routeId", http.StatusBadRequest)
+	routeID, ok := httpjson.RequiredIntQuery(w, r, "routeId")
+	if !ok {
 		return
 	}
 
@@ -181,18 +174,16 @@ func GetMinibusRouteStops(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routeStops)
+	httpjson.Write(w, routeStops)
 }
 
 // SearchMinibusRoutes searches routes by route code or description
 func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	fmt.Printf("SearchMinibusRoutes - Query: %s\n", query)
-	if query == "" {
-		http.Error(w, "Search query parameter 'q' is required", http.StatusBadRequest)
+	query, ok := httpjson.RequiredQuery(w, r, "q")
+	if !ok {
 		return
 	}
+	fmt.Printf("SearchMinibusRoutes - Query: %s\n", query)
 
 	like := "%" + query + "%"
 	sql := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
@@ -234,18 +225,16 @@ func SearchMinibusRoutes(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routes)
+	httpjson.Write(w, routes)
 }
 
 // SearchMinibusStops searches stops by name
 func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("q")
-	fmt.Printf("SearchMinibusStops - Query: %s\n", query)
-	if query == "" {
-		http.Error(w, "Search query parameter 'q' is required", http.StatusBadRequest)
+	query, ok := httpjson.RequiredQuery(w, r, "q")
+	if !ok {
 		return
 	}
+	fmt.Printf("SearchMinibusStops - Query: %s\n", query)
 
 	like := "%" + query + "%"
 	// DISTINCT ON (s.stop_id) replaces the SQLite GROUP BY s.stop_id pattern
@@ -287,22 +276,15 @@ func SearchMinibusStops(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stops)
+	httpjson.Write(w, stops)
 }
 
 // GetMinibusStopById returns detailed information for a specific stop
 func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 	stopIdStr := r.URL.Query().Get("stopId")
 	fmt.Printf("GetMinibusStopById - StopId: %s\n", stopIdStr)
-	if stopIdStr == "" {
-		http.Error(w, "stopId parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	stopId, err := strconv.Atoi(stopIdStr)
-	if err != nil {
-		http.Error(w, "Invalid stopId", http.StatusBadRequest)
+	stopId, ok := httpjson.RequiredIntQuery(w, r, "stopId")
+	if !ok {
 		return
 	}
 
@@ -320,19 +302,18 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 	var remarksTC, remarksSC, remarksEN, dataTimestamp *string
 	var nameTC, nameSC, nameEN *string
 
-	err = minibusDB.QueryRow(query, stopId).Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng,
+	err := minibusDB.QueryRow(query, stopId).Scan(&stopID, &lat, &lng, &hk80Lat, &hk80Lng,
 		&enabled, &remarksTC, &remarksSC, &remarksEN, &dataTimestamp, &nameTC, &nameSC, &nameEN)
 	if err != nil {
 		if err.Error() == "sql: no rows in result set" {
-			http.Error(w, "Stop not found", http.StatusNotFound)
+			httpjson.NotFound(w, "Stop not found")
 		} else {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	httpjson.Write(w, map[string]interface{}{
 		"stop_id": stopID, "latitude": lat, "longitude": lng,
 		"hk80_latitude": hk80Lat, "hk80_longitude": hk80Lng, "enabled": enabled,
 		"remarks_tc": remarksTC, "remarks_sc": remarksSC, "remarks_en": remarksEN,
@@ -344,14 +325,8 @@ func GetMinibusStopById(w http.ResponseWriter, r *http.Request) {
 func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	stopIdStr := r.URL.Query().Get("stopId")
 	fmt.Printf("GetMinibusRoutesByStopId - StopId: %s\n", stopIdStr)
-	if stopIdStr == "" {
-		http.Error(w, "stopId parameter is required", http.StatusBadRequest)
-		return
-	}
-
-	stopId, err := strconv.Atoi(stopIdStr)
-	if err != nil {
-		http.Error(w, "Invalid stopId", http.StatusBadRequest)
+	stopId, ok := httpjson.RequiredIntQuery(w, r, "stopId")
+	if !ok {
 		return
 	}
 
@@ -397,31 +372,20 @@ func GetMinibusRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(routes)
+	httpjson.Write(w, routes)
 }
 
 // GetRouteByRouteIdAndDirection returns route details with headways
 func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
-	routeIdStr := r.URL.Query().Get("routeId")
-	routeSeqStr := r.URL.Query().Get("routeSeq")
-	fmt.Printf("GetRouteByRouteIdAndDirection - RouteId: %s, RouteSeq: %s\n", routeIdStr, routeSeqStr)
-
-	if routeIdStr == "" || routeSeqStr == "" {
-		http.Error(w, "routeId and routeSeq parameters are required", http.StatusBadRequest)
+	routeId, ok := httpjson.RequiredIntQuery(w, r, "routeId")
+	if !ok {
 		return
 	}
-
-	routeId, err := strconv.Atoi(routeIdStr)
-	if err != nil {
-		http.Error(w, "Invalid routeId", http.StatusBadRequest)
+	routeSeq, ok := httpjson.RequiredIntQuery(w, r, "routeSeq")
+	if !ok {
 		return
 	}
-	routeSeq, err := strconv.Atoi(routeSeqStr)
-	if err != nil {
-		http.Error(w, "Invalid routeSeq", http.StatusBadRequest)
-		return
-	}
+	fmt.Printf("GetRouteByRouteIdAndDirection - RouteId: %d, RouteSeq: %d\n", routeId, routeSeq)
 
 	routeQuery := `SELECT region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
 				orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
@@ -433,12 +397,12 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 	var remarksTC, remarksSC, remarksEN, directionDataTimestamp, dataTimestamp string
 	var dbRouteId, dbRouteSeq int
 
-	err = minibusDB.QueryRow(routeQuery, routeId, routeSeq).Scan(
+	err := minibusDB.QueryRow(routeQuery, routeId, routeSeq).Scan(
 		&region, &routeCode, &dbRouteId, &dbRouteSeq, &descTC, &descSC, &descEN,
 		&origTC, &origSC, &origEN, &destTC, &destSC, &destEN,
 		&remarksTC, &remarksSC, &remarksEN, &directionDataTimestamp, &dataTimestamp)
 	if err != nil {
-		http.Error(w, "Route not found", http.StatusNotFound)
+		httpjson.NotFound(w, "Route not found")
 		return
 	}
 
@@ -480,8 +444,7 @@ func GetRouteByRouteIdAndDirection(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	httpjson.Write(w, map[string]interface{}{
 		"route_id": dbRouteId, "route_seq": dbRouteSeq, "region": region, "route_code": routeCode,
 		"description_tc": descTC, "description_sc": descSC, "description_en": descEN,
 		"orig_tc": origTC, "orig_sc": origSC, "orig_en": origEN,
@@ -501,8 +464,7 @@ func GetRouteCount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	httpjson.Write(w, map[string]interface{}{
 		"type":  "minibus",
 		"count": count,
 	})
