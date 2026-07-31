@@ -1,5 +1,5 @@
 # Dev image — runs npm start with HMR on port 3000
-FROM node:18-alpine
+FROM node:24-alpine
 WORKDIR /app
 # Install deps into the image — node_modules lives here, NOT in the mounted volume.
 # This prevents macOS/Linux binary incompatibilities.

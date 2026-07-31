@@ -13,14 +13,35 @@ jobs:
       run:
         working-directory: go-server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go-server/go.mod
           cache-dependency-path: go-server/go.sum
       - run: go build ./...
       - run: go vet ./...
-      - run: go test ./...
+
+      # Coverage goes to the run summary rather than a badge: a badge needs a
+      # third-party service, an account and a token — a lot of setup for one
+      # number. This appears on every run with none of that.
+      - name: Test with coverage
+        run: |
+          go test -coverprofile=coverage.out ./... | tee /tmp/go-test.txt
+          {
+            echo "### Backend coverage"
+            echo
+            echo '```'
+            go tool cover -func=coverage.out | tail -1
+            echo '```'
+            echo
+            echo "<details><summary>Per package</summary>"
+            echo
+            echo '```'
+            cat /tmp/go-test.txt
+            echo '```'
+            echo
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   web:
     name: React (test)
@@ -29,13 +50,24 @@ jobs:
       run:
         working-directory: react-ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: react-ui/package-lock.json
       - run: npm ci
-      - run: npm test
+
+      - name: Test with coverage
         env:
           CI: "true"
+        run: |
+          npm test -- --coverage --watchAll=false \
+            --coverageReporters=text-summary | tee /tmp/web-test.txt
+          {
+            echo "### Frontend coverage"
+            echo
+            echo '```'
+            grep -E "Statements|Branches|Functions|Lines" /tmp/web-test.txt || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
