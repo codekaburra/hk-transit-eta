@@ -30,12 +30,13 @@ func setupDB(t *testing.T) {
 // withGMBServer points the fetcher at srv and removes the request pacing.
 func withGMBServer(t *testing.T, srv *httptest.Server) {
 	t.Helper()
-	base, interval, dir := gmbAPIBase, gmbRequestInterval, snapshotDir
+	base, interval, retryDelay, dir := gmbAPIBase, gmbRequestInterval, gmbRetryDelay, snapshotDir
 	t.Cleanup(func() {
-		gmbAPIBase, gmbRequestInterval, snapshotDir = base, interval, dir
+		gmbAPIBase, gmbRequestInterval, gmbRetryDelay, snapshotDir = base, interval, retryDelay, dir
 	})
 	gmbAPIBase = srv.URL
 	gmbRequestInterval = 0
+	gmbRetryDelay = 0
 	// Keep the exported snapshot out of the package directory.
 	snapshotDir = t.TempDir()
 }
@@ -192,6 +193,50 @@ func TestRefreshRefetchesChangedRoutes(t *testing.T) {
 	}
 }
 
+// A transient failure while fetching a changed route must not delete the last
+// known-good copy. The replacement has to be fetched before the old rows are
+// removed.
+func TestRefreshKeepsPreviousRouteWhenChangedDetailFetchFails(t *testing.T) {
+	setupDB(t)
+
+	srv := gmbServer(t,
+		map[string][]string{"HKI": {"1"}, "KLN": nil, "NT": nil},
+		map[int]string{101: "2026-07-01T00:00:00+00:00"},
+		func(region, code string) string { return routeDetail(101, "last-known-good") })
+	defer srv.Close()
+	withGMBServer(t, srv)
+
+	if err := Refresh(); err != nil {
+		t.Fatalf("first Refresh: %v", err)
+	}
+
+	// Upstream advertises a change, but its detail response is temporarily
+	// malformed. Refresh logs and skips that route.
+	srv2 := gmbServer(t,
+		map[string][]string{"HKI": {"1"}, "KLN": nil, "NT": nil},
+		map[int]string{101: "2026-07-15T00:00:00+00:00"},
+		func(region, code string) string { return `{"broken":` })
+	defer srv2.Close()
+	withGMBServer(t, srv2)
+
+	if err := Refresh(); err != nil {
+		t.Fatalf("second Refresh: %v", err)
+	}
+
+	db := testdb.Connect(t)
+	var description, lastUpdate string
+	if err := db.QueryRow(`SELECT description_en, COALESCE(last_update_date, '')
+		FROM minibus_route WHERE route_id = 101`).Scan(&description, &lastUpdate); err != nil {
+		t.Fatalf("reading preserved route: %v", err)
+	}
+	if description != "last-known-good" {
+		t.Errorf("description = %q, want the previous route to remain", description)
+	}
+	if lastUpdate != "2026-07-01T00:00:00+00:00" {
+		t.Errorf("last_update_date = %q, want the previous successful timestamp", lastUpdate)
+	}
+}
+
 // A route the operator has withdrawn must be removed, along with its children.
 func TestRefreshRemovesWithdrawnRoutes(t *testing.T) {
 	setupDB(t)
@@ -207,6 +252,27 @@ func TestRefreshRemovesWithdrawnRoutes(t *testing.T) {
 		t.Fatalf("first Refresh: %v", err)
 	}
 
+	// Give the route every child shape that deletion and pruning own. The mock
+	// route detail intentionally has no children, so seed them explicitly.
+	db := testdb.Connect(t)
+	if _, err := db.Exec(`INSERT INTO minibus_headway
+		(route_id, route_seq, headway_seq, weekday_monday, weekday_tuesday,
+		 weekday_wednesday, weekday_thursday, weekday_friday, weekday_saturday,
+		 weekday_sunday, public_holiday, start_time, end_time, frequency)
+		VALUES (101, 1, 1, true, true, true, true, true, false, false, false,
+			'08:00', '09:00', 10)`); err != nil {
+		t.Fatalf("seeding headway: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO minibus_route_stop
+		(route_id, route_seq, stop_seq, stop_id, name_tc, name_sc, name_en)
+		VALUES (101, 1, 1, 9001, '站', '站', 'Stop')`); err != nil {
+		t.Fatalf("seeding route-stop: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO minibus_stop
+		(stop_id, latitude, longitude, enabled) VALUES (9001, 22.3, 114.2, true)`); err != nil {
+		t.Fatalf("seeding stop: %v", err)
+	}
+
 	// The route code disappears from the region listing.
 	srv2 := gmbServer(t,
 		map[string][]string{"HKI": nil, "KLN": nil, "NT": nil},
@@ -219,9 +285,18 @@ func TestRefreshRemovesWithdrawnRoutes(t *testing.T) {
 		t.Fatalf("second Refresh: %v", err)
 	}
 
-	db := testdb.Connect(t)
-	if n := testdb.Count(t, db, "minibus_route", "route_id = 101"); n != 0 {
-		t.Errorf("withdrawn route still present (%d rows)", n)
+	for _, tc := range []struct {
+		table string
+		where string
+	}{
+		{"minibus_route", "route_id = 101"},
+		{"minibus_headway", "route_id = 101"},
+		{"minibus_route_stop", "route_id = 101"},
+		{"minibus_stop", "stop_id = 9001"},
+	} {
+		if n := testdb.Count(t, db, tc.table, tc.where); n != 0 {
+			t.Errorf("%s still has %d withdrawn/orphan row(s)", tc.table, n)
+		}
 	}
 }
 

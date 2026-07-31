@@ -9,6 +9,10 @@ import (
 
 var minibusDB *sql.DB
 
+type statementPreparer interface {
+	Prepare(query string) (*sql.Stmt, error)
+}
+
 // SetDatabase sets the database connection for the minibus package
 func SetDatabase(db *sql.DB) {
 	minibusDB = db
@@ -148,6 +152,10 @@ func storeMinibusRoutes(routes []MinibusRoute, region string, fetchStops bool) e
 // request per direction); seeding from a local snapshot passes false and
 // inserts route-stops from the snapshot instead.
 func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
+	return upsertMinibusRoutesWith(minibusDB, routes, fetchStops)
+}
+
+func upsertMinibusRoutesWith(db statementPreparer, routes []MinibusRoute, fetchStops bool) error {
 	insertRouteSQL := `INSERT INTO minibus_route
 		(region, route_code, route_id, route_seq, description_tc, description_sc, description_en,
 		 orig_tc, orig_sc, orig_en, dest_tc, dest_sc, dest_en, remarks_tc, remarks_sc, remarks_en,
@@ -162,7 +170,7 @@ func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 			remarks_tc = EXCLUDED.remarks_tc, remarks_sc = EXCLUDED.remarks_sc, remarks_en = EXCLUDED.remarks_en,
 			direction_data_timestamp = EXCLUDED.direction_data_timestamp,
 			data_timestamp = EXCLUDED.data_timestamp`
-	routeStmt, err := minibusDB.Prepare(insertRouteSQL)
+	routeStmt, err := db.Prepare(insertRouteSQL)
 	if err != nil {
 		return fmt.Errorf("error preparing minibus route insert: %v", err)
 	}
@@ -184,7 +192,7 @@ func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 			public_holiday = EXCLUDED.public_holiday,
 			start_time = EXCLUDED.start_time, end_time = EXCLUDED.end_time,
 			frequency = EXCLUDED.frequency, frequency_upper = EXCLUDED.frequency_upper`
-	headwayStmt, err := minibusDB.Prepare(insertHeadwaySQL)
+	headwayStmt, err := db.Prepare(insertHeadwaySQL)
 	if err != nil {
 		return fmt.Errorf("error preparing minibus headway insert: %v", err)
 	}
@@ -197,7 +205,7 @@ func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 			stop_id = EXCLUDED.stop_id,
 			name_tc = EXCLUDED.name_tc, name_sc = EXCLUDED.name_sc, name_en = EXCLUDED.name_en,
 			data_timestamp = EXCLUDED.data_timestamp`
-	routeStopStmt, err := minibusDB.Prepare(insertRouteStopSQL)
+	routeStopStmt, err := db.Prepare(insertRouteStopSQL)
 	if err != nil {
 		return fmt.Errorf("error preparing minibus route stop insert: %v", err)
 	}
@@ -227,6 +235,10 @@ func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 				direction.DataTimestamp, route.DataTimestamp,
 			)
 			if err != nil {
+				if !fetchStops {
+					return fmt.Errorf("error inserting minibus route %s/%d/%d: %v",
+						route.RouteCode, route.RouteID, direction.RouteSeq, err)
+				}
 				log.Printf("Error inserting minibus route %s/%d/%d: %v", route.RouteCode, route.RouteID, direction.RouteSeq, err)
 				continue
 			}
@@ -249,6 +261,10 @@ func upsertMinibusRoutes(routes []MinibusRoute, fetchStops bool) error {
 					headway.Frequency, headway.FrequencyUpper,
 				)
 				if err != nil {
+					if !fetchStops {
+						return fmt.Errorf("error inserting headway for route %s/%d: %v",
+							route.RouteCode, route.RouteID, err)
+					}
 					log.Printf("Error inserting headway for route %s/%d: %v", route.RouteCode, route.RouteID, err)
 					continue
 				}

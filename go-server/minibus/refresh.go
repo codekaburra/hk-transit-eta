@@ -117,31 +117,44 @@ func Refresh() error {
 
 	fmt.Printf("GMB diff: %d routes to fetch, %d removed\n", len(toFetch), len(removedIDs))
 
-	// Apply: drop removed and changed rows, then re-insert fresh data.
-	if err := deleteMinibusRouteIDs(removedIDs); err != nil {
-		return err
-	}
-	var changedList []int
-	for id := range changedIDs {
-		changedList = append(changedList, id)
-	}
-	if err := deleteMinibusRouteIDs(changedList); err != nil {
-		return err
-	}
-
+	// Fetch replacements before deleting changed routes. A transient detail API
+	// failure must leave the last known-good route in place rather than turning
+	// an update attempt into data loss.
 	var fetched []MinibusRoute
+	fetchedCodes := map[regionCode]bool{}
 	for rc := range toFetch {
 		detail, err := fetchRouteDetail(rc.region, rc.code)
 		if err != nil {
 			log.Printf("Warning: skipping GMB route %s/%s: %v", rc.region, rc.code, err)
 			continue
 		}
+		if len(detail) == 0 {
+			log.Printf("Warning: skipping empty GMB route detail for %s/%s", rc.region, rc.code)
+			continue
+		}
+		fetchedCodes[rc] = true
 		for i := range detail {
 			detail[i].Region = rc.region
 			detail[i].RouteCode = rc.code
 		}
 		fetched = append(fetched, detail...)
 	}
+
+	// Apply removals, then replace only changed routes whose fresh detail was
+	// fetched successfully. New-route failures need no deletion.
+	if err := deleteMinibusRouteIDs(removedIDs); err != nil {
+		return err
+	}
+	var changedList []int
+	for id := range changedIDs {
+		if rc, ok := codeByID[id]; ok && fetchedCodes[rc] {
+			changedList = append(changedList, id)
+		}
+	}
+	if err := deleteMinibusRouteIDs(changedList); err != nil {
+		return err
+	}
+
 	if len(fetched) > 0 {
 		if err := upsertMinibusRoutes(fetched, true); err != nil {
 			return err

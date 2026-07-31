@@ -10,14 +10,22 @@ import (
 
 const minibusCacheDir = "data/minibus"
 
-// SeedFromCache loads minibus data from JSON cache files and stores it in the DB.
-// Returns false if any cache file is missing.
+var minibusRegions = []string{MinibusRegionHKI, MinibusRegionKLN, MinibusRegionNT}
+
+type minibusSnapshot struct {
+	routes     map[string][]MinibusRoute
+	routeStops []cachedRouteStop
+	stops      []cachedStop
+}
+
+// SeedFromCache replaces minibus data with the complete snapshot on disk.
+// Every file is parsed before the transaction starts, so missing or malformed
+// input cannot leave a mixture of the old and new datasets.
 func SeedFromCache(dataDir string) bool {
 	mbDir := filepath.Join(dataDir, "minibus")
-	regions := []string{MinibusRegionHKI, MinibusRegionKLN, MinibusRegionNT}
 
 	var files []string
-	for _, r := range regions {
+	for _, r := range minibusRegions {
 		files = append(files, filepath.Join(mbDir, "gmb_routes_"+r+".json"))
 	}
 	files = append(files, filepath.Join(mbDir, "gmb_route_stops.json"))
@@ -29,46 +37,73 @@ func SeedFromCache(dataDir string) bool {
 
 	fmt.Println("=== Seeding minibus data from cache ===")
 
-	for i, region := range regions {
-		var routes []MinibusRoute
-		if err := cache.Load(files[i], &routes); err != nil {
-			fmt.Printf("Error loading GMB routes cache for %s: %v\n", region, err)
-			return false
-		}
-		if err := storeMinibusRoutes(routes, region, false); err != nil {
-			fmt.Printf("Error storing GMB routes for %s: %v\n", region, err)
-			return false
-		}
-		fmt.Printf("Seeded %d GMB routes for region %s\n", len(routes), region)
+	snap, err := loadMinibusSnapshot(files)
+	if err != nil {
+		fmt.Printf("Error loading GMB snapshot: %v\n", err)
+		return false
+	}
+	if err := replaceAllMinibusData(snap); err != nil {
+		fmt.Printf("Error applying GMB snapshot: %v\n", err)
+		return false
 	}
 
-	var routeStops []cachedRouteStop
-	if err := cache.Load(files[len(files)-2], &routeStops); err != nil {
-		fmt.Printf("Error loading GMB route-stops cache: %v\n", err)
-		return false
+	for _, region := range minibusRegions {
+		fmt.Printf("Seeded %d GMB routes for region %s\n", len(snap.routes[region]), region)
 	}
-	if err := seedRouteStops(routeStops); err != nil {
-		fmt.Printf("Error storing GMB route-stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d GMB route-stops\n", len(routeStops))
-
-	var stops []cachedStop
-	if err := cache.Load(files[len(files)-1], &stops); err != nil {
-		fmt.Printf("Error loading GMB stops cache: %v\n", err)
-		return false
-	}
-	if err := seedStops(stops); err != nil {
-		fmt.Printf("Error storing GMB stops: %v\n", err)
-		return false
-	}
-	fmt.Printf("Seeded %d GMB stops\n", len(stops))
+	fmt.Printf("Seeded %d GMB route-stops\n", len(snap.routeStops))
+	fmt.Printf("Seeded %d GMB stops\n", len(snap.stops))
 
 	fmt.Println("=== Minibus cache seeding complete ===")
 	if err := syncmeta.Record("gmb_seed", ""); err != nil {
 		fmt.Printf("Warning: could not record gmb seed: %v\n", err)
 	}
 	return true
+}
+
+func loadMinibusSnapshot(files []string) (minibusSnapshot, error) {
+	snap := minibusSnapshot{routes: make(map[string][]MinibusRoute)}
+	for i, region := range minibusRegions {
+		var routes []MinibusRoute
+		if err := cache.Load(files[i], &routes); err != nil {
+			return snap, fmt.Errorf("%s: %v", files[i], err)
+		}
+		snap.routes[region] = routes
+	}
+	if err := cache.Load(files[len(files)-2], &snap.routeStops); err != nil {
+		return snap, fmt.Errorf("%s: %v", files[len(files)-2], err)
+	}
+	if err := cache.Load(files[len(files)-1], &snap.stops); err != nil {
+		return snap, fmt.Errorf("%s: %v", files[len(files)-1], err)
+	}
+	return snap, nil
+}
+
+func replaceAllMinibusData(snap minibusSnapshot) error {
+	tx, err := minibusDB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	for _, table := range []string{
+		"minibus_headway", "minibus_route_stop", "minibus_route", "minibus_stop",
+	} {
+		if _, err := tx.Exec("DELETE FROM " + table); err != nil {
+			return fmt.Errorf("clearing %s: %v", table, err)
+		}
+	}
+	for _, region := range minibusRegions {
+		if err := upsertMinibusRoutesWith(tx, snap.routes[region], false); err != nil {
+			return err
+		}
+	}
+	if err := insertCachedRouteStops(tx, snap.routeStops); err != nil {
+		return err
+	}
+	if err := insertCachedStops(tx, snap.stops); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // cachedStop mirrors the minibus_stop table columns for JSON cache.
@@ -85,7 +120,7 @@ type cachedStop struct {
 	DataTimestamp string  `json:"data_timestamp"`
 }
 
-func seedStops(stops []cachedStop) error {
+func insertCachedStops(db statementPreparer, stops []cachedStop) error {
 	insertSQL := `INSERT INTO minibus_stop
 		(stop_id, latitude, longitude, hk80_latitude, hk80_longitude, enabled, remarks_tc, remarks_sc, remarks_en, data_timestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -100,13 +135,8 @@ func seedStops(stops []cachedStop) error {
 			remarks_en = EXCLUDED.remarks_en,
 			data_timestamp = EXCLUDED.data_timestamp`
 
-	tx, err := minibusDB.Begin()
+	stmt, err := db.Prepare(insertSQL)
 	if err != nil {
-		return err
-	}
-	stmt, err := tx.Prepare(insertSQL)
-	if err != nil {
-		tx.Rollback()
 		return err
 	}
 	defer stmt.Close()
@@ -114,11 +144,10 @@ func seedStops(stops []cachedStop) error {
 	for _, s := range stops {
 		if _, err := stmt.Exec(s.StopID, s.Latitude, s.Longitude, s.HK80Lat, s.HK80Lng,
 			s.Enabled, s.RemarksTC, s.RemarksSC, s.RemarksEN, s.DataTimestamp); err != nil {
-			tx.Rollback()
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // cachedRouteStop mirrors the minibus_route_stop table columns for JSON cache.
@@ -133,7 +162,7 @@ type cachedRouteStop struct {
 	DataTimestamp string `json:"data_timestamp"`
 }
 
-func seedRouteStops(routeStops []cachedRouteStop) error {
+func insertCachedRouteStops(db statementPreparer, routeStops []cachedRouteStop) error {
 	insertSQL := `INSERT INTO minibus_route_stop
 		(route_id, route_seq, stop_seq, stop_id, name_tc, name_sc, name_en, data_timestamp)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -142,24 +171,18 @@ func seedRouteStops(routeStops []cachedRouteStop) error {
 			name_tc = EXCLUDED.name_tc, name_sc = EXCLUDED.name_sc, name_en = EXCLUDED.name_en,
 			data_timestamp = EXCLUDED.data_timestamp`
 
-	tx, err := minibusDB.Begin()
+	stmt, err := db.Prepare(insertSQL)
 	if err != nil {
-		return err
-	}
-	stmt, err := tx.Prepare(insertSQL)
-	if err != nil {
-		tx.Rollback()
 		return err
 	}
 	defer stmt.Close()
 	for _, rs := range routeStops {
 		if _, err := stmt.Exec(rs.RouteID, rs.RouteSeq, rs.StopSeq, rs.StopID,
 			rs.NameTC, rs.NameSC, rs.NameEN, rs.DataTimestamp); err != nil {
-			tx.Rollback()
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ExportSnapshot writes the complete GMB dataset from the database to the

@@ -18,6 +18,7 @@ import (
 var (
 	gmbAPIBase         = "https://data.etagmb.gov.hk"
 	gmbRequestInterval = 300 * time.Millisecond
+	gmbRetryDelay      = 5 * time.Second
 
 	// snapshotDir is relative to the working directory the server runs from.
 	// Tests point it at a temporary directory so a test run does not write
@@ -27,7 +28,7 @@ var (
 
 func gmbFetch(apiURL string) (*httpapi.Response, error) {
 	time.Sleep(gmbRequestInterval)
-	return httpapi.FetchWithRetry(apiURL, 3, 5*time.Second)
+	return httpapi.FetchWithRetry(apiURL, 3, gmbRetryDelay)
 }
 
 func FetchMinibusRoutes() {
