@@ -16,7 +16,8 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routes []Route
+	// Non-nil so an empty result encodes as [] rather than null.
+	routes := []Route{}
 	for rows.Next() {
 		var route Route
 		err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
@@ -40,7 +41,8 @@ func GetStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var stops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	stops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
@@ -64,7 +66,8 @@ func GetRouteStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routeStops []RouteStop
+	// Non-nil so an empty result encodes as [] rather than null.
+	routeStops := []RouteStop{}
 	for rows.Next() {
 		var routeStop RouteStop
 		err := rows.Scan(&routeStop.Company, &routeStop.Route, &routeStop.Direction, &routeStop.ServiceType, &routeStop.Seq, &routeStop.Stop)
@@ -98,7 +101,8 @@ func SearchRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var allRoutes []Route
+	// Non-nil so an empty result encodes as [] rather than null.
+	allRoutes := []Route{}
 	for rows.Next() {
 		var route Route
 		err := rows.Scan(&route.Company, &route.Route, &route.Direction, &route.ServiceType, &route.OrigEn, &route.OrigTc, &route.OrigSc, &route.DestEn, &route.DestTc, &route.DestSc)
@@ -131,7 +135,8 @@ func SearchStops(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var allStops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	allStops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)
@@ -321,7 +326,8 @@ func GetRoutesByStopId(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var routesWithDetails []map[string]interface{}
+	// Non-nil so an empty result encodes as [] rather than null.
+	routesWithDetails := []map[string]interface{}{}
 	for rows.Next() {
 		var company, route, direction, serviceType, seq, stop string
 		err := rows.Scan(&company, &route, &direction, &serviceType, &seq, &stop)
@@ -386,7 +392,8 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var nearbyStops []Stop
+	// Non-nil so an empty result encodes as [] rather than null.
+	nearbyStops := []Stop{}
 	for rows.Next() {
 		var stop Stop
 		err := rows.Scan(&stop.Company, &stop.Stop, &stop.NameEn, &stop.NameTc, &stop.NameSc, &stop.Lat, &stop.Long)

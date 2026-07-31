@@ -51,7 +51,7 @@ func refreshKmb() error {
 		"kmb_stops.json":       stops,
 		"kmb_route_stops.json": routeStops,
 	} {
-		if err := cache.Save(kmbCacheDir+"/"+name, v); err != nil {
+		if err := cache.Save(busCacheDir+"/"+name, v); err != nil {
 			log.Printf("Warning: could not save %s: %v", name, err)
 		}
 	}
@@ -190,5 +190,5 @@ func BackfillCitybusStops() error {
 
 	// Snapshot from the database so the committed baseline picks up anything
 	// backfilled above.
-	return exportStopsSnapshot(DatabaseCompany_CityBus, ctbCacheDir+"/ctb_stops.json")
+	return exportStopsSnapshot(DatabaseCompany_CityBus, busCacheDir+"/ctb_stops.json")
 }

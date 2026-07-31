@@ -10,8 +10,6 @@ import (
 	"hk-transit-eta/internal/syncmeta"
 )
 
-const kmbCacheDir = "data/bus"
-
 func FetchKmbData() {
 	fmt.Println("=== Processing KMB Route Data ===")
 	routes, err := fetchKmbRouteData()
@@ -22,7 +20,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d routes from API\n", len(routes))
 
-	if err = cache.Save(kmbCacheDir+"/kmb_routes.json", routes); err != nil {
+	if err = cache.Save(busCacheDir+"/kmb_routes.json", routes); err != nil {
 		log.Printf("Warning: could not save KMB routes cache: %v", err)
 	}
 
@@ -43,7 +41,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d stops from API\n", len(stops))
 
-	if err = cache.Save(kmbCacheDir+"/kmb_stops.json", stops); err != nil {
+	if err = cache.Save(busCacheDir+"/kmb_stops.json", stops); err != nil {
 		log.Printf("Warning: could not save KMB stops cache: %v", err)
 	}
 
@@ -63,7 +61,7 @@ func FetchKmbData() {
 
 	fmt.Printf("Fetched %d route-stop relationships from API\n", len(routeStops))
 
-	if err = cache.Save(kmbCacheDir+"/kmb_route_stops.json", routeStops); err != nil {
+	if err = cache.Save(busCacheDir+"/kmb_route_stops.json", routeStops); err != nil {
 		log.Printf("Warning: could not save KMB route-stops cache: %v", err)
 	}
 
