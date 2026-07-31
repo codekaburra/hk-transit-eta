@@ -93,3 +93,50 @@ jobs:
             grep -E "Statements|Branches|Functions|Lines" /tmp/web-test.txt || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+
+      # Runs against the real stack: nginx serving the built SPA, the Go
+      # backend, and Postgres seeded from the committed snapshot. Unit tests
+      # mock the API, so only this proves the pieces work together.
+      - name: Start the stack
+        run: docker compose up -d --build
+        env:
+          FRONTEND_PORT: "80"
+          CORS_ORIGINS: http://localhost
+
+      - name: Wait for the backend to seed
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf "http://localhost/api/num-routes?type=bus" >/dev/null; then
+              echo "stack ready"; exit 0
+            fi
+            sleep 5
+          done
+          echo "stack did not come up" >&2
+          docker compose logs --tail=50 >&2
+          exit 1
+
+      - run: npx playwright test --project=chromium
+
+      - name: Collect logs on failure
+        if: failure()
+        run: docker compose logs --tail=200
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

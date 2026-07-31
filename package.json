@@ -1,0 +1,14 @@
+{
+  "name": "hk-transit-eta-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "End-to-end tests, run against the full Docker Compose stack",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1"
+  }
+}
