@@ -1,3 +1,7 @@
+# Production stack. The development stack sets its own project name, so the two
+# never share containers or volumes.
+name: hk-transit-eta
+
 services:
   db:
     image: postgres:16-alpine

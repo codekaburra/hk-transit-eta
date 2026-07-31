@@ -5,6 +5,15 @@
 # Backend:  air (Go live reload on :8080)
 # DB:       PostgreSQL on :5432 (also accessible from host for DB clients)
 
+# Both compose files otherwise default to the directory name, so `down` on one
+# tears down the other's containers and volumes. Naming this project keeps the
+# development stack independent of production.
+#
+# Naming it also renames its volume, so an existing development database starts
+# empty once and reseeds from the committed snapshot. Production keeps the name
+# it already had, so deployments are unaffected.
+name: hk-transit-eta-dev
+
 services:
   db:
     image: postgres:16-alpine
