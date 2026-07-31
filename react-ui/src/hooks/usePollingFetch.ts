@@ -61,10 +61,13 @@ export function usePollingFetch<T>(
 
     run();
     const interval = setInterval(run, intervalMs);
+    // Hold the ref itself rather than reading .current at teardown, which is
+    // what exhaustive-deps warns about.
+    const generation = runId;
     return () => {
       clearInterval(interval);
       // Invalidate whatever is still in flight.
-      runId.current++;
+      generation.current++;
     };
   }, [fetcher, run, intervalMs]);
 
