@@ -62,7 +62,7 @@ func Refresh() error {
 	toFetch := map[regionCode]bool{}
 	upstreamCodes := map[regionCode]bool{}
 	for _, region := range []string{MinibusRegionHKI, MinibusRegionKLN, MinibusRegionNT} {
-		resp, err := gmbFetch("https://data.etagmb.gov.hk/route/" + region)
+		resp, err := gmbFetch(gmbAPIBase + "/route/" + region)
 		if err != nil {
 			return fmt.Errorf("route listing for %s: %v", region, err)
 		}
@@ -87,7 +87,7 @@ func Refresh() error {
 	}
 
 	// Changed directions via the Last Update API.
-	resp, err := gmbFetch("https://data.etagmb.gov.hk/last-update/route")
+	resp, err := gmbFetch(gmbAPIBase + "/last-update/route")
 	if err != nil {
 		return fmt.Errorf("last-update/route: %v", err)
 	}
@@ -175,7 +175,7 @@ func Refresh() error {
 		log.Printf("Warning: %v", err)
 	}
 
-	if err := ExportSnapshot("data"); err != nil {
+	if err := ExportSnapshot(snapshotDir); err != nil {
 		log.Printf("Warning: could not export GMB snapshot: %v", err)
 	}
 
