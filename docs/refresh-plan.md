@@ -135,13 +135,49 @@ Prefer the simplest reliable option:
    (P4); fix swallowed CTB error; KMB envelope timestamp. (commit `638ce64`)
 3. ✅ Add `sync_meta` table (P3). (commit `f1b567b`)
 4. ✅ Bus refresh → `ReplaceCompanyData` in a transaction (P2). (`f1b567b`)
-5. ⬜ Run one full fetch; commit the compact-JSON baseline snapshot (P1).
-   **Blocked on a running Postgres** — with Docker up:
-   `docker compose -f docker-compose.dev.yml up db -d`, run the server once
-   to fetch, then `git add go-server/data && git commit`.
+5. ✅ Run one full fetch; commit the compact-JSON baseline snapshot (P1).
+   (commit `0cc28ab` — 11 files under `go-server/data/`, ~19 MB.)
 6. ✅ `POST /api/admin/refresh` (guarded by `ADMIN_TOKEN`): GMB `last-update`
    diff + KMB bulk re-fetch + CTB changed-route-only re-fetch.
    (commit `e2f5f64`)
+
+## Follow-ups
+
+Not part of the refresh work above; recorded here so they are not lost.
+
+1. ⬜ **Wire up the minibus route page's ETAs.** Every stop on a minibus route
+   page falls through to the no-data placeholder, and always has.
+   [`MinibusRouteDetails.tsx`](../react-ui/src/components/transport/minibus/MinibusRouteDetails.tsx)
+   builds `route_id` and `route_seq` into each stop with the comment "for ETA
+   fetching", but never passes `etaData` and the card never fetched: its
+   `fetchETA` was defined and never called. That dead function also called
+   itself from its own `catch` with no backoff, so it was removed rather than
+   connected (commit `e17129a`).
+
+   The pieces are in place —
+   [`usePollingFetch`](../react-ui/src/hooks/usePollingFetch.ts) already does
+   the fetch, the 30s interval, and stale-response handling, and
+   `fetchJSONOr` in [`http.ts`](../react-ui/src/services/http.ts) handles the
+   request. Roughly: add `getMinibusETA(routeId, stopId)` to `api.ts` hitting
+   `https://data.etagmb.gov.hk/eta/route-stop/{route_id}/{stop_id}`, then call
+   `usePollingFetch` from `MinibusRouteStopCard`.
+
+   **Decide the request volume first.** This is one request per stop row every
+   30 seconds — a 40-stop route means 40 requests per half-minute from a single
+   open page. GMB has already returned 403 under load during refresh work,
+   which is why `gmbRequestInterval` exists on the backend. Options: fetch only
+   for stops scrolled into view, lift the interval above 30s for minibus, or
+   have the parent fetch once for the whole route if GMB exposes a route-level
+   endpoint. This is the reason it was not switched on as part of the
+   duplicated-logic refactor.
+
+2. ⬜ **Migrate `stops.lat` / `stops.long` from TEXT to DOUBLE PRECISION** —
+   the remaining item of
+   [issue #15](https://github.com/codekaburra/hk-transit-eta/issues/15), left
+   open because it needs a migration. Minibus already stores these as
+   `DOUBLE PRECISION`; bus does not, so the nearby-stop query casts every row
+   it reads and needs a `MATERIALIZED` CTE plus a regex filter to stop one
+   malformed value from failing every search.
 
 ## Out of scope
 

@@ -208,21 +208,36 @@ func BackfillCitybusStops() error {
 // can shrink it rather than build a fixture of hundreds of routes.
 var citybusBatchSize = 100
 
+// inBatches applies fn to consecutive slices of at most size elements.
+func inBatches[T any](items []T, size int, fn func(batch []T) error) error {
+	for start := 0; start < len(items); start += size {
+		end := start + size
+		if end > len(items) {
+			end = len(items)
+		}
+		if err := fn(items[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteCitybusRouteStopsTx clears a route's stop sequence, so the refetched
+// one replaces it rather than merging into it.
+func deleteCitybusRouteStopsTx(tx *sql.Tx, route string) error {
+	_, err := tx.Exec("DELETE FROM route_stops WHERE company = $1 AND route = $2",
+		DatabaseCompany_CityBus, route)
+	return err
+}
+
 // applyCitybusRemovals deletes withdrawn routes with their stop sequences. A
 // route and its stops go in the same transaction so a removal can never leave
 // orphaned stops behind.
 func applyCitybusRemovals(removed []string) error {
-	for start := 0; start < len(removed); start += citybusBatchSize {
-		end := start + citybusBatchSize
-		if end > len(removed) {
-			end = len(removed)
-		}
-		batch := removed[start:end]
-		if err := runInTx(func(tx *sql.Tx) error {
+	return inBatches(removed, citybusBatchSize, func(batch []string) error {
+		return runInTx(func(tx *sql.Tx) error {
 			for _, route := range batch {
-				if _, err := tx.Exec(
-					"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-					DatabaseCompany_CityBus, route); err != nil {
+				if err := deleteCitybusRouteStopsTx(tx, route); err != nil {
 					return err
 				}
 				if _, err := tx.Exec(
@@ -232,24 +247,16 @@ func applyCitybusRemovals(removed []string) error {
 				}
 			}
 			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+		})
+	})
 }
 
 // applyCitybusRoutes writes the route rows, replacing the stop sequence of any
 // route whose stops were refetched. Each route's row and stops are written in
 // the same transaction, so the two never diverge.
 func applyCitybusRoutes(routes []Route, fetchedStops map[string][]RouteStop) error {
-	for start := 0; start < len(routes); start += citybusBatchSize {
-		end := start + citybusBatchSize
-		if end > len(routes) {
-			end = len(routes)
-		}
-		batch := routes[start:end]
-		if err := runInTx(func(tx *sql.Tx) error {
+	return inBatches(routes, citybusBatchSize, func(batch []Route) error {
+		return runInTx(func(tx *sql.Tx) error {
 			if err := insertRoutesTx(tx, batch); err != nil {
 				return err
 			}
@@ -258,9 +265,7 @@ func applyCitybusRoutes(routes []Route, fetchedStops map[string][]RouteStop) err
 				if !ok {
 					continue
 				}
-				if _, err := tx.Exec(
-					"DELETE FROM route_stops WHERE company = $1 AND route = $2",
-					DatabaseCompany_CityBus, r.Route); err != nil {
+				if err := deleteCitybusRouteStopsTx(tx, r.Route); err != nil {
 					return err
 				}
 				if err := insertRouteStopsTx(tx, routeStops); err != nil {
@@ -268,9 +273,6 @@ func applyCitybusRoutes(routes []Route, fetchedStops map[string][]RouteStop) err
 				}
 			}
 			return nil
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
+		})
+	})
 }

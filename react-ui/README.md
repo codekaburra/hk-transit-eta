@@ -1,43 +1,68 @@
-# HK Transit ETA — Frontend
+# HK Transit ETA — React UI
 
-React + TypeScript + Tailwind CSS frontend for HK Transit ETA. Provides real-time arrival times for buses, minibuses, and MTR across Hong Kong.
+React + TypeScript frontend for HK Transit ETA. It provides the transport search UI, route details, maps, weather dashboard, language switching, and theme support.
 
-## Features
-- Modern React (TypeScript) web app
-- Styled with Tailwind CSS
-- Designed to connect to a backend API (see [../go-server](../go-server))
+Route and stop data comes from the Go backend. Live ETAs are fetched by the browser directly from the operators' APIs (KMB, Citybus, GMB), not through the backend.
 
-## Prerequisites
-- Node.js (v16 or above recommended)
+For the full project setup, Docker commands, deployment flow, and backend API overview, see the root [README](../README.md).
+
+## Requirements
+
+- Node.js 18+
 - npm
-- Backend API running (see [../go-server/README.md](../go-server/README.md))
+- Backend API running at the configured API URL
 
-## Setup
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Start the development server:
-   ```bash
-   npm start
-   ```
-   The app will be available at [http://localhost:3000](http://localhost:3000).
+The easiest local setup is still the repository-level Docker development stack:
 
-## Tailwind CSS
-Tailwind is already configured. You can use its utility classes in any `.tsx` or `.css` file in `src/`.
+```bash
+docker compose -f ../docker-compose.dev.yml up --build
+```
 
-## Connecting to the Backend
-This frontend expects a backend API to provide bus data (routes, stops, etc). By default, you may need to update API URLs in the code to match your backend's address (e.g., `http://localhost:8080/api/...`).
+## Run locally without Docker
 
-## Project Structure
-- `src/` — React source code
-- `public/` — Static assets
-- `tailwind.config.js` — Tailwind configuration
-- `postcss.config.js` — PostCSS configuration
+```bash
+npm install
+npm start
+```
 
-## Customization
-- Update API endpoints in the code as needed
-- Add new pages/components in `src/`
+The React dev server runs at http://localhost:3000.
 
-## License
-MIT
+## Configuration
+
+Create `react-ui/.env.local` when running the frontend directly:
+
+```bash
+REACT_APP_API_URL=http://localhost:8080/api
+REACT_APP_GOOGLE_MAPS_API_KEY=your-google-maps-key
+```
+
+| Variable | Default | Description |
+|---|---|---|
+| `REACT_APP_API_URL` | `http://localhost:8080/api` when running directly; `/api` in the production Docker build | Backend API base URL. In Docker production this is proxied by nginx. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | empty | Enables route maps. Maps render blank when unset. |
+
+Do not edit source files just to change the backend URL; use environment variables instead.
+
+## Tests
+
+```bash
+CI=true npm test
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+The production Docker image serves this build through nginx.
+
+## Project structure
+
+| Path | Purpose |
+|---|---|
+| `src/components/` | App UI, transport pages, route cards, weather components. |
+| `src/contexts/` | Theme context and theme mode state. |
+| `src/services/` | Backend API client. |
+| `src/types/` | TypeScript data types. |
+| `public/` | Static assets. |

@@ -2,8 +2,9 @@ package bus
 
 import (
 	"net/http"
-	"net/http/httptest"
 	"testing"
+
+	"hk-transit-eta/internal/testhttp"
 )
 
 // stopAt places a stop at explicit coordinates. They are stored as text, which
@@ -30,7 +31,7 @@ func TestGetStopsNearby(t *testing.T) {
 	}
 
 	var got []Stop
-	rec := callJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
+	rec := testhttp.CallJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
@@ -65,7 +66,7 @@ func TestGetStopsNearbyOrdersByDistance(t *testing.T) {
 	}
 
 	var got []Stop
-	callJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
+	testhttp.CallJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
 
 	if len(got) < 3 {
 		t.Fatalf("got %d stops, want all 3 within the box", len(got))
@@ -81,14 +82,14 @@ func TestGetStopsNearbyErrors(t *testing.T) {
 	setupDB(t)
 
 	t.Run("stopId is required", func(t *testing.T) {
-		rec := callJSON(t, GetStopsNearby, "/", nil)
+		rec := testhttp.CallJSON(t, GetStopsNearby, "/", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
 	})
 
 	t.Run("an unknown stop is a 404", func(t *testing.T) {
-		rec := callJSON(t, GetStopsNearby, "/?stopId=NOPE", nil)
+		rec := testhttp.CallJSON(t, GetStopsNearby, "/?stopId=NOPE", nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", rec.Code)
 		}
@@ -100,7 +101,7 @@ func TestGetStopsNearbyErrors(t *testing.T) {
 		if err := storeStops([]Stop{stopAt("KMB", "BAD_LAT", "not-a-number", "114.2")}); err != nil {
 			t.Fatalf("seeding: %v", err)
 		}
-		rec := callJSON(t, GetStopsNearby, "/?stopId=BAD_LAT", nil)
+		rec := testhttp.CallJSON(t, GetStopsNearby, "/?stopId=BAD_LAT", nil)
 		if rec.Code == http.StatusOK {
 			t.Error("a stop with an unparseable latitude should not return results")
 		}
@@ -123,7 +124,7 @@ func TestGetStopsNearbyToleratesMalformedCoordinatesElsewhere(t *testing.T) {
 	}
 
 	var got []Stop
-	rec := callJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
+	rec := testhttp.CallJSON(t, GetStopsNearby, "/?stopId=CENTRE", &got)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 — one bad row must not fail every search", rec.Code)
@@ -137,18 +138,6 @@ func TestGetStopsNearbyToleratesMalformedCoordinatesElsewhere(t *testing.T) {
 	}
 	if found["CORRUPT"] || found["EMPTY_COORDS"] {
 		t.Error("a stop with unparseable coordinates was returned as a result")
-	}
-}
-
-// assertEmptyJSONArray checks the response is exactly an empty array with a
-// 200, rather than merely "not null" — which a 500 or an object would pass.
-func assertEmptyJSONArray(t *testing.T, rec *httptest.ResponseRecorder) {
-	t.Helper()
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want 200", rec.Code)
-	}
-	if body := rec.Body.String(); body != "[]\n" {
-		t.Errorf("body = %q, want exactly an empty JSON array", body)
 	}
 }
 
@@ -167,7 +156,7 @@ func TestGetRoutesByStopId(t *testing.T) {
 
 	t.Run("returns only the routes serving the stop", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetRoutesByStopId, "/?stopId=SHARED", &got)
+		testhttp.CallJSON(t, GetRoutesByStopId, "/?stopId=SHARED", &got)
 
 		if len(got) != 2 {
 			t.Fatalf("got %d routes, want the 2 serving SHARED", len(got))
@@ -180,14 +169,14 @@ func TestGetRoutesByStopId(t *testing.T) {
 	})
 
 	t.Run("stopId is required", func(t *testing.T) {
-		rec := callJSON(t, GetRoutesByStopId, "/", nil)
+		rec := testhttp.CallJSON(t, GetRoutesByStopId, "/", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
 	})
 
 	t.Run("an unserved stop yields exactly an empty array", func(t *testing.T) {
-		assertEmptyJSONArray(t, callJSON(t, GetRoutesByStopId, "/?stopId=NOBODY", nil))
+		testhttp.AssertEmptyJSONArray(t, testhttp.CallJSON(t, GetRoutesByStopId, "/?stopId=NOBODY", nil))
 	})
 }
 
@@ -202,7 +191,7 @@ func TestBusGetRouteCount(t *testing.T) {
 	}
 
 	var got map[string]interface{}
-	callJSON(t, GetRouteCount, "/", &got)
+	testhttp.CallJSON(t, GetRouteCount, "/", &got)
 
 	if got["type"] != "bus" {
 		t.Errorf("type = %v, want bus", got["type"])

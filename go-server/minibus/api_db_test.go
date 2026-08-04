@@ -1,24 +1,12 @@
 package minibus
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"testing"
-)
 
-func callJSON(t *testing.T, h http.HandlerFunc, target string, out interface{}) *httptest.ResponseRecorder {
-	t.Helper()
-	rec := httptest.NewRecorder()
-	h(rec, httptest.NewRequest(http.MethodGet, target, nil))
-	if out != nil && rec.Code == http.StatusOK {
-		if err := json.NewDecoder(rec.Body).Decode(out); err != nil {
-			t.Fatalf("decoding response for %s: %v", target, err)
-		}
-	}
-	return rec
-}
+	"hk-transit-eta/internal/testhttp"
+)
 
 // insertRoute writes one route direction directly, bypassing the fetchers.
 func insertRoute(t *testing.T, region, code string, routeID, routeSeq int, descEN, destEN string) {
@@ -82,7 +70,7 @@ func TestGetMinibusRoutes(t *testing.T) {
 
 	t.Run("returns every region when none is given", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRoutes, "/", &got)
+		testhttp.CallJSON(t, GetMinibusRoutes, "/", &got)
 		if len(got) != 3 {
 			t.Errorf("got %d routes, want all 3 regions", len(got))
 		}
@@ -90,7 +78,7 @@ func TestGetMinibusRoutes(t *testing.T) {
 
 	t.Run("filters to one region", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRoutes, "/?region="+MinibusRegionKLN, &got)
+		testhttp.CallJSON(t, GetMinibusRoutes, "/?region="+MinibusRegionKLN, &got)
 		if len(got) != 1 {
 			t.Fatalf("got %d routes, want 1", len(got))
 		}
@@ -101,7 +89,7 @@ func TestGetMinibusRoutes(t *testing.T) {
 
 	t.Run("an unknown region yields nothing", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRoutes, "/?region=XXX", &got)
+		testhttp.CallJSON(t, GetMinibusRoutes, "/?region=XXX", &got)
 		if len(got) != 0 {
 			t.Errorf("got %d routes, want none", len(got))
 		}
@@ -120,7 +108,7 @@ func TestGetMinibusStopsReturnsEachStopOnce(t *testing.T) {
 	insertRouteStop(t, 102, 1, 1, 20001, "中環")
 
 	var got []map[string]interface{}
-	callJSON(t, GetMinibusStops, "/", &got)
+	testhttp.CallJSON(t, GetMinibusStops, "/", &got)
 
 	if len(got) != 1 {
 		t.Fatalf("got %d stops, want 1 — DISTINCT ON should collapse the join", len(got))
@@ -142,7 +130,7 @@ func TestGetMinibusRouteStops(t *testing.T) {
 
 	t.Run("routeSeq selects one direction", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRouteStops, "/?routeId=101&routeSeq=1", &got)
+		testhttp.CallJSON(t, GetMinibusRouteStops, "/?routeId=101&routeSeq=1", &got)
 		if len(got) != 2 {
 			t.Fatalf("got %d stops, want the 2 of direction 1", len(got))
 		}
@@ -153,21 +141,21 @@ func TestGetMinibusRouteStops(t *testing.T) {
 
 	t.Run("without routeSeq both directions are returned", func(t *testing.T) {
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRouteStops, "/?routeId=101", &got)
+		testhttp.CallJSON(t, GetMinibusRouteStops, "/?routeId=101", &got)
 		if len(got) != 3 {
 			t.Errorf("got %d stops, want all 3", len(got))
 		}
 	})
 
 	t.Run("routeId is required", func(t *testing.T) {
-		rec := callJSON(t, GetMinibusRouteStops, "/", nil)
+		rec := testhttp.CallJSON(t, GetMinibusRouteStops, "/", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
 	})
 
 	t.Run("a non-numeric routeId is rejected", func(t *testing.T) {
-		rec := callJSON(t, GetMinibusRouteStops, "/?routeId=abc", nil)
+		rec := testhttp.CallJSON(t, GetMinibusRouteStops, "/?routeId=abc", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
@@ -178,7 +166,7 @@ func TestGetMinibusRouteStops(t *testing.T) {
 	t.Run("keeps a stop whose coordinates are missing", func(t *testing.T) {
 		insertRouteStop(t, 101, 1, 3, 29999, "未有座標")
 		var got []map[string]interface{}
-		callJSON(t, GetMinibusRouteStops, "/?routeId=101&routeSeq=1", &got)
+		testhttp.CallJSON(t, GetMinibusRouteStops, "/?routeId=101&routeSeq=1", &got)
 		if len(got) != 3 {
 			t.Fatalf("got %d stops, want the stop without coordinates kept", len(got))
 		}
@@ -198,7 +186,7 @@ func TestSearchMinibusIsCaseInsensitive(t *testing.T) {
 	t.Run("routes", func(t *testing.T) {
 		for _, q := range []string{"causeway", "CAUSEWAY", "Causeway"} {
 			var got []map[string]interface{}
-			callJSON(t, SearchMinibusRoutes, "/?q="+url.QueryEscape(q), &got)
+			testhttp.CallJSON(t, SearchMinibusRoutes, "/?q="+url.QueryEscape(q), &got)
 			if len(got) != 1 {
 				t.Errorf("q=%q returned %d routes, want 1", q, len(got))
 			}
@@ -208,7 +196,7 @@ func TestSearchMinibusIsCaseInsensitive(t *testing.T) {
 	t.Run("stops", func(t *testing.T) {
 		for _, q := range []string{"causeway bay", "CAUSEWAY BAY"} {
 			var got []map[string]interface{}
-			callJSON(t, SearchMinibusStops, "/?q="+url.QueryEscape(q), &got)
+			testhttp.CallJSON(t, SearchMinibusStops, "/?q="+url.QueryEscape(q), &got)
 			if len(got) != 1 {
 				t.Errorf("q=%q returned %d stops, want 1", q, len(got))
 			}
@@ -220,7 +208,7 @@ func TestSearchMinibusIsCaseInsensitive(t *testing.T) {
 			"routes": SearchMinibusRoutes,
 			"stops":  SearchMinibusStops,
 		} {
-			rec := callJSON(t, h, "/", nil)
+			rec := testhttp.CallJSON(t, h, "/", nil)
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf("%s: status = %d, want 400", name, rec.Code)
 			}
@@ -236,7 +224,7 @@ func TestGetMinibusStopById(t *testing.T) {
 
 	t.Run("returns the stop with its name", func(t *testing.T) {
 		var got map[string]interface{}
-		callJSON(t, GetMinibusStopById, "/?stopId=20001", &got)
+		testhttp.CallJSON(t, GetMinibusStopById, "/?stopId=20001", &got)
 		if got["stop_id"].(float64) != 20001 {
 			t.Errorf("stop_id = %v, want 20001", got["stop_id"])
 		}
@@ -246,14 +234,14 @@ func TestGetMinibusStopById(t *testing.T) {
 	})
 
 	t.Run("unknown stop is a 404", func(t *testing.T) {
-		rec := callJSON(t, GetMinibusStopById, "/?stopId=99999", nil)
+		rec := testhttp.CallJSON(t, GetMinibusStopById, "/?stopId=99999", nil)
 		if rec.Code != http.StatusNotFound {
 			t.Errorf("status = %d, want 404", rec.Code)
 		}
 	})
 
 	t.Run("a non-numeric stopId is rejected", func(t *testing.T) {
-		rec := callJSON(t, GetMinibusStopById, "/?stopId=abc", nil)
+		rec := testhttp.CallJSON(t, GetMinibusStopById, "/?stopId=abc", nil)
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("status = %d, want 400", rec.Code)
 		}
@@ -271,7 +259,7 @@ func TestGetMinibusRoutesByStopId(t *testing.T) {
 	insertRouteStop(t, 103, 1, 1, 20002, "別處")
 
 	var got []map[string]interface{}
-	callJSON(t, GetMinibusRoutesByStopId, "/?stopId=20001", &got)
+	testhttp.CallJSON(t, GetMinibusRoutesByStopId, "/?stopId=20001", &got)
 
 	if len(got) != 2 {
 		t.Fatalf("got %d routes, want the 2 serving that stop", len(got))
@@ -292,7 +280,7 @@ func TestGetRouteByRouteIdAndDirectionAssemblesHeadways(t *testing.T) {
 	insertHeadway(t, 101, 1, 2, 20)
 
 	var got map[string]interface{}
-	callJSON(t, GetRouteByRouteIdAndDirection, "/?routeId=101&routeSeq=1", &got)
+	testhttp.CallJSON(t, GetRouteByRouteIdAndDirection, "/?routeId=101&routeSeq=1", &got)
 
 	headways, ok := got["headways"].([]interface{})
 	if !ok || len(headways) != 2 {
@@ -325,7 +313,7 @@ func TestGetRouteByRouteIdAndDirectionEncodesEmptyHeadwaysAsArray(t *testing.T) 
 	insertRoute(t, MinibusRegionHKI, "1", 101, 1, "route", "銅鑼灣")
 
 	var got map[string]interface{}
-	rec := callJSON(t, GetRouteByRouteIdAndDirection, "/?routeId=101&routeSeq=1", &got)
+	rec := testhttp.CallJSON(t, GetRouteByRouteIdAndDirection, "/?routeId=101&routeSeq=1", &got)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
@@ -354,7 +342,7 @@ func TestGetRouteByRouteIdAndDirectionErrors(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			rec := callJSON(t, GetRouteByRouteIdAndDirection, tc.target, nil)
+			rec := testhttp.CallJSON(t, GetRouteByRouteIdAndDirection, tc.target, nil)
 			if rec.Code != tc.want {
 				t.Errorf("status = %d, want %d", rec.Code, tc.want)
 			}
@@ -367,7 +355,7 @@ func TestMinibusGetRouteCount(t *testing.T) {
 	seedRegions(t)
 
 	var got map[string]interface{}
-	callJSON(t, GetRouteCount, "/", &got)
+	testhttp.CallJSON(t, GetRouteCount, "/", &got)
 
 	if got["type"] != "minibus" {
 		t.Errorf("type = %v, want minibus", got["type"])
@@ -396,13 +384,7 @@ func TestMinibusListHandlersEncodeEmptyResultsAsArrays(t *testing.T) {
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			rec := callJSON(t, tc.handler, tc.target, nil)
-			if rec.Code != http.StatusOK {
-				t.Fatalf("status = %d, want 200", rec.Code)
-			}
-			if body := rec.Body.String(); body != "[]\n" {
-				t.Errorf("body = %q, want exactly an empty JSON array", body)
-			}
+			testhttp.AssertEmptyJSONArray(t, testhttp.CallJSON(t, tc.handler, tc.target, nil))
 		})
 	}
 }
