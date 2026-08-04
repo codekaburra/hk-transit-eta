@@ -1,17 +1,101 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
+import { usePollingFetch } from '../../hooks/usePollingFetch';
+import { getRainfallNowcast, RainfallNowcast, RainfallWindow } from '../../services/api';
 
-interface RainfallData {
-  latitude: number;
-  longitude: number;
-  rainfall: number;
-}
+// The Observatory republishes roughly every 12 minutes and the backend caches
+// for 5, so polling faster than this only costs requests.
+const REFRESH_MS = 5 * 60 * 1000;
+
+// Bands for a half-hourly accumulation, in millimetres.
+const BANDS: { limit: number; colour: string; label: string }[] = [
+  { limit: 0.5, colour: '#c6e6f5', label: '< 0.5' },
+  { limit: 2, colour: '#7fc9ec', label: '0.5 – 2' },
+  { limit: 5, colour: '#3fa9df', label: '2 – 5' },
+  { limit: 10, colour: '#1f78c1', label: '5 – 10' },
+  { limit: 20, colour: '#f2d024', label: '10 – 20' },
+  { limit: 30, colour: '#f08c22', label: '20 – 30' },
+  { limit: Infinity, colour: '#e03131', label: '> 30' },
+];
+
+const colourFor = (mm: number): string | null => {
+  if (mm <= 0) return null;
+  return (BANDS.find(b => mm < b.limit) ?? BANDS[BANDS.length - 1]).colour;
+};
+
+const formatTime = (iso: string): string => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+// draw paints one forecast window. The grid is regular, so each point is drawn
+// as a cell sized from the spacing rather than as a dot, which would leave the
+// map stippled.
+const draw = (canvas: HTMLCanvasElement, nowcast: RainfallNowcast, window: RainfallWindow) => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const { min_lat, max_lat, min_lon, max_lon } = nowcast.bounds;
+  const spanLat = max_lat - min_lat;
+  const spanLon = max_lon - min_lon;
+  if (spanLat <= 0 || spanLon <= 0) return;
+
+  const width = 640;
+  const height = Math.round((width * spanLat) / spanLon);
+  canvas.width = width;
+  canvas.height = height;
+
+  // Without a backdrop the canvas is transparent wherever it is not raining,
+  // which on a dry day is almost all of it — the panel then reads as an empty
+  // box rather than as a map with no rain on it.
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = 'rgba(127, 156, 184, 0.14)';
+  ctx.fillRect(0, 0, width, height);
+
+  // Cell size from the number of distinct coordinates actually present, so the
+  // cells tile without gaps whatever grid resolution the Observatory publishes.
+  const lats = new Set<number>();
+  const lons = new Set<number>();
+  for (const [lat, lon] of window.points) {
+    lats.add(lat);
+    lons.add(lon);
+  }
+  const cellW = Math.ceil(width / Math.max(lons.size, 1)) + 1;
+  const cellH = Math.ceil(height / Math.max(lats.size, 1)) + 1;
+
+  // A degree graticule gives the grid some frame of reference.
+  ctx.strokeStyle = 'rgba(127, 156, 184, 0.25)';
+  ctx.lineWidth = 1;
+  for (let lon = Math.ceil(min_lon * 5) / 5; lon <= max_lon; lon += 0.2) {
+    const x = ((lon - min_lon) / spanLon) * width;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let lat = Math.ceil(min_lat * 5) / 5; lat <= max_lat; lat += 0.2) {
+    const y = height - ((lat - min_lat) / spanLat) * height;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  for (const [lat, lon, mm] of window.points) {
+    const colour = colourFor(mm);
+    if (!colour) continue;
+    const x = ((lon - min_lon) / spanLon) * width;
+    // Latitude increases northwards; canvas y increases downwards.
+    const y = height - ((lat - min_lat) / spanLat) * height;
+    ctx.fillStyle = colour;
+    ctx.fillRect(x - cellW / 2, y - cellH / 2, cellW, cellH);
+  }
+};
 
 export const RainfallNowcastImage: React.FC = () => {
-  const [rainfallData, setRainfallData] = useState<RainfallData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [windowIndex, setWindowIndex] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const {
@@ -20,132 +104,30 @@ export const RainfallNowcastImage: React.FC = () => {
     getSecondaryTextClass,
     getTitleClass,
     getBorderClass,
-    getAccentClass
+    getAccentClass,
   } = useThemeStyles();
 
-  const fetchRainfallData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const fetcher = useCallback(() => getRainfallNowcast(), []);
+  const { data: nowcast, loading, error, refresh } = usePollingFetch<RainfallNowcast | null>(
+    fetcher,
+    null,
+    { intervalMs: REFRESH_MS, errorMessage: '無法獲取降雨資料 Failed to fetch rainfall data' }
+  );
 
-      const response = await fetch(
-        'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv'
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const csvText = await response.text();
-      const lines = csvText.trim().split('\n');
-      
-      // Skip header line
-      const dataLines = lines.slice(1);
-      
-      const data: RainfallData[] = dataLines.map(line => {
-        const [lat, lng, rainfall] = line.split(',').map(str => parseFloat(str.trim()));
-        return {
-          latitude: lat,
-          longitude: lng,
-          rainfall: rainfall || 0
-        };
-      });
-
-      setRainfallData(data);
-      setLastUpdated(new Date().toLocaleString('zh-HK'));
-      
-      // Draw the rainfall map
-      drawRainfallMap(data);
-    } catch (err) {
-      setError('無法獲取降雨資料 Failed to fetch rainfall data');
-      console.error('Error fetching rainfall data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const drawRainfallMap = (data: RainfallData[]) => {
-    const canvas = canvasRef.current;
-    if (!canvas || data.length === 0) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas size
-    canvas.width = 600;
-    canvas.height = 400;
-
-    // Clear canvas
-    ctx.fillStyle = '#f0f8ff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Find bounds
-    const lats = data.map(d => d.latitude);
-    const lngs = data.map(d => d.longitude);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-
-    // Color scale for rainfall intensity
-    const getColor = (rainfall: number) => {
-      if (rainfall === 0) return 'rgba(255, 255, 255, 0.1)';
-      if (rainfall < 1) return 'rgba(173, 216, 230, 0.6)'; // Light blue
-      if (rainfall < 5) return 'rgba(135, 206, 250, 0.7)'; // Sky blue
-      if (rainfall < 10) return 'rgba(0, 191, 255, 0.8)'; // Deep sky blue
-      if (rainfall < 20) return 'rgba(30, 144, 255, 0.8)'; // Dodger blue
-      if (rainfall < 50) return 'rgba(255, 255, 0, 0.8)'; // Yellow
-      if (rainfall < 100) return 'rgba(255, 165, 0, 0.8)'; // Orange
-      return 'rgba(255, 0, 0, 0.9)'; // Red
-    };
-
-    // Draw rainfall points
-    data.forEach(point => {
-      const x = ((point.longitude - minLng) / (maxLng - minLng)) * canvas.width;
-      const y = canvas.height - ((point.latitude - minLat) / (maxLat - minLat)) * canvas.height;
-      
-      ctx.fillStyle = getColor(point.rainfall);
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-    });
-
-    // Add title
-    ctx.fillStyle = '#333';
-    ctx.font = '16px Arial';
-    ctx.fillText('香港降雨預報 HK Rainfall Nowcast', 10, 25);
-
-    // Add legend
-    const legendItems = [
-      { color: 'rgba(173, 216, 230, 0.6)', text: '< 1mm' },
-      { color: 'rgba(135, 206, 250, 0.7)', text: '1-5mm' },
-      { color: 'rgba(0, 191, 255, 0.8)', text: '5-10mm' },
-      { color: 'rgba(30, 144, 255, 0.8)', text: '10-20mm' },
-      { color: 'rgba(255, 255, 0, 0.8)', text: '20-50mm' },
-      { color: 'rgba(255, 165, 0, 0.8)', text: '50-100mm' },
-      { color: 'rgba(255, 0, 0, 0.9)', text: '> 100mm' }
-    ];
-
-    legendItems.forEach((item, index) => {
-      const y = 50 + index * 20;
-      ctx.fillStyle = item.color;
-      ctx.fillRect(10, y, 15, 15);
-      ctx.fillStyle = '#333';
-      ctx.font = '12px Arial';
-      ctx.fillText(item.text, 30, y + 12);
-    });
-  };
+  const active = nowcast?.windows[windowIndex];
 
   useEffect(() => {
-    fetchRainfallData();
-    
-    // Auto-refresh every 5 minutes
-    const interval = setInterval(fetchRainfallData, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (canvasRef.current && nowcast && active) {
+      draw(canvasRef.current, nowcast, active);
+    }
+  }, [nowcast, active]);
 
-  if (loading) {
+  // A new issue can carry fewer windows than the one being viewed.
+  useEffect(() => {
+    if (nowcast && windowIndex >= nowcast.windows.length) setWindowIndex(0);
+  }, [nowcast, windowIndex]);
+
+  if (loading && !nowcast) {
     return (
       <div className={`p-6 rounded-lg ${getCardClass()} ${getBorderClass()}`}>
         <div className="text-center py-8">
@@ -158,14 +140,14 @@ export const RainfallNowcastImage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && !nowcast) {
     return (
       <div className={`p-6 rounded-lg ${getCardClass()} ${getBorderClass()}`}>
         <div className={`text-center py-8 ${getTextClass()}`}>
           <div className="text-4xl mb-4">⚠️</div>
           <p className="text-red-600 mb-4">{error}</p>
           <button
-            onClick={fetchRainfallData}
+            onClick={refresh}
             className={`px-4 py-2 rounded-lg font-medium transition-all duration-300 ${getAccentClass()}`}
           >
             重試 Retry
@@ -175,15 +157,18 @@ export const RainfallNowcastImage: React.FC = () => {
     );
   }
 
+  if (!nowcast || !active) return null;
+
+  const wet = active.points.filter(p => p[2] > 0).length;
+
   return (
     <div className={`p-6 rounded-lg ${getCardClass()} ${getBorderClass()}`}>
-      {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <h2 className={`text-xl font-bold transition-colors duration-300 ${getTitleClass()}`}>
-          🌧️ 降雨預報圖 Rainfall Nowcast
+          🌧️ 降雨臨近預報 Rainfall Nowcast
         </h2>
         <button
-          onClick={fetchRainfallData}
+          onClick={refresh}
           disabled={loading}
           className={`px-4 py-2 rounded-lg font-medium transition-colors duration-300 ${getAccentClass()}`}
         >
@@ -191,26 +176,51 @@ export const RainfallNowcastImage: React.FC = () => {
         </button>
       </div>
 
-      {/* Last Updated */}
-      {lastUpdated && (
-        <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-          最後更新 Last Updated: {lastUpdated}
+      <p className={`text-sm mb-4 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+        發佈時間 Issued: {formatTime(nowcast.updated)}
+      </p>
+
+      {/* One tab per half-hourly period, out to two hours ahead. */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {nowcast.windows.map((w, i) => (
+          <button
+            key={w.ends}
+            onClick={() => setWindowIndex(i)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-300
+              ${i === windowIndex ? getAccentClass() : `${getCardClass()} ${getBorderClass()}`}`}
+          >
+            <span className={i === windowIndex ? '' : getTextClass()}>至 {formatTime(w.ends)}</span>
+          </button>
+        ))}
+      </div>
+
+      {active.max_mm <= 0 && (
+        <p className={`text-sm text-center mb-2 ${getSecondaryTextClass()}`}>
+          此時段預測香港境內無雨 No rain forecast over Hong Kong in this period
         </p>
       )}
 
-      {/* Rainfall Map Canvas */}
       <div className="flex justify-center mb-4">
         <canvas
           ref={canvasRef}
-          className="border border-gray-300 rounded-lg shadow-md max-w-full h-auto"
+          className={`rounded-lg shadow-md max-w-full h-auto ${getBorderClass()} border`}
         />
       </div>
 
-      {/* Statistics */}
+      {/* Legend */}
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 mb-4">
+        {BANDS.map(b => (
+          <span key={b.label} className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-3 rounded-sm" style={{ backgroundColor: b.colour }} />
+            <span className={`text-xs ${getSecondaryTextClass()}`}>{b.label} mm</span>
+          </span>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
         <div className={`p-3 rounded-lg bg-opacity-50 ${getCardClass()}`}>
           <div className={`text-lg font-bold transition-colors duration-300 ${getTitleClass()}`}>
-            {rainfallData.length}
+            {active.points.length}
           </div>
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
             資料點 Data Points
@@ -218,7 +228,7 @@ export const RainfallNowcastImage: React.FC = () => {
         </div>
         <div className={`p-3 rounded-lg bg-opacity-50 ${getCardClass()}`}>
           <div className={`text-lg font-bold transition-colors duration-300 ${getTitleClass()}`}>
-            {rainfallData.filter(d => d.rainfall > 0).length}
+            {wet}
           </div>
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
             有雨地區 Rainy Areas
@@ -226,7 +236,7 @@ export const RainfallNowcastImage: React.FC = () => {
         </div>
         <div className={`p-3 rounded-lg bg-opacity-50 ${getCardClass()}`}>
           <div className={`text-lg font-bold transition-colors duration-300 ${getTitleClass()}`}>
-            {Math.max(...rainfallData.map(d => d.rainfall)).toFixed(1)}mm
+            {active.max_mm.toFixed(2)}mm
           </div>
           <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
             最大降雨量 Max Rainfall
@@ -234,20 +244,20 @@ export const RainfallNowcastImage: React.FC = () => {
         </div>
       </div>
 
-      {/* Data Source */}
       <div className="text-center mt-4">
         <p className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
           資料來源：香港天文台 Data Source:{' '}
           <a
-            href="https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv"
+            href="https://portal.csdi.gov.hk/geoportal/?datasetId=hko_rcd_1634958531320_87755&lang=zh-hk"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-800 underline"
           >
-            HKO Gridded Rainfall Nowcast
+            Gridded rainfall nowcast in Hong Kong
           </a>
+          {' '}· 數據為臨時性質 Provisional data
         </p>
       </div>
     </div>
   );
-}; 
+};

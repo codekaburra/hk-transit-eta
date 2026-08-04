@@ -13,6 +13,7 @@ import (
 	"hk-transit-eta/bus"
 	"hk-transit-eta/internal/syncmeta"
 	"hk-transit-eta/minibus"
+	"hk-transit-eta/weather"
 
 	"github.com/gorilla/mux"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -180,6 +181,9 @@ func startServer() {
 
 	// Route count endpoint
 	api.HandleFunc("/num-routes", getRouteCount).Methods("GET")
+
+	// Proxied because data.weather.gov.hk sends no CORS header for this file.
+	api.HandleFunc("/weather/rainfall-nowcast", weather.GetRainfallNowcast).Methods("GET")
 
 	// Admin: trigger incremental data refresh
 	api.HandleFunc("/admin/refresh", handleAdminRefresh).Methods("POST")
