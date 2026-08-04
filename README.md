@@ -25,25 +25,22 @@ Real-time ETA and route information for Hong Kong public transport — buses (KM
 
 ## Getting Started
 
+There are two separate paths. They use different compose files and have
+different environment requirements, so follow one or the other:
+
+- **[Run it locally](#run-it-locally)** — hot-reload dev stack. No configuration; `.env` is not needed.
+- **[Deploy to EC2](#deploy-to-ec2)** — production stack behind your own HTTPS proxy. `.env` is required.
+
+---
+
+## Run it locally
+
 ### Prerequisites
 
-- **Docker + Docker Compose** (recommended)
-- Go 1.26+ and Node.js 18+ only needed if running without Docker
+- **Docker + Docker Compose** — that is all you need for the quick start
+- Go 1.26+ and Node.js 18+ only if you run the services directly (see [Without Docker](#without-docker))
 
-### Environment
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Description | Default |
-|---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string | `postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable` |
-| `PORT` | Backend server port | `8080` |
-| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | `http://localhost:3000` |
-| `REACT_APP_API_URL` | Frontend API base URL (build-time) | `/api` |
-
-### Development (hot-reload)
+### Quick start
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
@@ -53,26 +50,72 @@ docker compose -f docker-compose.dev.yml up --build
 |---|---|
 | Frontend (React dev server) | http://localhost:3000 |
 | Backend API | http://localhost:8080 |
-| PostgreSQL | localhost:5432 |
+| PostgreSQL | localhost:5432 (user/password/db all `hkbus` / `hkbus_password` / `hkbus`) |
 
 Source changes in `go-server/` and `react-ui/src/` are picked up automatically.
 
-### Production
+> On first boot the database seeds from the JSON snapshot committed under
+> `go-server/data/` — offline, no API calls, a few seconds. Only if that snapshot
+> is missing does it fall back to fetching everything from the official APIs,
+> which takes minutes. Either way the server answers immediately while data loads.
+
+### Do I need `.env`?
+
+**No.** `docker-compose.dev.yml` hard-codes every setting the dev stack needs, so
+it starts with no configuration at all.
+
+There is exactly one thing it reads from `.env`, and only if you want maps:
+
+| Variable | Effect if unset |
+|---|---|
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | Route maps render blank. Everything else works. |
+
+To set it:
+
+```bash
+cp .env.example .env
+$EDITOR .env    # fill in REACT_APP_GOOGLE_MAPS_API_KEY only
+```
+
+Two things that surprise people:
+
+- **`.env` is read by Docker Compose, not by the app.** The Go server has no
+  dotenv loader — it reads real environment variables. Running `go run .`
+  directly ignores `.env` entirely.
+- **The other variables in `.env` do nothing for local development.** Setting
+  `POSTGRES_PASSWORD` there will not change the dev database password; the dev
+  stack always uses `hkbus_password`. Those variables are for
+  [production](#deploy-to-ec2).
+
+For the React dev server outside Docker, CRA reads `react-ui/.env.local` — not
+the `.env` at the repo root.
+
+### Running the production stack locally
+
+To check the real nginx + build pipeline before deploying:
 
 ```bash
 docker compose up --build
 ```
 
-Serves on **http://localhost** (port 80). nginx serves the frontend and proxies `/api/*` to the backend — only port 80 needs to be open.
+Serves on **http://localhost** (port 80). nginx serves the frontend and proxies
+`/api/*` to the backend. Every variable falls back to a working default, so this
+also runs without `.env` — but the defaults are insecure and are meant only for a
+local look.
+
+Note this stack and the dev stack are separate Docker Compose projects
+(`hk-transit-eta` and `hk-transit-eta-dev`), so they never share containers or
+volumes and `docker compose down` on one leaves the other alone.
 
 ### Without Docker
 
-Requires a running PostgreSQL instance.
+Requires a PostgreSQL instance you have already created the `hkbus` database on.
 
 ```bash
-# Backend
+# Backend — the defaults below are what it assumes if you set nothing
 cd go-server
-DATABASE_URL=postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable go run .
+go run .        # DATABASE_URL=postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable
+                # PORT=8080, CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
 # Frontend (in a second terminal)
 cd react-ui
@@ -80,7 +123,168 @@ npm install
 npm start
 ```
 
-> On first boot the backend fetches all KMB, Citybus, and GMB data from official HK government APIs. This runs in the background — the server is available immediately while data loads.
+Override any of them by exporting the variable — again, not via `.env`:
+
+```bash
+DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=disable go run .
+```
+
+### Running the tests
+
+```bash
+# Frontend
+cd react-ui && CI=true npm test
+
+# Backend — unit tests only
+cd go-server && go test ./...
+```
+
+The Go suite includes database-backed tests that **skip silently when
+`TEST_DATABASE_URL` is unset**, so `go test ./...` on its own can report a clean
+pass without having exercised any SQL — which is most of what the handlers do.
+
+These tests `TRUNCATE` the tables they touch, so give them their own database
+rather than the one the dev stack is using (this is what CI does):
+
+```bash
+docker compose -f docker-compose.dev.yml up -d db
+docker compose -f docker-compose.dev.yml exec db createdb -U hkbus hkbus_test
+
+cd go-server
+TEST_DATABASE_URL="postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable" go test ./...
+```
+
+End-to-end tests (Playwright) run against the **production** stack, not the dev
+one — they exercise nginx serving the built SPA, which is what CI checks:
+
+```bash
+npm ci                                  # from the repo root
+npx playwright install chromium
+docker compose up -d --build            # note: not docker-compose.dev.yml
+
+# Wait until the backend has seeded, then:
+npx playwright test
+```
+
+The default base URL is `http://localhost` (port 80). Point it elsewhere with
+`E2E_BASE_URL`.
+
+## Deploy to EC2
+
+The production stack (`docker-compose.yaml`) runs Postgres, the Go backend, and the
+nginx frontend. Postgres is internal to the Docker network (no host port). The
+committed JSON snapshot ships in the backend image, so the database seeds offline on
+first boot (zero API calls).
+
+**TLS/HTTPS is handled by your own reverse proxy or load balancer** — the stack
+serves plain HTTP on `FRONTEND_PORT` (default 80). Point your existing HTTPS
+front end at that port.
+
+> **`.env` matters here.** Unlike [local development](#run-it-locally), every
+> variable below is read from it. All of them have defaults, so the stack will
+> start without a `.env` — but with the database password that is published in
+> this repo, and with CORS allowing only `http://localhost`, which blocks the
+> browser from calling the API through your real domain. Do step 3 first.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `POSTGRES_PASSWORD` | **yes** | Database password. The default is in this repo — change it. |
+| `CORS_ORIGINS` | **yes** | Your `https://` domain. Otherwise the browser blocks API calls. |
+| `ADMIN_TOKEN` | recommended | Guards the refresh/reseed endpoints. Empty disables them. |
+| `FRONTEND_PORT` | no | Host port for your TLS proxy to forward to (default 80). |
+| `POSTGRES_DB` / `POSTGRES_USER` | no | Default `hkbus`. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | no | Baked in at build time; maps are blank without it. |
+| `REACT_APP_API_URL` | no | Leave as `/api` — same-origin through nginx. |
+
+### 1. Security group
+
+Allow inbound **22** (SSH) and whatever port your TLS proxy forwards to the app on
+(`FRONTEND_PORT`, default 80).
+
+### 2. First-time bootstrap
+
+On a fresh Amazon Linux / Ubuntu instance:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codekaburra/hk-transit-eta/main/deploy/setup-ec2.sh | bash
+```
+
+This installs Docker + the Compose plugin and clones the repo to `~/hk-transit-eta`.
+(If you were just added to the `docker` group, log out and back in first.)
+
+### 3. Configure environment
+
+```bash
+cd ~/hk-transit-eta
+cp .env.example .env
+$EDITOR .env    # set POSTGRES_PASSWORD, CORS_ORIGINS (https://your-domain), ADMIN_TOKEN, FRONTEND_PORT
+```
+
+`.env` is gitignored — secrets never get committed.
+
+### 4. Deploy / redeploy
+
+```bash
+./deploy/deploy.sh
+```
+
+Pulls the latest code, rebuilds, restarts, waits for the backend health check, and
+prunes old images. Idempotent — rerun it for every deploy.
+
+```bash
+docker compose logs -f            # stream all logs
+docker compose down               # stop the stack
+```
+
+### Automatic deployment (GitHub Actions)
+
+`.github/workflows/deploy.yml` deploys automatically **after CI passes on `main`**
+(and can be triggered manually from the Actions tab). It SSHes into the instance
+and runs `deploy/deploy.sh`.
+
+One-time setup — add these under **Settings → Secrets and variables → Actions**:
+
+| Secret | Required | Description |
+|---|---|---|
+| `EC2_HOST` | yes | Public IP or DNS of the instance |
+| `EC2_SSH_KEY` | yes | Private SSH key (PEM) authorized on the instance |
+| `EC2_USER` | no | SSH user (defaults to `ec2-user`) |
+| `EC2_APP_DIR` | no | Repo path on the box (defaults to `~/hk-transit-eta`) |
+
+Generate a dedicated deploy key and authorize it on the box:
+
+```bash
+ssh-keygen -t ed25519 -C "gha-deploy" -f gha_deploy -N ""
+ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to ~/.ssh/authorized_keys
+# paste the PRIVATE key (gha_deploy) into the EC2_SSH_KEY secret
+```
+
+Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
+before the secrets exist. The box still needs its `.env` in place (step 3 above).
+
+### Updating transit data
+
+The database seeds from the committed snapshot on first boot **only when it is
+empty** — a deploy carrying an updated snapshot therefore leaves an existing
+database on the old data. Two admin endpoints update it in place, without a
+redeploy or dropping the volume. Both need `ADMIN_TOKEN` and run in the
+background; only one may run at a time.
+
+| Endpoint | Source | Time | Use when |
+|---|---|---|---|
+| `POST /api/admin/reseed` | Snapshot in the image | seconds | A deploy shipped updated data |
+| `POST /api/admin/refresh` | Official APIs | minutes | You want data newer than the snapshot |
+
+```bash
+# Apply the snapshot shipped with the current image — offline, no API calls
+curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/reseed
+
+# Pull fresh data from the official APIs
+curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/refresh
+```
+
+Both upsert, so they are safe to repeat. Watch progress with
+`docker compose logs -f backend`.
 
 ## API
 
@@ -174,104 +378,3 @@ hk-transit-eta/
 ├── api-spec/                  # Official API specification PDFs
 └── .env.example
 ```
-
-## Deployment (EC2)
-
-The production stack (`docker-compose.yaml`) runs Postgres, the Go backend, and the
-nginx frontend. Postgres is internal to the Docker network (no host port). The
-committed JSON snapshot ships in the backend image, so the database seeds offline on
-first boot (zero API calls).
-
-**TLS/HTTPS is handled by your own reverse proxy or load balancer** — the stack
-serves plain HTTP on `FRONTEND_PORT` (default 80). Point your existing HTTPS
-front end at that port.
-
-### 1. Security group
-
-Allow inbound **22** (SSH) and whatever port your TLS proxy forwards to the app on
-(`FRONTEND_PORT`, default 80).
-
-### 2. First-time bootstrap
-
-On a fresh Amazon Linux / Ubuntu instance:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/codekaburra/hk-transit-eta/main/deploy/setup-ec2.sh | bash
-```
-
-This installs Docker + the Compose plugin and clones the repo to `~/hk-transit-eta`.
-(If you were just added to the `docker` group, log out and back in first.)
-
-### 3. Configure environment
-
-```bash
-cd ~/hk-transit-eta
-cp .env.example .env
-$EDITOR .env    # set POSTGRES_PASSWORD, CORS_ORIGINS (https://your-domain), ADMIN_TOKEN, FRONTEND_PORT
-```
-
-`.env` is gitignored — secrets never get committed.
-
-### 4. Deploy / redeploy
-
-```bash
-./deploy/deploy.sh
-```
-
-Pulls the latest code, rebuilds, restarts, waits for the backend health check, and
-prunes old images. Idempotent — rerun it for every deploy.
-
-```bash
-docker compose logs -f            # stream all logs
-docker compose down               # stop the stack
-```
-
-### Automatic deployment (GitHub Actions)
-
-`.github/workflows/deploy.yml` deploys automatically **after CI passes on `main`**
-(and can be triggered manually from the Actions tab). It SSHes into the instance
-and runs `deploy/deploy.sh`.
-
-One-time setup — add these under **Settings → Secrets and variables → Actions**:
-
-| Secret | Required | Description |
-|---|---|---|
-| `EC2_HOST` | yes | Public IP or DNS of the instance |
-| `EC2_SSH_KEY` | yes | Private SSH key (PEM) authorized on the instance |
-| `EC2_USER` | no | SSH user (defaults to `ec2-user`) |
-| `EC2_APP_DIR` | no | Repo path on the box (defaults to `~/hk-transit-eta`) |
-
-Generate a dedicated deploy key and authorize it on the box:
-
-```bash
-ssh-keygen -t ed25519 -C "gha-deploy" -f gha_deploy -N ""
-ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to ~/.ssh/authorized_keys
-# paste the PRIVATE key (gha_deploy) into the EC2_SSH_KEY secret
-```
-
-Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
-before the secrets exist. The box still needs its `.env` in place (step 3 above).
-
-### Updating transit data
-
-The database seeds from the committed snapshot on first boot **only when it is
-empty** — a deploy carrying an updated snapshot therefore leaves an existing
-database on the old data. Two admin endpoints update it in place, without a
-redeploy or dropping the volume. Both need `ADMIN_TOKEN` and run in the
-background; only one may run at a time.
-
-| Endpoint | Source | Time | Use when |
-|---|---|---|---|
-| `POST /api/admin/reseed` | Snapshot in the image | seconds | A deploy shipped updated data |
-| `POST /api/admin/refresh` | Official APIs | minutes | You want data newer than the snapshot |
-
-```bash
-# Apply the snapshot shipped with the current image — offline, no API calls
-curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/reseed
-
-# Pull fresh data from the official APIs
-curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/refresh
-```
-
-Both upsert, so they are safe to repeat. Watch progress with
-`docker compose logs -f backend`.
