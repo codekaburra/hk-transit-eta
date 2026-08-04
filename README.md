@@ -25,126 +25,113 @@ Real-time ETA and route information for Hong Kong public transport — buses (KM
 
 ## Getting Started
 
-There are two separate paths. They use different compose files and have
-different environment requirements, so follow one or the other:
+Two independent paths, using different Compose files and different
+configuration:
 
-- **[Run it locally](#run-it-locally)** — hot-reload dev stack. No configuration; `.env` is not needed.
-- **[Deploy to EC2](#deploy-to-ec2)** — production stack behind your own HTTPS proxy. `.env` is required.
+- **[Local development](#local-development)** — hot-reload stack via Docker Compose. No configuration required.
+- **[Deploy to EC2](#deploy-to-ec2)** — production stack behind an existing HTTPS proxy. Requires `.env`.
 
 ---
 
-## Run it locally
+## Local Development
 
 ### Prerequisites
 
-- **Docker + Docker Compose** — that is all you need for the quick start
-- Go 1.26+ and Node.js 18+ only if you run the services directly (see [Without Docker](#without-docker))
+Docker and Docker Compose. Go 1.26+ and Node.js 18+ are required only to run the
+services outside Docker.
 
-### Quick start
+### Development stack
 
 ```bash
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-| Service | URL |
-|---|---|
-| Frontend (React dev server) | http://localhost:3000 |
-| Backend API | http://localhost:8080 |
-| PostgreSQL | localhost:5432 (user/password/db all `hkbus` / `hkbus_password` / `hkbus`) |
+| Service | URL | Credentials |
+|---|---|---|
+| Frontend (React dev server) | http://localhost:3000 | — |
+| Backend API | http://localhost:8080 | — |
+| PostgreSQL | localhost:5432 | `hkbus` / `hkbus_password` / db `hkbus` |
 
-Source changes in `go-server/` and `react-ui/src/` are picked up automatically.
+Changes under `go-server/` and `react-ui/src/` reload automatically.
 
-> On first boot the database seeds from the JSON snapshot committed under
-> `go-server/data/` — offline, no API calls, a few seconds. Only if that snapshot
-> is missing does it fall back to fetching everything from the official APIs,
-> which takes minutes. Either way the server answers immediately while data loads.
+On an empty database the backend seeds from the JSON snapshot in
+`go-server/data/` — offline, a few seconds. It falls back to fetching from the
+official APIs only if that snapshot is absent, which takes minutes. The server
+accepts requests while seeding runs.
 
-### Do I need `.env`?
+### Configuration
 
-**No.** `docker-compose.dev.yml` hard-codes every setting the dev stack needs, so
-it starts with no configuration at all.
+`.env` is optional for local development. `docker-compose.dev.yml` defines every
+setting the development stack requires; only one value is read from `.env`:
 
-There is exactly one thing it reads from `.env`, and only if you want maps:
-
-| Variable | Effect if unset |
-|---|---|
-| `REACT_APP_GOOGLE_MAPS_API_KEY` | Route maps render blank. Everything else works. |
-
-To set it:
+| Variable | Default | Effect |
+|---|---|---|
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | empty | Route maps render blank when unset. |
 
 ```bash
-cp .env.example .env
-$EDITOR .env    # fill in REACT_APP_GOOGLE_MAPS_API_KEY only
+cp .env.example .env    # then set REACT_APP_GOOGLE_MAPS_API_KEY
 ```
 
-Two things that surprise people:
+The remaining variables in `.env.example` apply to the production stack only —
+see [Deploy to EC2](#deploy-to-ec2). Setting `POSTGRES_PASSWORD` has no effect on
+the development database, which always uses `hkbus_password`.
 
-- **`.env` is read by Docker Compose, not by the app.** The Go server has no
-  dotenv loader — it reads real environment variables. Running `go run .`
-  directly ignores `.env` entirely.
-- **The other variables in `.env` do nothing for local development.** Setting
-  `POSTGRES_PASSWORD` there will not change the dev database password; the dev
-  stack always uses `hkbus_password`. Those variables are for
-  [production](#deploy-to-ec2).
+`.env` is consumed by Docker Compose, not by the application. The Go server reads
+process environment variables and has no dotenv loader, so `go run .` ignores
+`.env`. The React dev server reads `react-ui/.env.local`.
 
-For the React dev server outside Docker, CRA reads `react-ui/.env.local` — not
-the `.env` at the repo root.
+### Production stack
 
-### Running the production stack locally
-
-To check the real nginx + build pipeline before deploying:
+To verify the nginx build pipeline before deploying:
 
 ```bash
 docker compose up --build
 ```
 
-Serves on **http://localhost** (port 80). nginx serves the frontend and proxies
-`/api/*` to the backend. Every variable falls back to a working default, so this
-also runs without `.env` — but the defaults are insecure and are meant only for a
-local look.
+Serves on http://localhost:80. nginx serves the SPA and proxies `/api/*` to the
+backend. All variables have defaults, so this runs without `.env`; those defaults
+are suitable for local inspection only.
 
-Note this stack and the dev stack are separate Docker Compose projects
-(`hk-transit-eta` and `hk-transit-eta-dev`), so they never share containers or
-volumes and `docker compose down` on one leaves the other alone.
+The two stacks are separate Compose projects (`hk-transit-eta` and
+`hk-transit-eta-dev`) and share no containers or volumes.
 
-### Without Docker
+### Running without Docker
 
-Requires a PostgreSQL instance you have already created the `hkbus` database on.
+Requires a PostgreSQL instance with the `hkbus` database created.
+
+Backend:
 
 ```bash
-# Backend — the defaults below are what it assumes if you set nothing
-cd go-server
-go run .        # DATABASE_URL=postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable
-                # PORT=8080, CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
-
-# Frontend (in a second terminal)
-cd react-ui
-npm install
-npm start
+cd go-server && go run .
 ```
 
-Override any of them by exporting the variable — again, not via `.env`:
+Frontend, in a second terminal:
 
 ```bash
-DATABASE_URL=postgres://user:pass@host:5432/db?sslmode=disable go run .
+cd react-ui && npm install && npm start
 ```
 
-### Running the tests
+Backend defaults, overridden by exporting the variable:
+
+| Variable | Default |
+|---|---|
+| `DATABASE_URL` | `postgres://hkbus:hkbus_password@localhost:5432/hkbus?sslmode=disable` |
+| `PORT` | `8080` |
+| `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` |
+
+### Tests
 
 ```bash
-# Frontend
 cd react-ui && CI=true npm test
+```
 
-# Backend — unit tests only
+```bash
 cd go-server && go test ./...
 ```
 
-The Go suite includes database-backed tests that **skip silently when
-`TEST_DATABASE_URL` is unset**, so `go test ./...` on its own can report a clean
-pass without having exercised any SQL — which is most of what the handlers do.
-
-These tests `TRUNCATE` the tables they touch, so give them their own database
-rather than the one the dev stack is using (this is what CI does):
+Database-backed Go tests skip when `TEST_DATABASE_URL` is unset, so `go test ./...`
+alone reports success without executing any SQL. These tests truncate the tables
+they use and require a dedicated database:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d db
@@ -154,20 +141,16 @@ cd go-server
 TEST_DATABASE_URL="postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable" go test ./...
 ```
 
-End-to-end tests (Playwright) run against the **production** stack, not the dev
-one — they exercise nginx serving the built SPA, which is what CI checks:
+End-to-end tests run against the production stack, matching CI:
 
 ```bash
-npm ci                                  # from the repo root
+npm ci
 npx playwright install chromium
-docker compose up -d --build            # note: not docker-compose.dev.yml
-
-# Wait until the backend has seeded, then:
+docker compose up -d --build
 npx playwright test
 ```
 
-The default base URL is `http://localhost` (port 80). Point it elsewhere with
-`E2E_BASE_URL`.
+The base URL defaults to `http://localhost` and is overridden with `E2E_BASE_URL`.
 
 ## Deploy to EC2
 
@@ -176,25 +159,27 @@ nginx frontend. Postgres is internal to the Docker network (no host port). The
 committed JSON snapshot ships in the backend image, so the database seeds offline on
 first boot (zero API calls).
 
-**TLS/HTTPS is handled by your own reverse proxy or load balancer** — the stack
-serves plain HTTP on `FRONTEND_PORT` (default 80). Point your existing HTTPS
-front end at that port.
+TLS is terminated by an existing reverse proxy or load balancer. The stack serves
+plain HTTP on `FRONTEND_PORT` (default 80); forward the HTTPS front end to that
+port.
 
-> **`.env` matters here.** Unlike [local development](#run-it-locally), every
-> variable below is read from it. All of them have defaults, so the stack will
-> start without a `.env` — but with the database password that is published in
-> this repo, and with CORS allowing only `http://localhost`, which blocks the
-> browser from calling the API through your real domain. Do step 3 first.
+### Environment
 
-| Variable | Required | Purpose |
+Unlike [local development](#local-development), the production stack reads all of
+its configuration from `.env`. Every variable has a default, so the stack starts
+without one — using the database password published in this repository, and a
+CORS policy restricted to `http://localhost` that rejects requests from the
+deployed domain. Configure `.env` (step 3) before exposing the instance.
+
+| Variable | Required | Description |
 |---|---|---|
-| `POSTGRES_PASSWORD` | **yes** | Database password. The default is in this repo — change it. |
-| `CORS_ORIGINS` | **yes** | Your `https://` domain. Otherwise the browser blocks API calls. |
-| `ADMIN_TOKEN` | recommended | Guards the refresh/reseed endpoints. Empty disables them. |
-| `FRONTEND_PORT` | no | Host port for your TLS proxy to forward to (default 80). |
-| `POSTGRES_DB` / `POSTGRES_USER` | no | Default `hkbus`. |
-| `REACT_APP_GOOGLE_MAPS_API_KEY` | no | Baked in at build time; maps are blank without it. |
-| `REACT_APP_API_URL` | no | Leave as `/api` — same-origin through nginx. |
+| `POSTGRES_PASSWORD` | yes | Database password. Default is published in this repository. |
+| `CORS_ORIGINS` | yes | Deployed `https://` origin, comma-separated for multiple. |
+| `ADMIN_TOKEN` | recommended | Authorises the refresh and reseed endpoints. Empty disables both. |
+| `FRONTEND_PORT` | no | Host port for the TLS proxy to forward to. Default `80`. |
+| `POSTGRES_DB`, `POSTGRES_USER` | no | Default `hkbus`. |
+| `REACT_APP_GOOGLE_MAPS_API_KEY` | no | Applied at image build time. Maps render blank when unset. |
+| `REACT_APP_API_URL` | no | Default `/api`, served same-origin through nginx. |
 
 ### 1. Security group
 
@@ -378,3 +363,4 @@ hk-transit-eta/
 ├── api-spec/                  # Official API specification PDFs
 └── .env.example
 ```
+
