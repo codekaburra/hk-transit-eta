@@ -2,43 +2,62 @@
 
 [![CI](https://github.com/codekaburra/hk-transit-eta/actions/workflows/ci.yml/badge.svg)](https://github.com/codekaburra/hk-transit-eta/actions/workflows/ci.yml)
 
-Real-time ETA and route information for Hong Kong public transport — buses (KMB, Citybus), green minibuses (GMB), and MTR. Includes a weather dashboard with HK Observatory data.
+Real-time route, stop, ETA, and weather information for Hong Kong public transport. The app covers KMB, Citybus, green minibuses (GMB), MTR station information, and Hong Kong Observatory weather data.
+
+## Quick start
+
+Run the full development stack with hot reload:
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Then open:
+
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3000 |
+| Backend API | http://localhost:8080 |
+| PostgreSQL | localhost:5432 |
+
+The development database uses `hkbus` / `hkbus_password` / database `hkbus`.
+
+On first start, the backend seeds PostgreSQL from the committed JSON snapshot in `go-server/data/`. This is offline and usually finishes in a few seconds. If the snapshot is missing, the backend falls back to the official transport APIs, which can take several minutes.
 
 ## Features
 
-- **Bus (KMB + Citybus)** — route search, stop lookup, real-time ETA from official APIs
-- **Green Minibus (GMB)** — routes across HKI / KLN / NT regions, stop sequences, headway schedules
-- **MTR** — station listing and route map
-- **Weather** — nine-day forecast and rainfall nowcast from HK Observatory
-- **Multi-language** — English, Traditional Chinese, Simplified Chinese
-- **Themes** — light, dark, and custom colour schemes with smooth transitions
-- **Responsive** — mobile-first layout with Tailwind CSS
+- Bus route search, stop lookup, nearby stops, and real-time ETA for KMB and Citybus
+- Green minibus routes across HKI, KLN, and NT, including stop sequences and headway schedules
+- MTR station listing and route map
+- Weather dashboard using Hong Kong Observatory data
+- English, Traditional Chinese, and Simplified Chinese UI text
+- Light, dark, and custom colour themes
+- Responsive React UI built with Tailwind CSS
 
-## Tech Stack
+## Tech stack
 
 | Layer | Tech |
 |---|---|
-| Backend | Go 1.26, Gorilla Mux, pgx (PostgreSQL driver) |
+| Backend | Go 1.26, Gorilla Mux, pgx |
 | Frontend | React 19, TypeScript, Tailwind CSS, React Router 7 |
 | Database | PostgreSQL 16 |
-| Infra | Docker Compose, nginx (prod reverse proxy), Air (dev hot-reload) |
+| Infrastructure | Docker Compose, nginx, Air |
+| Tests | Go test, React Testing Library, Playwright |
 
-## Getting Started
-
-Two independent paths, using different Compose files and different
-configuration:
-
-- **[Local development](#local-development)** — hot-reload stack via Docker Compose. No configuration required.
-- **[Deploy to EC2](#deploy-to-ec2)** — production stack behind an existing HTTPS proxy. Requires `.env`.
-
----
-
-## Local Development
+## Local development
 
 ### Prerequisites
 
-Docker and Docker Compose. Go 1.26+ and Node.js 18+ are required only to run the
-services outside Docker.
+For Docker development:
+
+- Docker
+- Docker Compose
+
+For running services directly on your machine:
+
+- Go 1.26+
+- Node.js 18+
+- PostgreSQL
 
 ### Development stack
 
@@ -46,72 +65,47 @@ services outside Docker.
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-| Service | URL | Credentials |
-|---|---|---|
-| Frontend (React dev server) | http://localhost:3000 | — |
-| Backend API | http://localhost:8080 | — |
-| PostgreSQL | localhost:5432 | `hkbus` / `hkbus_password` / db `hkbus` |
+The dev stack runs as its own Compose project (`hk-transit-eta-dev`, against production's `hk-transit-eta`), so the two share no containers or volumes.
 
-Changes under `go-server/` and `react-ui/src/` reload automatically.
+Files under `go-server/` and `react-ui/src/` reload automatically.
 
-On an empty database the backend seeds from the JSON snapshot in
-`go-server/data/` — offline, a few seconds. It falls back to fetching from the
-official APIs only if that snapshot is absent, which takes minutes. The server
-accepts requests while seeding runs.
+### Local configuration
 
-### Configuration
+`.env` is optional for local Docker development. The dev Compose file provides the required database and API configuration.
 
-`.env` is optional for local development. `docker-compose.dev.yml` defines every
-setting the development stack requires; only one value is read from `.env`:
+Only one value is read from `.env` by the dev stack:
 
 | Variable | Default | Effect |
 |---|---|---|
 | `REACT_APP_GOOGLE_MAPS_API_KEY` | empty | Route maps render blank when unset. |
 
 ```bash
-cp .env.example .env    # then set REACT_APP_GOOGLE_MAPS_API_KEY
+cp .env.example .env
+# then set REACT_APP_GOOGLE_MAPS_API_KEY if you need route maps
 ```
 
-The remaining variables in `.env.example` apply to the production stack only —
-see [Deploy to EC2](#deploy-to-ec2). Setting `POSTGRES_PASSWORD` has no effect on
-the development database, which always uses `hkbus_password`.
+The remaining values in `.env.example` are for the production stack. In particular, `POSTGRES_PASSWORD` does not change the development database password; the dev stack always uses `hkbus_password`.
 
-`.env` is consumed by Docker Compose, not by the application. The Go server reads
-process environment variables and has no dotenv loader, so `go run .` ignores
-`.env`. The React dev server reads `react-ui/.env.local`.
-
-### Production stack
-
-To verify the nginx build pipeline before deploying:
-
-```bash
-docker compose up --build
-```
-
-Serves on http://localhost:80. nginx serves the SPA and proxies `/api/*` to the
-backend. All variables have defaults, so this runs without `.env`; those defaults
-are suitable for local inspection only.
-
-The two stacks are separate Compose projects (`hk-transit-eta` and
-`hk-transit-eta-dev`) and share no containers or volumes.
+The Go server reads process environment variables directly and does not load `.env` by itself. If you run it with `go run .`, export environment variables in your shell. The React dev server reads `react-ui/.env.local`.
 
 ### Running without Docker
 
-Requires a PostgreSQL instance with the `hkbus` database created.
-
-Backend:
+Create a PostgreSQL database named `hkbus`, then start the backend:
 
 ```bash
-cd go-server && go run .
+cd go-server
+go run .
 ```
 
-Frontend, in a second terminal:
+In a second terminal, start the frontend:
 
 ```bash
-cd react-ui && npm install && npm start
+cd react-ui
+npm install
+npm start
 ```
 
-Backend defaults, overridden by exporting the variable:
+Backend defaults:
 
 | Variable | Default |
 |---|---|
@@ -119,19 +113,35 @@ Backend defaults, overridden by exporting the variable:
 | `PORT` | `8080` |
 | `CORS_ORIGINS` | `http://localhost:3000,http://127.0.0.1:3000` |
 
-### Tests
+## Production stack
+
+To build and inspect the production image locally:
 
 ```bash
-cd react-ui && CI=true npm test
+docker compose up --build
 ```
+
+This serves the app on http://localhost:80. nginx serves the React build and proxies `/api/*` to the Go backend.
+
+The production stack can start without `.env` because defaults are provided, but those defaults are only suitable for local inspection. Set production values before exposing the service publicly.
+
+## Tests
+
+Frontend unit tests:
 
 ```bash
-cd go-server && go test ./...
+cd react-ui
+CI=true npm test
 ```
 
-Database-backed Go tests skip when `TEST_DATABASE_URL` is unset, so `go test ./...`
-alone reports success without executing any SQL. These tests truncate the tables
-they use and require a dedicated database:
+Go tests:
+
+```bash
+cd go-server
+go test ./...
+```
+
+Database-backed Go tests are skipped when `TEST_DATABASE_URL` is unset. To run them, use a dedicated test database because the tests truncate tables:
 
 ```bash
 docker compose -f docker-compose.dev.yml up -d db
@@ -141,7 +151,7 @@ cd go-server
 TEST_DATABASE_URL="postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable" go test ./...
 ```
 
-End-to-end tests run against the production stack, matching CI:
+End-to-end tests run against the production Compose stack, matching CI:
 
 ```bash
 npm ci
@@ -150,217 +160,220 @@ docker compose up -d --build
 npx playwright test
 ```
 
-The base URL defaults to `http://localhost` and is overridden with `E2E_BASE_URL`.
+The Playwright base URL defaults to `http://localhost`. Override it with `E2E_BASE_URL`.
 
 ## Deploy to EC2
 
-The production stack (`docker-compose.yaml`) runs Postgres, the Go backend, and the
-nginx frontend. Postgres is internal to the Docker network (no host port). The
-committed JSON snapshot ships in the backend image, so the database seeds offline on
-first boot (zero API calls).
+The production stack (`docker-compose.yaml`) runs PostgreSQL, the Go backend, and the nginx frontend. PostgreSQL is internal to the Docker network and is not exposed on the host.
 
-TLS is terminated by an existing reverse proxy or load balancer. The stack serves
-plain HTTP on `FRONTEND_PORT` (default 80); forward the HTTPS front end to that
-port.
+TLS should be terminated by an existing reverse proxy or load balancer. The app serves plain HTTP on `FRONTEND_PORT` (default `80`); forward your HTTPS frontend to that port.
 
 ### Environment
 
-Unlike [local development](#local-development), the production stack reads all of
-its configuration from `.env`. Every variable has a default, so the stack starts
-without one — using the database password published in this repository, and a
-CORS policy restricted to `http://localhost` that rejects requests from the
-deployed domain. Configure `.env` (step 3) before exposing the instance.
+Create `.env` on the server before exposing the app:
+
+```bash
+cp .env.example .env
+$EDITOR .env
+```
 
 | Variable | Required | Description |
 |---|---|---|
-| `POSTGRES_PASSWORD` | yes | Database password. Default is published in this repository. |
-| `CORS_ORIGINS` | yes | Deployed `https://` origin, comma-separated for multiple. |
-| `ADMIN_TOKEN` | recommended | Authorises the refresh and reseed endpoints. Empty disables both. |
+| `POSTGRES_PASSWORD` | yes | Database password. The default is published in this repository. |
+| `CORS_ORIGINS` | yes | Deployed `https://` origin, comma-separated for multiple origins. |
+| `ADMIN_TOKEN` | recommended | Authorises refresh and reseed endpoints. Empty disables both. |
 | `FRONTEND_PORT` | no | Host port for the TLS proxy to forward to. Default `80`. |
 | `POSTGRES_DB`, `POSTGRES_USER` | no | Default `hkbus`. |
 | `REACT_APP_GOOGLE_MAPS_API_KEY` | no | Applied at image build time. Maps render blank when unset. |
 | `REACT_APP_API_URL` | no | Default `/api`, served same-origin through nginx. |
 
-### 1. Security group
+### First-time bootstrap
 
-Allow inbound **22** (SSH) and whatever port your TLS proxy forwards to the app on
-(`FRONTEND_PORT`, default 80).
-
-### 2. First-time bootstrap
-
-On a fresh Amazon Linux / Ubuntu instance:
+On a fresh Amazon Linux or Ubuntu instance:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/codekaburra/hk-transit-eta/main/deploy/setup-ec2.sh | bash
 ```
 
-This installs Docker + the Compose plugin and clones the repo to `~/hk-transit-eta`.
-(If you were just added to the `docker` group, log out and back in first.)
+The script installs Docker with the Compose plugin and clones the repository to `~/hk-transit-eta`.
 
-### 3. Configure environment
+If your user was just added to the `docker` group, log out and back in before deploying.
+
+### Deploy or redeploy
 
 ```bash
 cd ~/hk-transit-eta
-cp .env.example .env
-$EDITOR .env    # set POSTGRES_PASSWORD, CORS_ORIGINS (https://your-domain), ADMIN_TOKEN, FRONTEND_PORT
-```
-
-`.env` is gitignored — secrets never get committed.
-
-### 4. Deploy / redeploy
-
-```bash
 ./deploy/deploy.sh
 ```
 
-Pulls the latest code, rebuilds, restarts, waits for the backend health check, and
-prunes old images. Idempotent — rerun it for every deploy.
+The deploy script pulls the latest code, rebuilds images, restarts containers, waits for the backend health check, and prunes old images.
+
+Useful commands:
 
 ```bash
-docker compose logs -f            # stream all logs
-docker compose down               # stop the stack
+docker compose logs -f
+docker compose down
 ```
 
-### Automatic deployment (GitHub Actions)
+### GitHub Actions deployment
 
-`.github/workflows/deploy.yml` deploys automatically **after CI passes on `main`**
-(and can be triggered manually from the Actions tab). It SSHes into the instance
-and runs `deploy/deploy.sh`.
+`.github/workflows/deploy.yml` deploys automatically after CI passes on `main`. It can also be triggered manually from the Actions tab.
 
-One-time setup — add these under **Settings → Secrets and variables → Actions**:
+Add these under **Settings → Secrets and variables → Actions**:
 
 | Secret | Required | Description |
 |---|---|---|
-| `EC2_HOST` | yes | Public IP or DNS of the instance |
-| `EC2_SSH_KEY` | yes | Private SSH key (PEM) authorized on the instance |
-| `EC2_USER` | no | SSH user (defaults to `ec2-user`) |
-| `EC2_APP_DIR` | no | Repo path on the box (defaults to `~/hk-transit-eta`) |
+| `EC2_HOST` | yes | Public IP or DNS of the instance. |
+| `EC2_SSH_KEY` | yes | Private SSH key authorised on the instance. |
+| `EC2_USER` | no | SSH user. Defaults to `ec2-user`. |
+| `EC2_APP_DIR` | no | Repo path on the box. Defaults to `~/hk-transit-eta`. |
 
-Generate a dedicated deploy key and authorize it on the box:
+Generate a dedicated deploy key and authorise it on the box:
 
 ```bash
 ssh-keygen -t ed25519 -C "gha-deploy" -f gha_deploy -N ""
-ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>   # or append gha_deploy.pub to ~/.ssh/authorized_keys
-# paste the PRIVATE key (gha_deploy) into the EC2_SSH_KEY secret
+ssh-copy-id -i gha_deploy.pub <user>@<ec2-host>
+# or append gha_deploy.pub to ~/.ssh/authorized_keys
 ```
 
-Until `EC2_HOST` is set the deploy job skips cleanly, so merging this is safe
-before the secrets exist. The box still needs its `.env` in place (step 3 above).
+Paste the private key (`gha_deploy`) into the `EC2_SSH_KEY` secret.
 
-### Updating transit data
+Until `EC2_HOST` is set, the deploy job skips cleanly. The server still needs its `.env` file in place before deployment.
 
-The database seeds from the committed snapshot on first boot **only when it is
-empty** — a deploy carrying an updated snapshot therefore leaves an existing
-database on the old data. Two admin endpoints update it in place, without a
-redeploy or dropping the volume. Both need `ADMIN_TOKEN` and run in the
-background; only one may run at a time.
+## Updating transit data
 
-| Endpoint | Source | Time | Use when |
+The database seeds from the committed snapshot only when it is empty. Deploying a newer snapshot does not automatically replace data in an existing PostgreSQL volume.
+
+Use the admin endpoints to update data in place. Both require `ADMIN_TOKEN`, run in the background, and only one admin job may run at a time.
+
+| Endpoint | Source | Typical time | Use when |
 |---|---|---|---|
-| `POST /api/admin/reseed` | Snapshot in the image | seconds | A deploy shipped updated data |
-| `POST /api/admin/refresh` | Official APIs | minutes | You want data newer than the snapshot |
+| `POST /api/admin/reseed` | Snapshot inside the current backend image | seconds | A deploy shipped updated snapshot data. |
+| `POST /api/admin/refresh` | Official operator APIs | minutes | You want data newer than the snapshot. |
 
 ```bash
-# Apply the snapshot shipped with the current image — offline, no API calls
 curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/reseed
-
-# Pull fresh data from the official APIs
 curl -X POST -H "X-Admin-Token: $ADMIN_TOKEN" https://your-domain/api/admin/refresh
 ```
 
-Both upsert, so they are safe to repeat. Watch progress with
-`docker compose logs -f backend`.
+Watch progress with:
 
-## API
+```bash
+docker compose logs -f backend
+```
 
-All endpoints are under `/api`. Responses are JSON.
+## API overview
+
+All endpoints are under `/api` and return JSON.
 
 ### General
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/api/num-routes?type={bus\|minibus}` | Route count by transport type |
-
-### Bus (`/api/bus/`)
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/bus/routes` | List routes (limit 100) |
-| GET | `/api/bus/stops` | List stops (limit 100) |
-| GET | `/api/bus/route-stops` | List route-stop mappings (limit 100) |
-| GET | `/api/bus/stop-by-id?stopId=` | Stop details by ID |
-| GET | `/api/bus/search/routes?q=` | Search routes by number or name |
-| GET | `/api/bus/search/stops?q=` | Search stops by ID or name |
-| GET | `/api/bus/stops-by-route?routeId=&direction=` | Stops along a route (with coordinates) |
-| GET | `/api/bus/routes-by-stop?stopId=` | Routes serving a stop |
-| GET | `/api/bus/stops-nearby?stopId=` | Nearby stops (within ~100 m) |
-
-### Minibus (`/api/minibus/`)
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/api/minibus/routes?region=` | List routes, optionally filtered by region (HKI/KLN/NT) |
-| GET | `/api/minibus/stops` | List stops with coordinates (limit 100) |
-| GET | `/api/minibus/route-stops?routeId=&routeSeq=` | Stops for a route direction |
-| GET | `/api/minibus/stop-by-id?stopId=` | Stop details by ID |
-| GET | `/api/minibus/search/routes?q=` | Search routes by code or description |
-| GET | `/api/minibus/search/stops?q=` | Search stops by name |
-| GET | `/api/minibus/routes-by-stop?stopId=` | Routes serving a stop |
-| GET | `/api/minibus/route-details?routeId=&routeSeq=` | Route details with headway schedule |
-
-## Database Schema
-
-PostgreSQL 16. Tables are auto-created on startup.
+| GET | `/api/num-routes?type={bus\|minibus}` | Route count by transport type. |
 
 ### Bus
 
-| Table | Purpose | Key columns |
+| Method | Path | Description |
 |---|---|---|
-| `routes` | Bus route info | `company`, `route`, `direction`, `service_type`, origin/destination names (en/tc/sc) |
-| `stops` | Bus stop locations | `stop` (unique ID), `name_en/tc/sc`, `lat`, `long` |
-| `route_stops` | Route-to-stop mapping | `route`, `direction`, `service_type`, `seq`, `stop` |
+| GET | `/api/bus/routes` | List routes, limited to 100 rows. |
+| GET | `/api/bus/stops` | List stops, limited to 100 rows. |
+| GET | `/api/bus/route-stops` | List route-stop mappings, limited to 100 rows. |
+| GET | `/api/bus/route-variants?routeId=&company=` | Exact-match route variants: one row per direction and service type. |
+| GET | `/api/bus/stop-by-id?stopId=` | Stop details by ID. |
+| GET | `/api/bus/search/routes?q=` | Substring search by number, origin, or destination. Capped at 50 rows. |
+| GET | `/api/bus/search/stops?q=` | Substring search by ID or name. Capped at 50 rows. |
+| GET | `/api/bus/stops-by-route?routeId=&company=&direction=&serviceType=` | Stops along a route with coordinates. Without the filters, a route number served by two operators returns every sequence interleaved. |
+| GET | `/api/bus/routes-by-stop?stopId=` | Routes serving a stop. |
+| GET | `/api/bus/stops-nearby?stopId=` | Nearby stops within roughly 100 m. |
 
 ### Minibus
 
-| Table | Purpose | Key columns |
+| Method | Path | Description |
 |---|---|---|
-| `minibus_route` | Route directions | `region`, `route_code`, `route_id`, `route_seq`, origin/destination/description (en/tc/sc) |
-| `minibus_stop` | Stop coordinates | `stop_id` (PK), `latitude`, `longitude`, WGS84 + HK80 coordinates |
-| `minibus_route_stop` | Stop sequence per route | `route_id`, `route_seq`, `stop_seq`, `stop_id`, name (en/tc/sc) |
-| `minibus_headway` | Service frequency | `route_id`, `route_seq`, per-weekday booleans, `start_time`, `end_time`, `frequency` |
+| GET | `/api/minibus/routes?region=` | List routes, optionally filtered by region (`HKI`, `KLN`, `NT`). |
+| GET | `/api/minibus/stops` | List stops with coordinates, limited to 100 rows. |
+| GET | `/api/minibus/route-stops?routeId=&routeSeq=` | Stops for a route direction. |
+| GET | `/api/minibus/stop-by-id?stopId=` | Stop details by ID. |
+| GET | `/api/minibus/search/routes?q=` | Search routes by code or description. |
+| GET | `/api/minibus/search/stops?q=` | Search stops by name. |
+| GET | `/api/minibus/routes-by-stop?stopId=` | Routes serving a stop. |
+| GET | `/api/minibus/route-details?routeId=&routeSeq=` | Route details with headway schedule. |
 
-## Data Sources
+## Database schema
 
-- **KMB** — `https://data.etabus.gov.hk/v1/transport/kmb/`
-- **Citybus** — `https://rt.data.gov.hk/v2/transport/citybus/`
-- **GMB** — `https://data.etagmb.gov.hk/` (regions: HKI, KLN, NT)
+PostgreSQL tables are created automatically on backend startup.
 
-All data sourced from official Hong Kong government and operator APIs.
+### Bus
 
-## Project Structure
+| Table | Purpose |
+|---|---|
+| `routes` | KMB and Citybus route information. |
+| `stops` | Bus stop names and coordinates. |
+| `route_stops` | Route-to-stop sequence mappings. |
 
-```
+### Minibus
+
+| Table | Purpose |
+|---|---|
+| `minibus_route` | GMB route directions and descriptions. |
+| `minibus_stop` | GMB stop coordinates, including WGS84 and HK80 values. |
+| `minibus_route_stop` | GMB route-to-stop sequence mappings. |
+| `minibus_headway` | GMB service frequency by weekday and time range. |
+
+## Data sources
+
+- KMB: `https://data.etabus.gov.hk/v1/transport/kmb/`
+- Citybus: `https://rt.data.gov.hk/v2/transport/citybus/`
+- GMB: `https://data.etagmb.gov.hk/`
+- Hong Kong Observatory: weather data used by the frontend dashboard
+
+All transit data is sourced from official Hong Kong government or operator APIs.
+
+## Troubleshooting
+
+### I started Docker, but localhost:8080 does not show the app
+
+That is expected in the development stack. The React app is served at http://localhost:3000. Port `8080` is the backend API, so use paths such as http://localhost:8080/api/bus/routes.
+
+In the production stack, the app is served through nginx at http://localhost:80.
+
+### Changes to `.env` do not affect local development
+
+For the dev stack, Compose provides most variables directly. Only `REACT_APP_GOOGLE_MAPS_API_KEY` is read from the root `.env`.
+
+For `go run .`, export variables in your shell because the Go server does not load `.env` automatically.
+
+For `npm start`, use `react-ui/.env.local`.
+
+### Go database tests pass too quickly
+
+Database-backed tests skip unless `TEST_DATABASE_URL` is set. Use a dedicated test database if you want to run the full SQL test suite.
+
+### `docker compose down` stopped the wrong stack
+
+Run it with the same `-f` flag you started the stack with. `docker compose down` targets the production project; `docker compose -f docker-compose.dev.yml down` targets the development one.
+
+The two are separate projects (`hk-transit-eta` and `hk-transit-eta-dev`), so neither can remove the other's containers or volumes. To inspect or remove a volume directly, its name is prefixed with the project name — for example `hk-transit-eta-dev_postgres_dev_data`.
+
+## Project structure
+
+```text
 hk-transit-eta/
 ├── go-server/
 │   ├── main.go                # Server entry point, routing, DB init
-│   ├── bus/                   # KMB + Citybus: API, DB, fetchers, cache, types
-│   ├── minibus/               # GMB: API, DB, fetchers, cache, types
-│   └── data/                  # Local JSON cache (bus, minibus, mtr)
+│   ├── bus/                   # KMB + Citybus API, DB, fetchers, cache, types
+│   ├── minibus/               # GMB API, DB, fetchers, cache, types
+│   └── data/                  # Local JSON snapshots
 ├── react-ui/
 │   └── src/
-│       ├── components/
-│       │   ├── LandingPage.tsx
-│       │   ├── header/        # Clock, Header, ThemeToggle, WeatherWarnings
-│       │   ├── transport/     # HomePage, SearchBox, ResultsList, navigation
-│       │   │   ├── bus/       # BusRouteCard, BusStopCard, BusRouteDetails, ...
-│       │   │   ├── minibus/   # MinibusRouteCard, MinibusStopCard, ...
-│       │   │   └── mtr/       # MTRStationDetails
-│       │   └── weather/       # Forecast, rainfall nowcast
-│       ├── contexts/          # ThemeContext
-│       └── types/             # TypeScript definitions
-├── docker-compose.yaml        # Production (nginx + backend + postgres)
-├── docker-compose.dev.yml     # Development (hot-reload)
-├── api-spec/                  # Official API specification PDFs
+│       ├── components/        # App UI, transport views, weather views
+│       ├── contexts/          # Theme context
+│       ├── services/          # API client
+│       └── types/             # TypeScript types
+├── deploy/                    # EC2 setup and deploy scripts
+├── api-spec/                  # Official API specification documents
+├── docker-compose.yaml        # Production stack
+├── docker-compose.dev.yml     # Development stack
 └── .env.example
 ```
-
