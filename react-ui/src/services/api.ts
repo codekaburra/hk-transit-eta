@@ -148,7 +148,10 @@ export const getBusETA = async (
   if (isDebugMode()) {
     console.log('API getBusETA called with:', { company, stopId, route, service_type, direction }, etaUrl, data);
   }
-  return (data?.data || [])
+  // The operators have returned an object here in place of the list before, so
+  // check the shape rather than assuming it.
+  if (!Array.isArray(data?.data)) return [];
+  return data.data
     .filter((item: any) => direction === item.dir)
     .map((item: any) => item.eta);
 };
