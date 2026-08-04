@@ -2,14 +2,14 @@
 
 Go backend for HK Transit ETA. It serves the `/api` endpoints and stores route and stop reference data in PostgreSQL, which it fetches from the official Hong Kong transport APIs.
 
-It does not proxy ETAs. Live arrival times are requested by the browser directly from the operators' APIs, so this service is not in that path.
+It covers buses and green minibuses only. Live arrival times and MTR data are requested by the browser directly from the operators' APIs, so this service is not in either path.
 
 For the full project setup, Docker commands, deployment flow, and API overview, see the root [README](../README.md).
 
 ## What this service does
 
 - Creates and migrates the PostgreSQL tables on startup.
-- Seeds bus, minibus, and MTR data from local JSON snapshots in `data/`.
+- Seeds bus and minibus data from local JSON snapshots in `data/`.
 - Refreshes KMB, Citybus, and GMB route and stop data from the official APIs.
 - Serves route search, stop lookup, nearby stop, and route detail endpoints.
 - Provides admin refresh/reseed endpoints when `ADMIN_TOKEN` is configured.
