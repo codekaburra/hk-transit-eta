@@ -16,11 +16,11 @@ export const MinibusRouteStopCard: React.FC<MinibusRouteStopCardProps> = ({ rout
 
   // ETAs are supplied by the parent. This card used to carry its own fetch as
   // well, but nothing ever called it, so the loading and error branches it fed
-  // were unreachable and every stop rendered "暫無資料" — see the note in
-  // MinibusRouteDetails, which prepares route_id/stop_id for a fetch that never
-  // happened. That fetch also called itself from its own catch block with no
-  // backoff or attempt limit, so wiring it up as it stood would have spun on
-  // the first failure.
+  // were unreachable and every stop fell through to the no-data placeholder.
+  // See MinibusRouteDetails, which prepares route_id/stop_id for a fetch that
+  // never happened. That fetch also called itself from its own catch block
+  // with no backoff or attempt limit, so wiring it up as it stood would have
+  // spun on the first failure.
   const renderETADisplay = () => {
     if (etaData.length === 0) {
       return (

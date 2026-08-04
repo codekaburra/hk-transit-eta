@@ -146,7 +146,7 @@ Prefer the simplest reliable option:
 Not part of the refresh work above; recorded here so they are not lost.
 
 1. ⬜ **Wire up the minibus route page's ETAs.** Every stop on a minibus route
-   page renders 暫無資料, and always has.
+   page falls through to the no-data placeholder, and always has.
    [`MinibusRouteDetails.tsx`](../react-ui/src/components/transport/minibus/MinibusRouteDetails.tsx)
    builds `route_id` and `route_seq` into each stop with the comment "for ETA
    fetching", but never passes `etaData` and the card never fetched: its
