@@ -19,8 +19,14 @@ func GetRainfallNowcast(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The upstream refreshes every few minutes, so allow a short shared cache
-	// but never a stale one: the point of the endpoint is current conditions.
+	// A minute of shared caching costs little against a 5-minute server cache
+	// and an upstream that republishes every twelve.
+	//
+	// This body is not guaranteed current, and deliberately so: GetNowcast
+	// serves the last good nowcast when a refresh fails, because a field that
+	// changes slowly is more use than an error page. Do not "fix" that by
+	// making a failed refresh an error — the response carries the Observatory's
+	// own issue time in `updated`, which is how a client tells how old it is.
 	w.Header().Set("Cache-Control", "public, max-age=60")
 	httpjson.Write(w, nowcast)
 }

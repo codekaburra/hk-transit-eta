@@ -12,7 +12,10 @@ const REFRESH_MS = 5 * 60 * 1000;
 // stepping through them by hand makes a two-hour trend hard to read.
 const FRAME_MS = 1000;
 
-// Bands for a half-hourly accumulation, in millimetres.
+// Bands for a half-hourly accumulation, in millimetres. `limit` is exclusive —
+// colourFor takes the first band with mm < limit — so each label reads as
+// "from the previous limit up to, but not including, this one". The last band
+// is therefore ≥ 30 rather than > 30: exactly 30.00 falls into it.
 const BANDS: { limit: number; colour: string; label: string }[] = [
   { limit: 0.5, colour: '#c6e6f5', label: '< 0.5' },
   { limit: 2, colour: '#7fc9ec', label: '0.5 – 2' },
@@ -20,7 +23,7 @@ const BANDS: { limit: number; colour: string; label: string }[] = [
   { limit: 10, colour: '#1f78c1', label: '5 – 10' },
   { limit: 20, colour: '#f2d024', label: '10 – 20' },
   { limit: 30, colour: '#f08c22', label: '20 – 30' },
-  { limit: Infinity, colour: '#e03131', label: '> 30' },
+  { limit: Infinity, colour: '#e03131', label: '≥ 30' },
 ];
 
 const colourFor = (mm: number): string | null => {
