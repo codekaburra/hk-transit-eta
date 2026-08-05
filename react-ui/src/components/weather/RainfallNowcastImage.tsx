@@ -8,6 +8,10 @@ import { COASTLINE } from './coastline';
 // for 5, so polling faster than this only costs requests.
 const REFRESH_MS = 5 * 60 * 1000;
 
+// The four windows are played as a loop so the band's movement is visible;
+// stepping through them by hand makes a two-hour trend hard to read.
+const FRAME_MS = 1000;
+
 // Bands for a half-hourly accumulation, in millimetres.
 const BANDS: { limit: number; colour: string; label: string }[] = [
   { limit: 0.5, colour: '#c6e6f5', label: '< 0.5' },
@@ -102,6 +106,7 @@ const draw = (canvas: HTMLCanvasElement, nowcast: RainfallNowcast, window: Rainf
 
 export const RainfallNowcastImage: React.FC = () => {
   const [windowIndex, setWindowIndex] = useState(0);
+  const [playing, setPlaying] = useState(true);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const {
@@ -132,6 +137,17 @@ export const RainfallNowcastImage: React.FC = () => {
   useEffect(() => {
     if (nowcast && windowIndex >= nowcast.windows.length) setWindowIndex(0);
   }, [nowcast, windowIndex]);
+
+  // Advance through the windows on a loop. Depends only on the window count,
+  // so the timer is not torn down and restarted on every frame.
+  const windowCount = nowcast?.windows.length ?? 0;
+  useEffect(() => {
+    if (!playing || windowCount < 2) return;
+    const timer = setInterval(() => {
+      setWindowIndex(i => (i + 1) % windowCount);
+    }, FRAME_MS);
+    return () => clearInterval(timer);
+  }, [playing, windowCount]);
 
   if (loading && !nowcast) {
     return (
@@ -187,11 +203,19 @@ export const RainfallNowcastImage: React.FC = () => {
       </p>
 
       {/* One tab per half-hourly period, out to two hours ahead. */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <button
+          onClick={() => setPlaying(p => !p)}
+          aria-label={playing ? '暫停動畫 Pause' : '播放動畫 Play'}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-300 ${getAccentClass()}`}
+        >
+          {playing ? '⏸' : '▶'}
+        </button>
         {nowcast.windows.map((w, i) => (
           <button
             key={w.ends}
-            onClick={() => setWindowIndex(i)}
+            // Picking a period is a request to look at it, so stop the loop.
+            onClick={() => { setPlaying(false); setWindowIndex(i); }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-300
               ${i === windowIndex ? getAccentClass() : `${getCardClass()} ${getBorderClass()}`}`}
           >
