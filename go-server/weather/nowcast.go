@@ -8,10 +8,10 @@
 // any request carrying an Origin header, i.e. to browsers specifically.
 //
 // Server to server there is no such restriction, so this package fetches the
-// CSV, keeps only the grid points over Hong Kong, and serves the result as
-// compact JSON. That also cuts the payload the client sees by about 95%: the
-// published grid spans roughly 21.3-23.5N and 113.0-115.3E — most of the
-// Pearl River Delta — of which Hong Kong is a small corner.
+// CSV, keeps the grid points over Hong Kong and its approaches, and serves the
+// result as compact JSON. That also cuts the payload the client sees by about
+// 85%: the published grid spans roughly 21.3-23.5N and 113.0-115.3E, most of
+// the Pearl River Delta.
 package weather
 
 import (
@@ -39,11 +39,16 @@ var cacheTTL = 5 * time.Minute
 
 var httpClient = &http.Client{Timeout: 60 * time.Second}
 
-// Hong Kong and its surrounding waters. Deliberately a little wider than the
-// land area so the coastline is not clipped at the edge of the rendered grid.
+// Hong Kong and roughly 40 km of its approaches.
+//
+// Wider than Hong Kong itself on purpose. A nowcast answers "will it rain here
+// in the next two hours", and that usually depends on where a nearby band is
+// heading — cropping to the territory hides the rain that is about to arrive.
+// It still discards most of the published grid, which covers the Pearl River
+// Delta out to 115.3E.
 const (
-	minLat, maxLat = 22.10, 22.60
-	minLon, maxLon = 113.80, 114.50
+	minLat, maxLat = 21.85, 22.85
+	minLon, maxLon = 113.50, 114.85
 )
 
 // Point is one grid cell: latitude, longitude, and forecast accumulated
@@ -55,7 +60,7 @@ type Point [3]float64
 type Window struct {
 	// Ends is when the accumulation period finishes, RFC 3339 in Hong Kong time.
 	Ends string `json:"ends"`
-	// MaxMm is the heaviest rainfall over Hong Kong in this window, so a client
+	// MaxMm is the heaviest rainfall within Bounds in this window, so a client
 	// can scale a colour ramp without walking every point.
 	MaxMm  float64 `json:"max_mm"`
 	Points []Point `json:"points"`
@@ -126,7 +131,7 @@ func fetchNowcast() (*Nowcast, error) {
 	return parseNowcast(resp.Body)
 }
 
-// parseNowcast reads the CSV and keeps the Hong Kong grid points.
+// parseNowcast reads the CSV and keeps the grid points within Bounds.
 //
 // The columns are: updated time, end-of-period time, latitude, longitude,
 // half-hourly accumulated rainfall in mm. Both times are YYYYMMDDHHMM in Hong

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { usePollingFetch } from '../../hooks/usePollingFetch';
 import { getRainfallNowcast, RainfallNowcast, RainfallWindow } from '../../services/api';
+import { COASTLINE } from './coastline';
 
 // The Observatory republishes roughly every 12 minutes and the backend caches
 // for 5, so polling faster than this only costs requests.
@@ -43,9 +44,17 @@ const draw = (canvas: HTMLCanvasElement, nowcast: RainfallNowcast, window: Rainf
   if (spanLat <= 0 || spanLon <= 0) return;
 
   const width = 640;
-  const height = Math.round((width * spanLat) / spanLon);
+  // A degree of longitude is shorter than a degree of latitude, by cos(lat).
+  // Sizing the canvas from the raw degree spans squashes the map vertically —
+  // about 7% at this latitude — and shifts every cell away from where it is.
+  const midLat = ((min_lat + max_lat) / 2) * (Math.PI / 180);
+  const height = Math.round((width * spanLat) / (spanLon * Math.cos(midLat)));
   canvas.width = width;
   canvas.height = height;
+
+  const projectX = (lon: number) => ((lon - min_lon) / spanLon) * width;
+  // Latitude increases northwards; canvas y increases downwards.
+  const projectY = (lat: number) => height - ((lat - min_lat) / spanLat) * height;
 
   // Without a backdrop the canvas is transparent wherever it is not raining,
   // which on a dry day is almost all of it — the panel then reads as an empty
@@ -65,32 +74,29 @@ const draw = (canvas: HTMLCanvasElement, nowcast: RainfallNowcast, window: Rainf
   const cellW = Math.ceil(width / Math.max(lons.size, 1)) + 1;
   const cellH = Math.ceil(height / Math.max(lats.size, 1)) + 1;
 
-  // A degree graticule gives the grid some frame of reference.
-  ctx.strokeStyle = 'rgba(127, 156, 184, 0.25)';
-  ctx.lineWidth = 1;
-  for (let lon = Math.ceil(min_lon * 5) / 5; lon <= max_lon; lon += 0.2) {
-    const x = ((lon - min_lon) / spanLon) * width;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
-  }
-  for (let lat = Math.ceil(min_lat * 5) / 5; lat <= max_lat; lat += 0.2) {
-    const y = height - ((lat - min_lat) / spanLat) * height;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
+  // Rainfall first, so the coastline stays legible on top of it.
   for (const [lat, lon, mm] of window.points) {
     const colour = colourFor(mm);
     if (!colour) continue;
-    const x = ((lon - min_lon) / spanLon) * width;
-    // Latitude increases northwards; canvas y increases downwards.
-    const y = height - ((lat - min_lat) / spanLat) * height;
+    const x = projectX(lon);
+    const y = projectY(lat);
     ctx.fillStyle = colour;
     ctx.fillRect(x - cellW / 2, y - cellH / 2, cellW, cellH);
+  }
+
+  // A mid slate reads against both the light and the dark card backgrounds,
+  // which the canvas cannot inherit.
+  ctx.strokeStyle = 'rgba(122, 148, 174, 0.95)';
+  ctx.lineWidth = 1.1;
+  for (const run of COASTLINE) {
+    ctx.beginPath();
+    run.forEach(([lon, lat], i) => {
+      const x = projectX(lon);
+      const y = projectY(lat);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
   }
 };
 
