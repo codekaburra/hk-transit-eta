@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { UmbrellaIcon } from './UmbrellaIcon';
+
+// The day cards are one of nine columns, so the forecast prose is clipped and
+// the full text — both languages — is carried in the title attribute.
+const truncate = (text: string, max: number) =>
+  text.length > max ? text.substring(0, max) + '…' : text;
 
 // Types for the Hong Kong Observatory API response
 interface WeatherForecast {
@@ -52,6 +57,9 @@ interface WeatherData {
 
 export const NineDaysForecastCard = () => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
+  // The Observatory publishes the same forecast per language, so the English
+  // text comes from a second request rather than being translated here.
+  const [englishData, setEnglishData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setLastUpdated] = useState<string>('');
@@ -71,16 +79,23 @@ export const NineDaysForecastCard = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=tc'
-      );
+      const url = (lang: 'tc' | 'en') =>
+        `https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=fnd&lang=${lang}`;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // Both languages in parallel. Only the Chinese one is required: if the
+      // English request fails the card still renders, just without it.
+      const [tcResponse, enResult] = await Promise.all([
+        fetch(url('tc')),
+        fetch(url('en')).then(r => (r.ok ? r.json() : null)).catch(() => null),
+      ]);
+
+      if (!tcResponse.ok) {
+        throw new Error(`HTTP error! status: ${tcResponse.status}`);
       }
 
-      const data: WeatherData = await response.json();
+      const data: WeatherData = await tcResponse.json();
       setWeatherData(data);
+      setEnglishData(enResult as WeatherData | null);
       setLastUpdated(new Date().toLocaleString('zh-HK'));
     } catch (err) {
       setError('無法獲取天氣資料 Failed to fetch weather data');
@@ -93,6 +108,14 @@ export const NineDaysForecastCard = () => {
   useEffect(() => {
     fetchWeatherData();
   }, []);
+
+  // Paired by forecast date rather than by position, so a difference in the
+  // number of days between the two responses cannot mismatch the text.
+  const englishByDate = useMemo(() => {
+    const byDate = new Map<string, WeatherForecast>();
+    englishData?.weatherForecast.forEach(day => byDate.set(day.forecastDate, day));
+    return byDate;
+  }, [englishData]);
 
   const formatDate = (dateStr: string) => {
     const month = dateStr.substring(4, 6);
@@ -158,21 +181,28 @@ export const NineDaysForecastCard = () => {
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div className="flex-1">
                     <h2 className={`text-lg font-bold mb-2 transition-colors duration-300 ${getTitleClass()}`}>
-                      天氣概況:
+                      天氣概況 General Situation
                     </h2>
                     <p className={`text-sm leading-relaxed transition-colors duration-300 ${getTextClass()}`}>
                       {weatherData.generalSituation}
                     </p>
+                    {englishData && (
+                      <p className={`text-sm leading-relaxed mt-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
+                        {englishData.generalSituation}
+                      </p>
+                    )}
                   </div>
                   
                   {/* Sea and Soil Temperature */}
                   <div className="lg:w-80 space-y-2">
                     <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                      🌊 海水溫度: {weatherData.seaTemp.value}°{weatherData.seaTemp.unit} ({weatherData.seaTemp.place})
+                      🌊 海水溫度 Sea: {weatherData.seaTemp.value}°{weatherData.seaTemp.unit}{' '}
+                      ({weatherData.seaTemp.place}{englishData ? ` ${englishData.seaTemp.place}` : ''})
                     </div>
                     {weatherData.soilTemp.map((soil, index) => (
                       <div key={index} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        🌱 土壤溫度 ({soil.depth.value}{soil.depth.unit}): {soil.value}°{soil.unit} ({soil.place})
+                        🌱 土壤溫度 Soil ({soil.depth.value}{soil.depth.unit}): {soil.value}°{soil.unit}{' '}
+                        ({soil.place}{englishData?.soilTemp[index] ? ` ${englishData.soilTemp[index].place}` : ''})
                       </div>
                     ))}
                   </div>
@@ -181,7 +211,9 @@ export const NineDaysForecastCard = () => {
 
               {/* Nine Days Forecast Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9 gap-2 p-3">
-                {weatherData.weatherForecast.map((day, index) => (
+                {weatherData.weatherForecast.map((day, index) => {
+                  const en = englishByDate.get(day.forecastDate);
+                  return (
                   <div
                     key={day.forecastDate}
                     className={`border-2 rounded-md p-2 text-center transition-all duration-300 ${getCardClass()}`}
@@ -192,7 +224,7 @@ export const NineDaysForecastCard = () => {
                         {formatDate(day.forecastDate)}
                       </div>
                       <div className={`text-xs transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                        ({day.week.replace('星期', '')})
+                        ({day.week.replace('星期', '')}{en ? ` ${en.week.slice(0, 3)}` : ''})
                       </div>
                     </div>
 
@@ -218,25 +250,34 @@ export const NineDaysForecastCard = () => {
                     <div className="mb-2 flex items-center justify-center">
                       <UmbrellaIcon className="w-3 h-3 mr-1" size={12} color="blue" />
                       <span className={`text-xs font-medium ${getRainChanceColor(day.PSR)}`}>
-                        {day.PSR}
+                        {day.PSR}{en ? ` ${en.PSR}` : ''}
                       </span>
                     </div>
 
                     {/* Wind */}
-                    <div className={`text-xs mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                      {day.forecastWind.length > 15 
-                        ? day.forecastWind.substring(0, 15) + '...' 
-                        : day.forecastWind}
+                    <div
+                      className={`text-xs mb-2 transition-colors duration-300 ${getSecondaryTextClass()}`}
+                      title={en ? `${day.forecastWind}\n${en.forecastWind}` : day.forecastWind}
+                    >
+                      <div>{truncate(day.forecastWind, 15)}</div>
+                      {en && <div className="opacity-75">{truncate(en.forecastWind, 22)}</div>}
                     </div>
 
                     {/* Weather Description */}
-                    <div className={`text-xs leading-tight transition-colors duration-300 ${getTextClass()}`}>
-                      {day.forecastWeather.length > 30 
-                        ? day.forecastWeather.substring(0, 30) + '...' 
-                        : day.forecastWeather}
+                    <div
+                      className={`text-xs leading-tight transition-colors duration-300 ${getTextClass()}`}
+                      title={en ? `${day.forecastWeather}\n${en.forecastWeather}` : day.forecastWeather}
+                    >
+                      <div>{truncate(day.forecastWeather, 30)}</div>
+                      {en && (
+                        <div className={`mt-1 ${getSecondaryTextClass()}`}>
+                          {truncate(en.forecastWeather, 45)}
+                        </div>
+                      )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>
