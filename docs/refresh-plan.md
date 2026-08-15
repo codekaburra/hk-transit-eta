@@ -179,6 +179,29 @@ Not part of the refresh work above; recorded here so they are not lost.
    it reads and needs a `MATERIALIZED` CTE plus a regex filter to stop one
    malformed value from failing every search.
 
+3. ⬜ **Decide whether the UI gets real language switching.** Both READMEs say
+   it already has it — the root one claims "English, Traditional Chinese, and
+   Simplified Chinese UI text", `react-ui/README.md` lists "language
+   switching". Neither is true today:
+
+   - `package.json` has no i18n dependency, and `src/contexts/` holds only
+     `ThemeContext`. There is no language state anywhere.
+   - 23 non-test source files carry hardcoded Chinese. The pattern is a
+     bilingual label per string — `資料點 Data Points`, `🌧️ 降雨臨近預報
+     Rainfall Nowcast` — so both languages render at once, always.
+   - Simplified Chinese never reaches the UI at all. It exists only as
+     `name_sc` on the data, alongside `name_en` and `name_tc`.
+
+   So the choice is between building it and correcting the claim. Building it
+   means a language context, extracting ~23 files' worth of literals into
+   message catalogues, and picking `name_en`/`name_tc`/`name_sc` per the
+   selection rather than rendering two lines. That is a large change to reach
+   for only if a reader has actually asked for it — the bilingual labels are
+   readable as they stand, and Hong Kong readers generally read both.
+
+   Whichever way it goes, the two README lines are wrong now and should not
+   wait for it.
+
 ## Out of scope
 
 - Caching real-time ETA (frontend calls official APIs directly — keep it that
