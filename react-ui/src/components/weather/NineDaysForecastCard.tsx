@@ -55,6 +55,21 @@ interface WeatherData {
   }>;
 }
 
+// The English response is optional, so it is never the reason the card fails.
+// This checks only the members the render path dereferences without a guard of
+// its own; the per-day fields are read through an entry that may be absent
+// anyway, so they are left to the existing optional access.
+const isRenderableForecast = (body: unknown): body is WeatherData => {
+  const data = body as WeatherData | null;
+  return (
+    !!data &&
+    Array.isArray(data.weatherForecast) &&
+    Array.isArray(data.soilTemp) &&
+    !!data.seaTemp &&
+    typeof data.generalSituation === 'string'
+  );
+};
+
 export const NineDaysForecastCard = () => {
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   // The Observatory publishes the same forecast per language, so the English
@@ -84,9 +99,17 @@ export const NineDaysForecastCard = () => {
 
       // Both languages in parallel. Only the Chinese one is required: if the
       // English request fails the card still renders, just without it.
+      //
+      // A 200 is not enough to render against — the fields below are read
+      // unconditionally wherever englishData is set, so a short or reshaped
+      // body would throw during render and blank the page. Anything that does
+      // not carry the whole shape is treated as no English at all.
       const [tcResponse, enResult] = await Promise.all([
         fetch(url('tc')),
-        fetch(url('en')).then(r => (r.ok ? r.json() : null)).catch(() => null),
+        fetch(url('en'))
+          .then(r => (r.ok ? r.json() : null))
+          .then(body => (isRenderableForecast(body) ? body : null))
+          .catch(() => null),
       ]);
 
       if (!tcResponse.ok) {
@@ -95,7 +118,7 @@ export const NineDaysForecastCard = () => {
 
       const data: WeatherData = await tcResponse.json();
       setWeatherData(data);
-      setEnglishData(enResult as WeatherData | null);
+      setEnglishData(enResult);
       setLastUpdated(new Date().toLocaleString('zh-HK'));
     } catch (err) {
       setError('無法獲取天氣資料 Failed to fetch weather data');
