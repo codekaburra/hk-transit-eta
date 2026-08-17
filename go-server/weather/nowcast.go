@@ -39,6 +39,12 @@ var cacheTTL = 5 * time.Minute
 
 var httpClient = &http.Client{Timeout: 60 * time.Second}
 
+// retryInterval bounds how often a failing upstream is tried again. A failed
+// fetch cannot refresh cachedAt — the data held really is that old — so without
+// a separate gate every request would re-enter fetchNowcast while holding mu,
+// and a burst would queue up behind one client timeout each.
+var retryInterval = 30 * time.Second
+
 // Hong Kong and roughly 40 km of its approaches.
 //
 // Wider than Hong Kong itself on purpose. A nowcast answers "will it rain here
@@ -87,6 +93,10 @@ var (
 	cached *Nowcast
 	// cachedAt is when the upstream fetch completed, not when it was requested.
 	cachedAt time.Time
+	// lastAttempt is when a fetch was last tried, whether or not it succeeded,
+	// and lastErr is why the last one failed. Together they gate the retry.
+	lastAttempt time.Time
+	lastErr     error
 )
 
 // Nowcast returns the current forecast, fetching it only when what is held is
@@ -104,8 +114,20 @@ func GetNowcast() (*Nowcast, error) {
 		return cached, nil
 	}
 
+	// The cache is due for a refresh, but a recent attempt already failed:
+	// answer from what is held rather than spending another timeout under the
+	// lock. With nothing held there is nothing to answer with but the reason.
+	if lastErr != nil && time.Since(lastAttempt) < retryInterval {
+		if cached != nil {
+			return cached, nil
+		}
+		return nil, lastErr
+	}
+
+	lastAttempt = time.Now()
 	fresh, err := fetchNowcast()
 	if err != nil {
+		lastErr = err
 		// Serving something stale beats serving nothing: the nowcast changes
 		// slowly and a reader is better off with a twenty-minute-old field than
 		// an error page.
@@ -115,6 +137,7 @@ func GetNowcast() (*Nowcast, error) {
 		return nil, err
 	}
 
+	lastErr = nil
 	cached, cachedAt = fresh, time.Now()
 	return cached, nil
 }

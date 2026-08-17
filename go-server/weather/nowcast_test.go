@@ -26,6 +26,7 @@ func resetCache(t *testing.T) {
 	t.Helper()
 	mu.Lock()
 	cached, cachedAt = nil, time.Time{}
+	lastAttempt, lastErr = time.Time{}, nil
 	mu.Unlock()
 }
 
@@ -183,6 +184,73 @@ func TestGetNowcastServesStaleDataWhenUpstreamFails(t *testing.T) {
 	}
 	if got.Windows[0].MaxMm != first.Windows[0].MaxMm {
 		t.Error("did not serve the previously cached nowcast")
+	}
+}
+
+// A failed fetch leaves cachedAt untouched, so nothing but the retry gate stops
+// an expired cache from re-entering fetchNowcast on every request. Each attempt
+// holds mu for up to the client timeout, so an upstream outage would otherwise
+// queue callers behind one timeout each while hammering the Observatory.
+func TestGetNowcastRetriesAFailingUpstreamAtMostOncePerInterval(t *testing.T) {
+	resetCache(t)
+	var fail bool
+	var hits int
+	withServer(t, func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		if fail {
+			http.Error(w, "upstream down", http.StatusBadGateway)
+			return
+		}
+		fmt.Fprint(w, csvBody(row("202608050012", "202608050042", 22.30, 114.17, 7.5)))
+	})
+
+	if _, err := GetNowcast(); err != nil {
+		t.Fatalf("priming the cache: %v", err)
+	}
+	mu.Lock()
+	cachedAt = time.Now().Add(-2 * cacheTTL)
+	mu.Unlock()
+	fail = true
+
+	for i := 0; i < 4; i++ {
+		if _, err := GetNowcast(); err != nil {
+			t.Fatalf("call %d should have served stale data: %v", i, err)
+		}
+	}
+	if hits != 2 {
+		t.Errorf("hit the upstream %d times, want 2 — one success and one retry", hits)
+	}
+
+	// Once the interval lapses the upstream is tried again, so a recovery is
+	// picked up rather than waiting out the full TTL.
+	mu.Lock()
+	lastAttempt = time.Now().Add(-2 * retryInterval)
+	mu.Unlock()
+	if _, err := GetNowcast(); err != nil {
+		t.Fatalf("after the interval lapsed: %v", err)
+	}
+	if hits != 3 {
+		t.Errorf("hit the upstream %d times, want 3 — the retry interval had lapsed", hits)
+	}
+}
+
+// The same gate with nothing cached: the caller still gets an error, but the
+// error is remembered rather than re-earned at the cost of another timeout.
+func TestGetNowcastGatesRetriesWithNothingCached(t *testing.T) {
+	resetCache(t)
+	var hits int
+	withServer(t, func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		http.Error(w, "upstream down", http.StatusBadGateway)
+	})
+
+	for i := 0; i < 4; i++ {
+		if _, err := GetNowcast(); err == nil {
+			t.Fatalf("call %d: a failing upstream with a cold cache should error", i)
+		}
+	}
+	if hits != 1 {
+		t.Errorf("hit the upstream %d times, want 1", hits)
 	}
 }
 
