@@ -2,8 +2,14 @@
 //
 // A rainfall grid drawn on a blank rectangle cannot be read: there is no way to
 // tell whether a cell sits over Kowloon, the harbour, or open sea. These are
-// coastline runs clipped to the panel's bounds and simplified to roughly 150 m,
-// which is finer than the 0.02-degree rainfall grid drawn over them.
+// coastline runs simplified to roughly 150 m, which is finer than the
+// 0.02-degree rainfall grid drawn over them.
+//
+// The runs cover 113.35-115.00E and 21.97-23.00N, wider than the panel's
+// 113.50-114.85 / 21.85-22.85, so about a fifth of the points fall outside it
+// and never appear. They are kept whole rather than clipped: cutting a polyline
+// at the frame means splitting runs at every crossing, and the canvas discards
+// the overflow for free. The cost is roughly 150 unused coordinate pairs.
 //
 // Source: Natural Earth 1:10m coastline (public domain, naturalearthdata.com).
 // Each run is a polyline of [longitude, latitude] pairs.
