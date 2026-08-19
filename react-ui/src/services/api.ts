@@ -214,6 +214,38 @@ export const getRainfallNowcast = async (): Promise<RainfallNowcast> =>
   fetchJSON<RainfallNowcast>(url('/weather/rainfall-nowcast'));
 
 // Get route count for a specific type
+// A stop near a coordinate, of either mode. Coordinates come back as numbers
+// here, unlike the bus endpoints' text, because the backend parses them once
+// rather than leaving every caller to do it.
+export interface NearbyStop {
+  kind: 'bus' | 'minibus';
+  company: string;
+  stop: string;
+  name_en: string;
+  name_tc: string;
+  lat: number;
+  long: number;
+  distance_m: number;
+  routes: string[];
+}
+
+export interface NearbyStops {
+  centre: { lat: number; long: number };
+  radius_m: number;
+  stops: NearbyStop[];
+}
+
+// Throws rather than returning a fallback: a search that fails and a location
+// with nothing near it must not look the same on the page.
+export const getStopsNearby = async (
+  lat: number,
+  lon: number,
+  radiusM: number
+): Promise<NearbyStops> =>
+  fetchJSON<NearbyStops>(
+    url('/stops/nearby', { lat: String(lat), lon: String(lon), radius: String(radiusM) })
+  );
+
 export const getRouteCount = async (
   type: 'bus' | 'minibus'
 ): Promise<{ type: string; count: number }> =>
@@ -242,4 +274,5 @@ export const api = {
   getMinibusRouteDetails,
   getRouteCount,
   getRainfallNowcast,
+  getStopsNearby,
 };

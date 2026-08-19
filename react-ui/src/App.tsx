@@ -9,6 +9,7 @@ import { MTRStationDetails } from './components/transport/mtr/MTRStationDetails'
 import './App.css';
 import { LandingPage } from './components/LandingPage';
 import { HomePage } from './components/transport/HomePage';
+import { NearbyStopsPage } from './components/nearby/NearbyStopsPage';
 import { WeatherHomePage } from './components/weather/HomePage';
 import { NineDaysForecastCard } from './components/weather/NineDaysForecastCard';
 
@@ -19,6 +20,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/transport" element={<HomePage />} />
+          <Route path="/nearby" element={<NearbyStopsPage />} />
           <Route path="/weather" element={<WeatherHomePage />} />
           <Route path="/weather/nine-day-forecast" element={<NineDaysForecastCard />} />
           <Route path="/bus/stop/:stopId" element={<BusStopDetails />} />
