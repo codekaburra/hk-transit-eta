@@ -1,6 +1,6 @@
 # HK Transit ETA — React UI
 
-React + TypeScript frontend for HK Transit ETA. It provides the transport search UI, route details, maps, weather dashboard, language switching, and theme support.
+React + TypeScript frontend for HK Transit ETA. It provides the transport search UI, route details, maps, weather dashboard, and theme support. Labels are bilingual — Chinese and English are shown together rather than switched between.
 
 Route and stop data comes from the Go backend. Live ETAs are fetched by the browser directly from the operators' APIs (KMB, Citybus, GMB), not through the backend.
 

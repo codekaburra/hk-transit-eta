@@ -30,7 +30,7 @@ On first start, the backend seeds PostgreSQL from the committed JSON snapshot in
 - Green minibus routes across HKI, KLN, and NT, including stop sequences and headway schedules
 - MTR station listing and route map
 - Weather dashboard using Hong Kong Observatory data
-- English, Traditional Chinese, and Simplified Chinese UI text
+- Bilingual interface: every label is rendered in both Chinese and English
 - Light, dark, and custom colour themes
 - Responsive React UI built with Tailwind CSS
 

@@ -189,6 +189,30 @@ export const getMinibusRouteDetails = async (routeId: string, routeSeq: string):
     delayOnError: true,
   });
 
+// Gridded rainfall nowcast, proxied by our backend.
+//
+// The Observatory's CSV cannot be fetched from the browser: data.weather.gov.hk
+// sends no Access-Control-Allow-Origin header for it, and the CSDI portal's
+// GeoJSON of the same dataset answers 403 to any request carrying an Origin.
+// The backend also trims the published Pearl River Delta grid to Hong Kong,
+// which is the difference between 2.7 MB and about 75 KB.
+export interface RainfallPoint extends Array<number> { 0: number; 1: number; 2: number }
+
+export interface RainfallWindow {
+  ends: string;
+  max_mm: number;
+  points: RainfallPoint[];
+}
+
+export interface RainfallNowcast {
+  updated: string;
+  bounds: { min_lat: number; max_lat: number; min_lon: number; max_lon: number };
+  windows: RainfallWindow[];
+}
+
+export const getRainfallNowcast = async (): Promise<RainfallNowcast> =>
+  fetchJSON<RainfallNowcast>(url('/weather/rainfall-nowcast'));
+
 // Get route count for a specific type
 export const getRouteCount = async (
   type: 'bus' | 'minibus'
@@ -217,4 +241,5 @@ export const api = {
   getMinibusRouteStops,
   getMinibusRouteDetails,
   getRouteCount,
+  getRainfallNowcast,
 };
