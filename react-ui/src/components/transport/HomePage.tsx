@@ -193,6 +193,16 @@ export const HomePage: React.FC = () => {
                 🚇 港鐵 MTR
               </button>
             </div>
+            {/* Not a search type: the coordinate search is its own page, so this
+                is a link into it rather than another tab. */}
+            <div className={`flex flex-wrap space-x-1 rounded-lg p-1 ${getCardClass()}`}>
+              <button
+                onClick={() => navigate('/transport/nearby')}
+                className={`px-4 py-3 font-medium text-base rounded-md transition-colors duration-300 ${getButtonClass(false)}`}
+              >
+                📍 附近車站 Nearby Stops
+              </button>
+            </div>
           </div>
         )}
 

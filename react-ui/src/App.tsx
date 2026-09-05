@@ -20,7 +20,8 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/transport" element={<HomePage />} />
-          <Route path="/nearby" element={<NearbyStopsPage />} />
+          <Route path="/transport/nearby" element={<NearbyStopsPage />} />
+          <Route path="/nearby" element={<Navigate to="/transport/nearby" replace />} />
           <Route path="/weather" element={<WeatherHomePage />} />
           <Route path="/weather/nine-day-forecast" element={<NineDaysForecastCard />} />
           <Route path="/bus/stop/:stopId" element={<BusStopDetails />} />
