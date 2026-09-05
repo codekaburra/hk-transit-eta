@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../header/Header';
+import { MainNavigation } from '../transport/MainNavigation';
 import { api, NearbyStop, NearbyStops } from '../../services/api';
+import { NearbyStopsMap } from './NearbyStopsMap';
 
 // The radii the backend accepts, as the few a rider actually wants: the corner,
 // the block, the walk.
@@ -78,6 +80,8 @@ export const NearbyStopsPage: React.FC = () => {
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <MainNavigation />
+
         <h1 className={`text-2xl font-bold mb-2 transition-colors duration-300 ${getTitleClass()}`}>
           附近車站 Nearby Stops
         </h1>
@@ -148,6 +152,10 @@ export const NearbyStopsPage: React.FC = () => {
               {result.centre.lat}, {result.centre.long} 半徑 {result.radius_m} 米內共 {result.stops.length} 個車站
               {' '}({result.stops.length} stops within {result.radius_m} m)
             </p>
+
+            {result.stops.length > 0 && (
+              <NearbyStopsMap result={result} onStopClick={openStop} />
+            )}
 
             {result.stops.length === 0 ? (
               <div className={`p-6 rounded-lg text-center ${getCardClass()}`}>

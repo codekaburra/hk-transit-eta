@@ -27,7 +27,7 @@ On first start, the backend seeds PostgreSQL from the committed JSON snapshot in
 ## Features
 
 - Bus route search, stop lookup, nearby stops, and real-time ETA for KMB and Citybus
-- Coordinate search at `/nearby`: bus and minibus stops within a chosen radius, nearest first
+- Coordinate search at `/transport/nearby`: bus and minibus stops within a chosen radius, nearest first, on a Google map with a pin per stop
 - Green minibus routes across HKI, KLN, and NT, including stop sequences and headway schedules
 - MTR station listing and route map
 - Weather dashboard using Hong Kong Observatory data
