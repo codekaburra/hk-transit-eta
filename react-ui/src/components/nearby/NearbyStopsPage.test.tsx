@@ -114,6 +114,26 @@ it('rejects a malformed coordinate without calling the API', async () => {
   expect(getStopsNearby).not.toHaveBeenCalled();
 });
 
+// The button is the only feedback that a search is running, and re-submitting
+// while one is in flight would race two results into the same state.
+it('marks the search as running and blocks a second submit', async () => {
+  let release: (value: NearbyStops) => void = () => {};
+  getStopsNearby.mockReturnValue(new Promise<NearbyStops>(resolve => { release = resolve; }));
+
+  renderPage();
+  await userEvent.click(screen.getByRole('button', { name: /搜尋 Search/ }));
+
+  const running = await screen.findByRole('button', { name: /搜尋中/ });
+  expect(running).toBeDisabled();
+
+  await userEvent.click(running);
+  expect(getStopsNearby).toHaveBeenCalledTimes(1);
+
+  release(response([stop()]));
+  expect(await screen.findByText('置地廣場')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /搜尋 Search/ })).toBeEnabled();
+});
+
 // The two modes have separate detail pages, and a minibus id routed to the bus
 // page yields a stop that does not exist.
 it('opens each mode at its own detail page', async () => {

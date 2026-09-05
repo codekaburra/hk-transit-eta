@@ -74,7 +74,17 @@ func seedMinibusStop(t *testing.T, db *sql.DB, stopID int, lat, long float64, en
 		stopID, lat, long, enabled); err != nil {
 		t.Fatalf("seeding minibus stop %d: %v", stopID, err)
 	}
-	routeID := stopID // unique per stop is enough for these tests
+	// A route id unique per stop is enough where the route itself is incidental.
+	seedMinibusRouteAtStop(t, db, stopID, stopID, region, routeCode,
+		"Minibus stop "+routeCode, "小巴站 "+routeCode)
+}
+
+// seedMinibusRouteAtStop attaches one route to an existing minibus stop, with
+// the name that route gives it. Separate from seedMinibusStop because a stop
+// can be named differently by each route serving it, which is the case the name
+// selection has to resolve.
+func seedMinibusRouteAtStop(t *testing.T, db *sql.DB, stopID, routeID int, region, routeCode, nameEn, nameTc string) {
+	t.Helper()
 	if _, err := db.Exec(
 		`INSERT INTO minibus_route (region, route_code, route_id, route_seq) VALUES ($1, $2, $3, 1)`,
 		region, routeCode, routeID); err != nil {
@@ -83,7 +93,7 @@ func seedMinibusStop(t *testing.T, db *sql.DB, stopID int, lat, long float64, en
 	if _, err := db.Exec(
 		`INSERT INTO minibus_route_stop (route_id, route_seq, stop_seq, stop_id, name_tc, name_sc, name_en)
 		 VALUES ($1, 1, 1, $2, $3, $4, $5)`,
-		routeID, stopID, "小巴站 "+routeCode, "小巴站 "+routeCode, "Minibus stop "+routeCode); err != nil {
+		routeID, stopID, nameTc, nameTc, nameEn); err != nil {
 		t.Fatalf("seeding minibus route-stop for %d: %v", stopID, err)
 	}
 }
@@ -275,5 +285,96 @@ func TestGetStopsNearbyRejectsBadParameters(t *testing.T) {
 				t.Errorf("status = %d, want 400", rec.Code)
 			}
 		})
+	}
+}
+
+// A minibus stop has no name of its own, only the names the routes serving it
+// give it, and those disagree. The query picks by lowest route_id — arbitrary,
+// but the point is that it is decided rather than left to the join, which would
+// otherwise vary between runs and rename the stop under the reader.
+func TestGetStopsNearbyNamesAMinibusStopStably(t *testing.T) {
+	db := setupDB(t)
+	if _, err := db.Exec(
+		`INSERT INTO minibus_stop (stop_id, latitude, longitude, enabled) VALUES (20001, 22.2871, 114.1601, true)`,
+	); err != nil {
+		t.Fatalf("seeding stop: %v", err)
+	}
+	// Seeded highest-first, so a query that simply took what the join offered
+	// would be more likely to return the wrong one.
+	seedMinibusRouteAtStop(t, db, 20001, 900, "HKI", "9", "Later name", "後來的名")
+	seedMinibusRouteAtStop(t, db, 20001, 100, "HKI", "8", "Lowest route name", "最小路線的名")
+
+	for attempt := 0; attempt < 3; attempt++ {
+		got, _ := search(t, "lat=22.2870&lon=114.1600&radius=300")
+		if len(got.Stops) != 1 {
+			t.Fatalf("got %d stops, want the one seeded", len(got.Stops))
+		}
+		if got.Stops[0].NameTc != "最小路線的名" {
+			t.Fatalf("name = %q, want the lowest route_id's name", got.Stops[0].NameTc)
+		}
+		// Both routes still reach the rider, whichever supplied the name.
+		if len(got.Stops[0].Routes) != 2 {
+			t.Errorf("routes = %v, want both 8 and 9", got.Stops[0].Routes)
+		}
+	}
+}
+
+// Two stops at the same distance are ordered by id.
+//
+// The tie has to span the two modes to mean anything: bus and minibus are
+// separate queries whose results are appended in that order, so without the
+// tie-break the bus stop wins every tie by virtue of being concatenated first,
+// whatever its id. Here the minibus id sorts first, so only the tie-break can
+// put it there.
+func TestGetStopsNearbyBreaksDistanceTiesStably(t *testing.T) {
+	db := setupDB(t)
+	// Mirrored north and south of the centre: the same distance to the metre.
+	seedBusStop(t, db, "KMB", "ZZZ_BUS", "22.28800", "114.16000")
+	seedMinibusStop(t, db, 20001, 22.28600, 114.16000, true, "HKI", "8")
+
+	for attempt := 0; attempt < 3; attempt++ {
+		got, _ := search(t, "lat=22.2870&lon=114.1600&radius=300")
+		if len(got.Stops) != 2 {
+			t.Fatalf("got %d stops, want 2", len(got.Stops))
+		}
+		if got.Stops[0].DistanceM != got.Stops[1].DistanceM {
+			t.Fatalf("the two stops are %d m and %d m apart; the fixture must place them equidistant",
+				got.Stops[0].DistanceM, got.Stops[1].DistanceM)
+		}
+		if got.Stops[0].Stop != "20001" {
+			t.Fatalf("order = %s, %s; want the id to break the tie across modes",
+				got.Stops[0].Stop, got.Stops[1].Stop)
+		}
+	}
+}
+
+// distance_m is rounded for display while the filter runs on the unrounded
+// distance, so the two disagree either side of the limit. A stop at 199.6 m is
+// a result and shows as "200 m"; one at 200.4 m also rounds to 200 but is not a
+// result. The rounding must not decide membership, and a stop displaying the
+// radius exactly must not look like a mistake.
+//
+// The inclusive-or-exclusive question at exactly the radius is not asserted
+// here: it is a comparison of floats that no fixture can land on reliably.
+func TestGetStopsNearbyRoundsDistanceWithoutWideningTheRadius(t *testing.T) {
+	db := setupDB(t)
+	// JUST_OUTSIDE is placed on the diagonal deliberately. Due north the box
+	// and the radius coincide, so a stop past the limit is dropped by the SQL
+	// prefilter and the distance check never runs — the test would pass on the
+	// box alone. On the diagonal it is inside the box and outside the circle,
+	// which is the only place the distance check decides anything.
+	seedBusStop(t, db, "KMB", "JUST_INSIDE", "22.2887945", "114.1600")     // 199.5 m, due north
+	seedBusStop(t, db, "KMB", "JUST_OUTSIDE", "22.2882744", "114.1613773") // 200.4 m, on the diagonal
+
+	got, _ := search(t, "lat=22.2870&lon=114.1600&radius=200")
+
+	if len(got.Stops) != 1 {
+		t.Fatalf("got %d stops, want only the one inside the radius: %v", len(got.Stops), got.Stops)
+	}
+	if got.Stops[0].Stop != "JUST_INSIDE" {
+		t.Fatalf("stop = %s, want JUST_INSIDE", got.Stops[0].Stop)
+	}
+	if got.Stops[0].DistanceM != 200 {
+		t.Errorf("distance_m = %d, want 200 — rounded for display", got.Stops[0].DistanceM)
 	}
 }
