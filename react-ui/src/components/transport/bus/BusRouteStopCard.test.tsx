@@ -69,4 +69,33 @@ describe('BusRouteStopCard', () => {
       expect(getBusETA).toHaveBeenCalledWith('KMB', 'A1B2C3', '1', '1', 'O')
     );
   });
+
+  // Stacked in one column the three readings ran together, and it took a moment
+  // to tell which belonged to which bus. The columns carry no heading, so the
+  // order is the only thing saying which departure is which.
+  it('gives each departure its own column, soonest first', async () => {
+    const inMinutes = (mins: number) => new Date(Date.now() + mins * 60000).toISOString();
+    getBusETA.mockResolvedValue([inMinutes(15), inMinutes(35), inMinutes(55)]);
+    renderCard(routeStop());
+
+    await screen.findByText(/15 分鐘/);
+    const columns = screen.getAllByText(/分鐘 mins/).map(reading => reading.parentElement);
+
+    expect(columns).toHaveLength(3);
+    expect(columns.map(column => column?.textContent)).toEqual([
+      expect.stringContaining('15 分鐘'),
+      expect.stringContaining('35 分鐘'),
+      expect.stringContaining('55 分鐘'),
+    ]);
+  });
+
+  // A stop near the end of service returns fewer than three. Dropping the empty
+  // columns would leave the readings unaligned down a list of stops.
+  it('keeps the later columns in place when the operator returns fewer', async () => {
+    getBusETA.mockResolvedValue([new Date(Date.now() + 5 * 60000).toISOString()]);
+    renderCard(routeStop());
+
+    expect(await screen.findByText(/5 分鐘/)).toBeInTheDocument();
+    expect(screen.getAllByText('—')).toHaveLength(2);
+  });
 });

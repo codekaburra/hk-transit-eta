@@ -4,9 +4,9 @@ import { BusRoute, BusStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { usePollingFetch } from '../../../hooks/usePollingFetch';
 import { getBusETA } from '../../../services/api';
-import { formatETA } from '../../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteCodeIcon } from '../RouteCodeIcon';
+import { ETAColumns } from './ETAColumns';
 
 export interface RouteCardProps {
   route: BusRoute;
@@ -25,7 +25,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
   );
   const { data: etaData } = usePollingFetch<string[]>(busStop ? fetchETA : null, []);
 
-  const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
+  const { getHoverClass, getCardClass, getGrayTextClass } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -39,8 +39,10 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         }
       }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1 flex items-center space-x-4">
+      {/* Wraps rather than squeezes: on a phone the three columns take a line
+          of their own beneath the destinations. */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <div className="w-full sm:w-auto sm:flex-1 min-w-0 flex items-center space-x-4">
           <div className="flex-shrink-0">
             <RouteCodeIcon routeCode={route.route} type={route.company as 'KMB' | 'CTB'} size="md" />
           </div>
@@ -59,16 +61,10 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
           Service Type: {route.service_type}
         </div> */}
-        <div className="flex flex-col">
-          {etaData.map((eta, idx) => {
-            return (
-              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {formatETA(eta)}
-              </div>
-            )
-          })}
-        </div>
-        <div className="w-1/5 flex items-center">
+        {/* Empty columns would read as a stop with no service, so a card
+            rendered without a stop shows none. */}
+        {busStop && <ETAColumns etaData={etaData} />}
+        <div className="w-auto sm:w-1/5 flex items-center">
           {shouldBusCompanyIcon && <BusCompanyIcon company={route.company} className="ml-auto" />}
         </div>
       </div>

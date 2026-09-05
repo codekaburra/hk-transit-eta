@@ -26,27 +26,52 @@
     data: MinibusETAStopData[];
   }
 
-  // Format ETA time
+  // Format ETA time. A wrapper over formatETAParts so the two cannot disagree
+  // about when a bus counts as arriving.
   export const formatETA = (etaString: string) => {
-    try {
-      const etaDate = new Date(etaString);
-      // An unparseable string yields an Invalid Date rather than throwing, so
-      // the catch below never fires and the caller would render
-      // "Invalid Date - NaN 分鐘 mins".
-      if (Number.isNaN(etaDate.getTime())) return '';
-      const etaDateString = etaDate.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const now = new Date();
-      const diffMs = etaDate.getTime() - now.getTime();
-      const diffMins = Math.round(diffMs / 60000);
-      
-      if (diffMins <= 0) return '即將到達 Arriving';
-      if (diffMins < 60) return `${etaDateString} - ${diffMins} 分鐘 mins`;
-      const hours = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      return `${etaDateString} ${hours}h ${mins}m`;
-    } catch {
-      return '';
+    const parts = formatETAParts(etaString);
+    if (!parts) return '';
+    switch (parts.state) {
+      // No clock time: a bus that is already here is not due at a time.
+      case 'arriving':
+        return parts.wait;
+      case 'minutes':
+        return `${parts.time} - ${parts.wait}`;
+      default:
+        return `${parts.time} ${parts.wait}`;
     }
+  };
+
+  // The columned display needs the clock time and the wait separately, and in a
+  // short form as well: three columns and a stop name do not fit a phone at the
+  // full "17 分鐘 mins".
+  export interface ETAParts {
+    time: string;
+    wait: string;
+    shortWait: string;
+    // What the wait is measuring, so a caller can lay the two out without
+    // reading the strings back.
+    state: 'arriving' | 'minutes' | 'hours';
+  }
+
+  export const formatETAParts = (etaString: string): ETAParts | null => {
+    const etaDate = new Date(etaString);
+    if (Number.isNaN(etaDate.getTime())) return null;
+
+    const time = etaDate.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const diffMins = Math.round((etaDate.getTime() - Date.now()) / 60000);
+
+    // The time is kept for an arriving bus too: the column is a fixed slot, and
+    // dropping a line makes the row jump as the departure comes due.
+    if (diffMins <= 0) {
+      return { time, wait: '即將到達 Arriving', shortWait: '即將', state: 'arriving' };
+    }
+    if (diffMins < 60) {
+      return { time, wait: `${diffMins} 分鐘 mins`, shortWait: `${diffMins}分`, state: 'minutes' };
+    }
+    const hours = Math.floor(diffMins / 60);
+    const mins = diffMins % 60;
+    return { time, wait: `${hours}h ${mins}m`, shortWait: `${hours}h${mins}m`, state: 'hours' };
   };
 
   // Format minibus ETA with additional info
