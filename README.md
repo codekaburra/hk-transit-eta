@@ -148,8 +148,12 @@ docker compose -f docker-compose.dev.yml up -d db
 docker compose -f docker-compose.dev.yml exec db createdb -U hkbus hkbus_test
 
 cd go-server
-TEST_DATABASE_URL="postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable" go test ./...
+TEST_DATABASE_URL="postgres://hkbus:hkbus_password@localhost:5432/hkbus_test?sslmode=disable" go test -p 1 ./...
 ```
+
+`-p 1` runs the packages one at a time. They share the one test database and each
+truncates the tables it reads, so in parallel they clear each other's fixtures
+and fail at random.
 
 End-to-end tests run against the production Compose stack, matching CI:
 
