@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { Header } from '../header/Header';
 import { MainNavigation } from '../transport/MainNavigation';
 import { api, NearbyStop, NearbyStops } from '../../services/api';
+import { HttpError } from '../../services/http';
 import { NearbyStopsMap } from './NearbyStopsMap';
 
 // The radii the backend accepts, as the few a rider actually wants: the corner,
@@ -16,6 +17,10 @@ const RADII = [100, 250, 500, 1000] as const;
 const DEFAULT_LAT = '22.2819';
 const DEFAULT_LON = '114.1582';
 
+// Shared with the backend's own default, so an API caller and a rider on the
+// page mean the same thing by "nearby".
+const DEFAULT_RADIUS = 250;
+
 const KIND_LABEL: Record<NearbyStop['kind'], string> = {
   bus: '🚌 巴士 Bus',
   minibus: '🚐 小巴 Minibus',
@@ -24,7 +29,7 @@ const KIND_LABEL: Record<NearbyStop['kind'], string> = {
 export const NearbyStopsPage: React.FC = () => {
   const [lat, setLat] = useState(DEFAULT_LAT);
   const [lon, setLon] = useState(DEFAULT_LON);
-  const [radius, setRadius] = useState<number>(250);
+  const [radius, setRadius] = useState<number>(DEFAULT_RADIUS);
   const [result, setResult] = useState<NearbyStops | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +48,40 @@ export const NearbyStopsPage: React.FC = () => {
     getBorderClass,
   } = useThemeStyles();
 
-  const search = async (event: React.FormEvent) => {
+  // Searches are not cancelled, only superseded: widen the radius and search
+  // again while the first call is still out, and the slower answer would
+  // otherwise arrive last and replace the one that was asked for.
+  const latestRequest = useRef(0);
+
+  const runSearch = useCallback(async (latValue: number, lonValue: number, radiusM: number) => {
+    const request = ++latestRequest.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const found = await api.getStopsNearby(latValue, lonValue, radiusM);
+      if (request !== latestRequest.current) return;
+      setResult(found);
+    } catch (err) {
+      if (request !== latestRequest.current) return;
+      // The backend rejects coordinates outside Hong Kong, which is what a
+      // swapped pair looks like, so its own message is the useful one. Its
+      // body alone: the status line would stack in front of the label below.
+      const detail = err instanceof HttpError ? err.detail : err instanceof Error ? err.message : '';
+      setError(`搜尋失敗 Search failed${detail ? `: ${detail}` : ''}`);
+      setResult(null);
+    } finally {
+      if (request === latestRequest.current) setLoading(false);
+    }
+  }, []);
+
+  // The page opens on its default coordinate with the results already there.
+  // Filled fields above an empty list read as a search that returned nothing,
+  // which is the one thing the default was chosen to avoid.
+  useEffect(() => {
+    runSearch(Number(DEFAULT_LAT), Number(DEFAULT_LON), DEFAULT_RADIUS);
+  }, [runSearch]);
+
+  const search = (event: React.FormEvent) => {
     event.preventDefault();
 
     // Checked here as well as on the server so a typo is answered immediately,
@@ -51,28 +89,32 @@ export const NearbyStopsPage: React.FC = () => {
     const latValue = Number(lat);
     const lonValue = Number(lon);
     if (!lat.trim() || !lon.trim() || Number.isNaN(latValue) || Number.isNaN(lonValue)) {
+      // Supersedes anything in flight as well, or its answer would land on top
+      // of this message.
+      latestRequest.current++;
+      setLoading(false);
       setError('請輸入有效的座標 Enter a valid pair of coordinates');
       setResult(null);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    try {
-      setResult(await api.getStopsNearby(latValue, lonValue, radius));
-    } catch (err) {
-      // The backend rejects coordinates outside Hong Kong, which is what a
-      // swapped pair looks like, so its own message is the useful one.
-      const detail = err instanceof Error ? err.message : '';
-      setError(`搜尋失敗 Search failed${detail ? `: ${detail}` : ''}`);
-      setResult(null);
-    } finally {
-      setLoading(false);
-    }
+    void runSearch(latValue, lonValue, radius);
   };
 
   const openStop = (stop: NearbyStop) => {
-    navigate(stop.kind === 'bus' ? `/bus/stop/${stop.stop}` : `/minibus/stop/${stop.stop}`);
+    switch (stop.kind) {
+      case 'bus':
+        navigate(`/bus/stop/${stop.stop}`);
+        break;
+      case 'minibus':
+        navigate(`/minibus/stop/${stop.stop}`);
+        break;
+      default:
+        // A kind this build has no page for — a mode added later, or a bad
+        // payload. Opening one of the two anyway lands on a stop that does not
+        // exist, which reads as a broken link rather than as unknown data.
+        break;
+    }
   };
 
   return (
