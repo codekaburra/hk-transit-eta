@@ -49,6 +49,27 @@
     }
   };
 
+  // The columned display needs the clock time and the wait separately, which
+  // formatETA has already flattened into one string.
+  export interface ETAParts {
+    time: string;
+    wait: string;
+  }
+
+  export const formatETAParts = (etaString: string): ETAParts | null => {
+    const etaDate = new Date(etaString);
+    if (Number.isNaN(etaDate.getTime())) return null;
+
+    const time = etaDate.toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' });
+    const diffMins = Math.round((etaDate.getTime() - Date.now()) / 60000);
+
+    // The time is kept for an arriving bus too: the column is a fixed slot, and
+    // dropping a line makes the row jump as the departure comes due.
+    if (diffMins <= 0) return { time, wait: '即將到達 Arriving' };
+    if (diffMins < 60) return { time, wait: `${diffMins} 分鐘 mins` };
+    return { time, wait: `${Math.floor(diffMins / 60)}h ${diffMins % 60}m` };
+  };
+
   // Format minibus ETA with additional info
   export const formatMinibusETA = (etaItem: MinibusETA) => {
     try {
