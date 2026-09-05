@@ -10,13 +10,21 @@ import { NearbyStop, NearbyStops } from '../../services/api';
 // the test can assert what the map was asked to draw.
 let mockLoaded = true;
 
+// Stands in for the map instance the library hands back on load, so the camera
+// calls the page makes on a new search are visible to the test.
+const mockMap = { panTo: jest.fn(), setZoom: jest.fn() };
+
 jest.mock('@react-google-maps/api', () => ({
   useJsApiLoader: () => ({ isLoaded: mockLoaded, loadError: undefined }),
-  GoogleMap: ({ children, center, zoom }: any) => (
-    <div data-testid="map" data-center={`${center.lat},${center.lng}`} data-zoom={zoom}>
-      {children}
-    </div>
-  ),
+  GoogleMap: ({ children, center, zoom, onLoad }: any) => {
+    const react = require('react');
+    react.useEffect(() => { onLoad?.(mockMap); }, [onLoad]);
+    return (
+      <div data-testid="map" data-center={`${center.lat},${center.lng}`} data-zoom={zoom}>
+        {children}
+      </div>
+    );
+  },
   MarkerF: ({ title, icon, onClick }: any) => (
     <button data-testid="marker" data-colour={icon?.fillColor ?? 'default'} onClick={onClick}>
       {title}
@@ -110,4 +118,42 @@ it('says the map is still loading rather than rendering an empty frame', () => {
 
   expect(screen.getByText(/地圖載入中/)).toBeInTheDocument();
   expect(screen.queryByTestId('map')).not.toBeInTheDocument();
+});
+
+// center and zoom only reach the map when it mounts. Without driving the camera
+// a second search moved the circle and the pins while the viewport stayed over
+// the first coordinate.
+it('moves the camera to a later search', () => {
+  const { rerender } = renderMap(response([stop()], 250));
+
+  rerender(
+    <ThemeProvider>
+      <NearbyStopsMap
+        result={{ centre: { lat: 22.3193, long: 114.1694 }, radius_m: 1000, stops: [stop()] }}
+        onStopClick={onStopClick}
+      />
+    </ThemeProvider>
+  );
+
+  expect(mockMap.panTo).toHaveBeenLastCalledWith({ lat: 22.3193, lng: 114.1694 });
+  expect(mockMap.setZoom).toHaveBeenLastCalledWith(14);
+});
+
+// The open window belongs to a stop from the previous result, which is not on
+// the map any more.
+it('closes an info window left over from the previous search', async () => {
+  const { rerender } = renderMap(response([stop({ stop: 'BUS1' })]));
+  await userEvent.click(screen.getByRole('button', { name: '置地廣場' }));
+  expect(screen.getByTestId('info-window')).toBeInTheDocument();
+
+  rerender(
+    <ThemeProvider>
+      <NearbyStopsMap
+        result={response([stop({ stop: 'BUS2', name_tc: '另一個站' })])}
+        onStopClick={onStopClick}
+      />
+    </ThemeProvider>
+  );
+
+  expect(screen.queryByTestId('info-window')).not.toBeInTheDocument();
 });

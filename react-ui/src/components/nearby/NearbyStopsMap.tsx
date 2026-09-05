@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GoogleMap, MarkerF, CircleF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
 import { useThemeStyles } from '../../hooks/useThemeStyles';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -43,6 +43,7 @@ const pin = (colour: string) => ({
 
 export const NearbyStopsMap: React.FC<NearbyStopsMapProps> = ({ result, onStopClick }) => {
   const [selected, setSelected] = useState<NearbyStop | null>(null);
+  const map = useRef<google.maps.Map | null>(null);
   const { getCardClass, getTextClass, getGrayTextClass } = useThemeStyles();
   const { isDarkMode } = useTheme();
 
@@ -53,6 +54,21 @@ export const NearbyStopsMap: React.FC<NearbyStopsMapProps> = ({ result, onStopCl
   });
 
   const centre = { lat: result.centre.lat, lng: result.centre.long };
+
+  // center and zoom are applied when the map mounts, not on every render, so a
+  // second search would move the circle and the pins while the viewport stayed
+  // over the first one. Drive the camera instead.
+  const onLoad = useCallback((instance: google.maps.Map) => {
+    map.current = instance;
+  }, []);
+
+  useEffect(() => {
+    map.current?.panTo({ lat: result.centre.lat, lng: result.centre.long });
+    map.current?.setZoom(zoomFor(result.radius_m));
+    // The open window belongs to a stop from the previous result, which is no
+    // longer on the map.
+    setSelected(null);
+  }, [result]);
 
   // Without a key the script loads but every tile comes back as an error
   // watermark, so say what is missing instead of showing a broken map.
@@ -93,6 +109,7 @@ export const NearbyStopsMap: React.FC<NearbyStopsMapProps> = ({ result, onStopCl
           mapContainerStyle={{ width: '100%', height: '100%' }}
           center={centre}
           zoom={zoomFor(result.radius_m)}
+          onLoad={onLoad}
           options={{
             streetViewControl: false,
             mapTypeControl: false,

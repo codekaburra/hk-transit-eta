@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 
 	"hk-transit-eta/bus"
@@ -408,8 +409,11 @@ func TestGetStopsNearbyAcceptsEitherSpellingOfLongitude(t *testing.T) {
 func TestGetStopsNearbyNamesTheLongitudeTheCallerSent(t *testing.T) {
 	setupDB(t)
 
-	_, code := search(t, "lat=22.2870&long=140.0")
-	if code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400", code)
+	rec := testhttp.CallJSON(t, GetStopsNearby, "/?lat=22.2870&long=140.0", nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if body := rec.Body.String(); !strings.Contains(body, "'long'") {
+		t.Errorf("body = %q, want it to name the parameter the caller sent", body)
 	}
 }

@@ -134,11 +134,6 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// lonQuery reads the longitude, which the response spells "long" while the
-// request spells it "lon". A caller reading the body and writing the next
-// request naturally sends long=, and a 400 naming 'lon' as missing reads as a
-// parameter that was in fact supplied. Accepting both is cheaper than the
-// support question.
 // sortStops orders the merged result. The two queries each sort their own
 // rows, so the ordering has to be reapplied across them.
 //
@@ -161,6 +156,11 @@ func sortStops(stops []Stop) {
 	})
 }
 
+// lonQuery reads the longitude, which the response spells "long" while the
+// request spells it "lon". A caller reading the body and writing the next
+// request naturally sends long=, and a 400 naming 'lon' as missing reads as a
+// parameter that was in fact supplied. Accepting both is cheaper than the
+// support question.
 func lonQuery(w http.ResponseWriter, r *http.Request) (float64, bool) {
 	name := "lon"
 	if r.URL.Query().Get(name) == "" && r.URL.Query().Get("long") != "" {
