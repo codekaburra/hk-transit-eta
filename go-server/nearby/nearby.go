@@ -138,21 +138,25 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 // rows, so the ordering has to be reapplied across them.
 //
 // Distance is rounded metres, so ties are common, and sort.Slice is not stable:
-// without a total order the list appears to shuffle between requests. Id alone
-// is not one — a Citybus stop and a minibus stop can carry the same id — so
-// kind and company settle it first.
+// without a total order the list appears to shuffle between requests.
+//
+// Id decides a tie, including across the two modes — otherwise the bus stops
+// win every tie by virtue of being appended first, whatever their ids. Id alone
+// is not a total order, though: a Citybus stop and a minibus stop can carry the
+// same id, and those pairs would be left to sort.Slice. Kind and company settle
+// only that remainder.
 func sortStops(stops []Stop) {
 	sort.Slice(stops, func(i, j int) bool {
 		if stops[i].DistanceM != stops[j].DistanceM {
 			return stops[i].DistanceM < stops[j].DistanceM
 		}
+		if stops[i].Stop != stops[j].Stop {
+			return stops[i].Stop < stops[j].Stop
+		}
 		if stops[i].Kind != stops[j].Kind {
 			return stops[i].Kind < stops[j].Kind
 		}
-		if stops[i].Company != stops[j].Company {
-			return stops[i].Company < stops[j].Company
-		}
-		return stops[i].Stop < stops[j].Stop
+		return stops[i].Company < stops[j].Company
 	})
 }
 
