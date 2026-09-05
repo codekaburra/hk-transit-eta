@@ -4,9 +4,9 @@ import { BusRoute, BusStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
 import { usePollingFetch } from '../../../hooks/usePollingFetch';
 import { getBusETA } from '../../../services/api';
-import { formatETA } from '../../../services/utils';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { RouteCodeIcon } from '../RouteCodeIcon';
+import { ETAColumns } from './ETAColumns';
 
 export interface RouteCardProps {
   route: BusRoute;
@@ -25,7 +25,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
   );
   const { data: etaData } = usePollingFetch<string[]>(busStop ? fetchETA : null, []);
 
-  const { getHoverClass, getCardClass, getSecondaryTextClass, getGrayTextClass } = useThemeStyles();
+  const { getHoverClass, getCardClass, getGrayTextClass } = useThemeStyles();
   return (
     <div 
       className={`rounded-lg px-6 py-4 transition-colors duration-300 cursor-pointer ${getCardClass()} ${getHoverClass()}`}
@@ -59,15 +59,9 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         {/* <div className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
           Service Type: {route.service_type}
         </div> */}
-        <div className="flex flex-col">
-          {etaData.map((eta, idx) => {
-            return (
-              <div key={idx} className={`text-sm transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                {formatETA(eta)}
-              </div>
-            )
-          })}
-        </div>
+        {/* Empty columns would read as a stop with no service, so a card
+            rendered without a stop shows none. */}
+        {busStop && <ETAColumns etaData={etaData} />}
         <div className="w-1/5 flex items-center">
           {shouldBusCompanyIcon && <BusCompanyIcon company={route.company} className="ml-auto" />}
         </div>

@@ -1,14 +1,11 @@
 import React, { useCallback } from 'react';
 import { RouteStop } from '../../../types';
 import { useThemeStyles } from '../../../hooks/useThemeStyles';
-import { formatETAParts } from '../../../services/utils';
 import { useNavigate } from 'react-router-dom';
 import { BusCompanyIcon } from './BusCompanyIcon';
 import { getBusETA } from '../../../services/api';
 import { usePollingFetch } from '../../../hooks/usePollingFetch';
-
-// The operators publish three departures per stop.
-const ETA_COLUMNS = 3;
+import { ETAColumns } from './ETAColumns';
 
 export interface RouteStopCardProps {
   routeStop: RouteStop;
@@ -69,31 +66,7 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
       <div className="flex items-center space-x-2">
         {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
       </div>
-      {/* One column per departure, soonest first. Stacked, the three run
-          together and it takes a second to tell them apart. */}
-      <div className="grid grid-cols-3 gap-2 shrink-0">
-        {Array.from({ length: ETA_COLUMNS }, (_, index) => {
-          const parts = etaData[index] ? formatETAParts(etaData[index]) : null;
-          return (
-            <div key={`eta-${index}`} className="w-20 text-center">
-              {parts ? (
-                <>
-                  <div className={`text-xs font-medium leading-tight transition-colors duration-300 ${getGrayTextClass()}`}>
-                    {parts.wait}
-                  </div>
-                  <div className={`text-[10px] leading-tight transition-colors duration-300 ${getSecondaryTextClass()}`}>
-                    {parts.time}
-                  </div>
-                </>
-              ) : (
-                // An empty column rather than a missing one, so the columns
-                // stay aligned down the list.
-                <div className={`text-xs ${getSecondaryTextClass()}`}>—</div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <ETAColumns etaData={etaData} />
     </div>
   );
 }; 
