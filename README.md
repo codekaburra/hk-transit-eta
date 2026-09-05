@@ -272,7 +272,7 @@ All endpoints are under `/api` and return JSON.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/num-routes?type={bus\|minibus}` | Route count by transport type. |
-| GET | `/api/stops/nearby?lat=&lon=&radius=` | Bus and minibus stops within `radius` metres of a coordinate, nearest first, each with its distance and the routes serving it. `radius` is optional (default 500, range 50–2000). Coordinates outside Hong Kong are a 400 rather than an empty list, which is what a swapped pair would otherwise look like. |
+| GET | `/api/stops/nearby?lat=&lon=&radius=` | Bus and minibus stops within `radius` metres of a coordinate, nearest first, each with its distance and the routes serving it. `radius` is optional (default 250, matching the page's initial radius; range 50–2000). Coordinates outside Hong Kong are a 400 rather than an empty list, which is what a swapped pair would otherwise look like. |
 
 ### Bus
 

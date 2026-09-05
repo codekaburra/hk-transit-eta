@@ -378,3 +378,38 @@ func TestGetStopsNearbyRoundsDistanceWithoutWideningTheRadius(t *testing.T) {
 		t.Errorf("distance_m = %d, want 200 — rounded for display", got.Stops[0].DistanceM)
 	}
 }
+
+// The response spells the field "long", so a caller reading the body and
+// writing the next request naturally sends long=. Rejecting that with "'lon' is
+// required" names a parameter the caller believes it supplied.
+func TestGetStopsNearbyAcceptsEitherSpellingOfLongitude(t *testing.T) {
+	db := setupDB(t)
+	seedBusStop(t, db, "KMB", "BUS_NEAR", "22.2872", "114.1602", "1")
+
+	for _, query := range []string{
+		"lat=22.2870&lon=114.1600&radius=300",
+		"lat=22.2870&long=114.1600&radius=300",
+	} {
+		got, code := search(t, query)
+		if code != http.StatusOK {
+			t.Fatalf("%s: status = %d, want 200", query, code)
+		}
+		if len(got.Stops) != 1 {
+			t.Fatalf("%s: got %d stops, want the one seeded", query, len(got.Stops))
+		}
+		if got.Centre.Long != 114.1600 {
+			t.Errorf("%s: centre long = %v, want 114.16", query, got.Centre.Long)
+		}
+	}
+}
+
+// A longitude out of range must still be reported against the name the caller
+// used, or the message points at a parameter that is not in the request.
+func TestGetStopsNearbyNamesTheLongitudeTheCallerSent(t *testing.T) {
+	setupDB(t)
+
+	_, code := search(t, "lat=22.2870&long=140.0")
+	if code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", code)
+	}
+}

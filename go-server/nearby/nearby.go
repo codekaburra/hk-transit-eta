@@ -78,9 +78,11 @@ const (
 // the upper one bounds the scan, since the bounding box below is the only thing
 // standing between this and a full table scan.
 const (
-	minRadiusM     = 50
-	maxRadiusM     = 2000
-	defaultRadiusM = 500
+	minRadiusM = 50
+	maxRadiusM = 2000
+	// Matches the radius the page starts on, so an API caller and a rider on
+	// the page mean the same thing by "nearby".
+	defaultRadiusM = 250
 )
 
 // GetStopsNearby serves GET /api/stops/nearby.
@@ -89,7 +91,7 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	lon, ok := floatQuery(w, r, "lon", minLon, maxLon)
+	lon, ok := lonQuery(w, r)
 	if !ok {
 		return
 	}
@@ -123,21 +125,48 @@ func GetStopsNearby(w http.ResponseWriter, r *http.Request) {
 	}
 	stops = append(stops, minibusStops...)
 
-	// Merged from two queries, so the ordering has to be reapplied. Ties broken
-	// by id, otherwise two stops at the same distance swap places between
-	// requests and the list appears to shuffle on its own.
-	sort.Slice(stops, func(i, j int) bool {
-		if stops[i].DistanceM != stops[j].DistanceM {
-			return stops[i].DistanceM < stops[j].DistanceM
-		}
-		return stops[i].Stop < stops[j].Stop
-	})
+	sortStops(stops)
 
 	httpjson.Write(w, Response{
 		Centre:  Centre{Lat: lat, Long: lon},
 		RadiusM: radius,
 		Stops:   stops,
 	})
+}
+
+// lonQuery reads the longitude, which the response spells "long" while the
+// request spells it "lon". A caller reading the body and writing the next
+// request naturally sends long=, and a 400 naming 'lon' as missing reads as a
+// parameter that was in fact supplied. Accepting both is cheaper than the
+// support question.
+// sortStops orders the merged result. The two queries each sort their own
+// rows, so the ordering has to be reapplied across them.
+//
+// Distance is rounded metres, so ties are common, and sort.Slice is not stable:
+// without a total order the list appears to shuffle between requests. Id alone
+// is not one — a Citybus stop and a minibus stop can carry the same id — so
+// kind and company settle it first.
+func sortStops(stops []Stop) {
+	sort.Slice(stops, func(i, j int) bool {
+		if stops[i].DistanceM != stops[j].DistanceM {
+			return stops[i].DistanceM < stops[j].DistanceM
+		}
+		if stops[i].Kind != stops[j].Kind {
+			return stops[i].Kind < stops[j].Kind
+		}
+		if stops[i].Company != stops[j].Company {
+			return stops[i].Company < stops[j].Company
+		}
+		return stops[i].Stop < stops[j].Stop
+	})
+}
+
+func lonQuery(w http.ResponseWriter, r *http.Request) (float64, bool) {
+	name := "lon"
+	if r.URL.Query().Get(name) == "" && r.URL.Query().Get("long") != "" {
+		name = "long"
+	}
+	return floatQuery(w, r, name, minLon, maxLon)
 }
 
 func floatQuery(w http.ResponseWriter, r *http.Request, name string, min, max float64) (float64, bool) {
