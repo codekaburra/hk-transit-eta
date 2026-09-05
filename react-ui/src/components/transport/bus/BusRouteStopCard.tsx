@@ -14,7 +14,7 @@ export interface RouteStopCardProps {
 }
 
 export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onClick, shouldBusCompanyIcon = true }) => {
-  const { getGrayTextClass, getAccentClass, getHoverClass, getSecondaryTextClass } = useThemeStyles();
+  const { getGrayTextClass, getAccentClass, getHoverClass } = useThemeStyles();
   const navigate = useNavigate();
 
   const fetchETA = useCallback(
@@ -31,7 +31,7 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
 
   return (
     <div
-      className={`flex items-center space-x-3 p-2 rounded ${getHoverClass()} cursor-pointer`}
+      className={`flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-0 sm:space-x-3 p-2 rounded ${getHoverClass()} cursor-pointer`}
       onClick={() => {
         if (onClick) {
           onClick(routeStop);
@@ -40,10 +40,13 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
         }
       }}
     >
-      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${getAccentClass()}`}>
+      {/* Sequence, name and operator stay on one line; on a phone the columns
+          drop to a row of their own beneath them. */}
+      <div className="flex items-center space-x-3 flex-1 min-w-0">
+      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${getAccentClass()}`}>
         {routeStop.seq}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         {routeStop.name_tc || routeStop.name_en ? (
           <>
             <p className={`text-sm font-medium ${getGrayTextClass()}`}>{routeStop.name_tc}</p>
@@ -63,8 +66,9 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
           Route: {routeStop.route} | Dir: {routeStop.direction} | Type: {routeStop.service_type}
         </p>
       </div> */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 shrink-0">
         {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
+      </div>
       </div>
       <ETAColumns etaData={etaData} />
     </div>

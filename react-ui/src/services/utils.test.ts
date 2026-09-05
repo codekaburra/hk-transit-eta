@@ -1,4 +1,4 @@
-import { formatETA, formatMinibusETA, isDebugMode, MinibusETA } from './utils';
+import { formatETA, formatETAParts, formatMinibusETA, isDebugMode, MinibusETA } from './utils';
 
 // ETA strings are relative to now, so build them from a fixed clock.
 const NOW = new Date('2026-07-31T12:00:00+08:00');
@@ -40,6 +40,40 @@ describe('formatETA', () => {
 
   it('returns an empty string for an unparseable time', () => {
     expect(formatETA('not a date')).toBe('');
+  });
+});
+
+describe('formatETAParts', () => {
+  // The columns place the wait and the clock time on separate lines, so the
+  // split has to be made here rather than by reading a formatted string back.
+  it('separates the wait from the clock time', () => {
+    const parts = formatETAParts(inMinutes(7));
+
+    expect(parts).toMatchObject({ wait: '7 分鐘 mins', shortWait: '7分', state: 'minutes' });
+    expect(parts?.time).toMatch(/12:07/);
+  });
+
+  // A phone has room for three columns only at the short form.
+  it('shortens the wait for a narrow column', () => {
+    expect(formatETAParts(inMinutes(0))?.shortWait).toBe('即將');
+    expect(formatETAParts(inMinutes(95))?.shortWait).toBe('1h35m');
+  });
+
+  // Unlike formatETA, which drops the time for an arriving bus, the columns
+  // keep it: a fixed slot losing a line makes the row jump as the bus comes due.
+  it('keeps the clock time for an arriving bus', () => {
+    const parts = formatETAParts(inMinutes(0));
+
+    expect(parts).toMatchObject({ wait: '即將到達 Arriving', state: 'arriving' });
+    expect(parts?.time).toMatch(/12:00/);
+  });
+
+  it('treats a time in the past as arriving', () => {
+    expect(formatETAParts(inMinutes(-5))?.state).toBe('arriving');
+  });
+
+  it('returns nothing for an unparseable time', () => {
+    expect(formatETAParts('not a date')).toBeNull();
   });
 });
 

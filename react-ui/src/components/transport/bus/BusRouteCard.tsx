@@ -39,8 +39,10 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         }
       }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1 flex items-center space-x-4">
+      {/* Wraps rather than squeezes: on a phone the three columns take a line
+          of their own beneath the destinations. */}
+      <div className="flex flex-wrap items-center justify-between gap-y-2">
+        <div className="w-full sm:w-auto sm:flex-1 min-w-0 flex items-center space-x-4">
           <div className="flex-shrink-0">
             <RouteCodeIcon routeCode={route.route} type={route.company as 'KMB' | 'CTB'} size="md" />
           </div>
@@ -62,7 +64,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         {/* Empty columns would read as a stop with no service, so a card
             rendered without a stop shows none. */}
         {busStop && <ETAColumns etaData={etaData} />}
-        <div className="w-1/5 flex items-center">
+        <div className="w-auto sm:w-1/5 flex items-center">
           {shouldBusCompanyIcon && <BusCompanyIcon company={route.company} className="ml-auto" />}
         </div>
       </div>

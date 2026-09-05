@@ -90,7 +90,7 @@ describe('BusRouteStopCard', () => {
   });
 
   // A stop near the end of service returns fewer than three. Dropping the empty
-  // columns would slide the remaining ones under the wrong heading.
+  // columns would leave the readings unaligned down a list of stops.
   it('keeps the later columns in place when the operator returns fewer', async () => {
     getBusETA.mockResolvedValue([new Date(Date.now() + 5 * 60000).toISOString()]);
     renderCard(routeStop());
