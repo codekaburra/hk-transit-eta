@@ -48,7 +48,10 @@ jobs:
       # number. This appears on every run with none of that.
       - name: Test with coverage
         run: |
-          go test -coverprofile=coverage.out ./... | tee /tmp/go-test.txt
+          # -p 1: the DB-backed packages share one test database and each
+          # truncates the tables it reads, so running packages in parallel makes
+          # them clear each other's fixtures mid-test.
+          go test -p 1 -coverprofile=coverage.out ./... | tee /tmp/go-test.txt
           {
             echo "### Backend coverage"
             echo
