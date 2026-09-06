@@ -35,8 +35,10 @@ export const HomePage: React.FC = () => {
     const state = location.state as { searchType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr' };
     if (state?.searchType) {
       setSearchType(state.searchType);
-      // Clear the state
-      navigate('/', { replace: true });
+      // Clear the state so a reload does not reselect it — replacing this entry
+      // with the page itself, not with '/', which would bounce the reader to
+      // the landing page the moment they picked a type.
+      navigate('/transport', { replace: true });
     }
   }, [location.state, navigate]);
 

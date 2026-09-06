@@ -11,8 +11,9 @@ export const MainNavigation: React.FC<MainNavigationProps> = ({ currentType }) =
   const { getCardClass, getButtonClass } = useThemeStyles();
 
   const handleNavigation = (searchType: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr') => {
-    // Navigate to home with the selected search type
-    navigate('/', { state: { searchType } });
+    // The search lives at /transport. '/' is the landing page, which ignores
+    // the state, so every button here dropped the reader on the app menu.
+    navigate('/transport', { state: { searchType } });
   };
 
   return (
