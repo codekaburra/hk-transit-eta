@@ -27,6 +27,7 @@ On first start, the backend seeds PostgreSQL from the committed JSON snapshot in
 ## Features
 
 - Bus route search, stop lookup, nearby stops, and real-time ETA for KMB and Citybus
+- Coordinate search at `/transport/nearby`: bus and minibus stops within a chosen radius, nearest first, on a Google map with a pin per stop
 - Green minibus routes across HKI, KLN, and NT, including stop sequences and headway schedules
 - MTR station listing and route map
 - Weather dashboard using Hong Kong Observatory data
@@ -275,6 +276,7 @@ All endpoints are under `/api` and return JSON.
 | Method | Path | Description |
 |---|---|---|
 | GET | `/api/num-routes?type={bus\|minibus}` | Route count by transport type. |
+| GET | `/api/stops/nearby?lat=&lon=&radius=` | Bus and minibus stops within `radius` metres of a coordinate, nearest first, each with its distance and the routes serving it. `radius` is optional (default 250, matching the page's initial radius; range 50–2000). Coordinates outside Hong Kong are a 400 rather than an empty list, which is what a swapped pair would otherwise look like. |
 
 ### Bus
 
@@ -289,7 +291,7 @@ All endpoints are under `/api` and return JSON.
 | GET | `/api/bus/search/stops?q=` | Substring search by ID or name. Capped at 50 rows. |
 | GET | `/api/bus/stops-by-route?routeId=&company=&direction=&serviceType=` | Stops along a route with coordinates. Without the filters, a route number served by two operators returns every sequence interleaved. |
 | GET | `/api/bus/routes-by-stop?stopId=` | Routes serving a stop. |
-| GET | `/api/bus/stops-nearby?stopId=` | Nearby stops within roughly 100 m. |
+| GET | `/api/bus/stops-nearby?stopId=` | Nearby stops within roughly 100 m, centred on another stop. For a free coordinate, or any radius other than that one, use `/api/stops/nearby`. |
 
 ### Minibus
 

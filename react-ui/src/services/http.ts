@@ -14,11 +14,16 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
 // "get by id" endpoint means "no such record", not "the request failed".
 export class HttpError extends Error {
   readonly status: number;
+  // The response body on its own. A caller showing the failure to a reader
+  // wants the server's explanation without the status line stacked in front of
+  // its own label.
+  readonly detail: string;
 
   constructor(status: number, detail: string) {
     super(`Request failed with status ${status}${detail ? `: ${detail}` : ''}`);
     this.name = 'HttpError';
     this.status = status;
+    this.detail = detail;
   }
 }
 

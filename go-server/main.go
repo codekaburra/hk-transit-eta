@@ -13,6 +13,7 @@ import (
 	"hk-transit-eta/bus"
 	"hk-transit-eta/internal/syncmeta"
 	"hk-transit-eta/minibus"
+	"hk-transit-eta/nearby"
 	"hk-transit-eta/weather"
 
 	"github.com/gorilla/mux"
@@ -171,6 +172,9 @@ func initDatabases() {
 
 	minibus.SetDatabase(database)
 	minibus.InitMinibusDatabase()
+
+	nearby.SetDatabase(database)
+	nearby.InitNearbyIndexes()
 }
 
 func startServer() {
@@ -204,6 +208,9 @@ func startServer() {
 	api.HandleFunc("/bus/routes-by-stop", bus.GetRoutesByStopId).Methods("GET")
 	api.HandleFunc("/bus/stops-nearby", bus.GetStopsNearby).Methods("GET")
 	api.HandleFunc("/bus/stop-by-id", bus.GetStopByStopId).Methods("GET")
+
+	// Coordinate search across every mode, rather than per-operator.
+	api.HandleFunc("/stops/nearby", nearby.GetStopsNearby).Methods("GET")
 
 	// Minibus API endpoints
 	api.HandleFunc("/minibus/routes", minibus.GetMinibusRoutes).Methods("GET")
