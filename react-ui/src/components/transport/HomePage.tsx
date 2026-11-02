@@ -8,10 +8,20 @@ import { MTRStationsList } from './MTRStationsList';
 import { BusRoute, BusStop } from '../../types';
 import { api } from '../../services/api';
 
+type SearchType = 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr';
+
 export const HomePage: React.FC = () => {
+  const location = useLocation();
   const [activeTab] = useState<'search' | 'about'>('search');
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchType, setSearchType] = useState<'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr'>('bus-route');
+  // Read from the router state on the first render, not after it. The mount
+  // effect below loads data for whatever type the first render holds, so
+  // setting it in an effect loaded the default type first — every bus route,
+  // for a reader who asked for minibus stops — and that load could clear the
+  // spinner while the one they asked for was still in flight.
+  const [searchType, setSearchType] = useState<SearchType>(
+    () => (location.state as { searchType?: SearchType } | null)?.searchType ?? 'bus-route'
+  );
   const [routes, setRoutes] = useState<BusRoute[]>([]);
   const [stops, setStops] = useState<BusStop[]>([]);
   const [minibusRoutes, setMinibusRoutes] = useState<any[]>([]);
@@ -28,17 +38,15 @@ export const HomePage: React.FC = () => {
     getTitleClass
   } = useThemeStyles();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Handle navigation state for search type
+  // Clear the state once it has been read, so a reload does not reselect it.
+  // Replaced with this page's own path rather than a hard-coded one: '/' here
+  // bounced the reader to the landing page the moment they picked a type.
   useEffect(() => {
-    const state = location.state as { searchType?: 'bus-route' | 'bus-stop' | 'minibus-route' | 'minibus-stop' | 'mtr' };
-    if (state?.searchType) {
-      setSearchType(state.searchType);
-      // Clear the state
-      navigate('/', { replace: true });
+    if ((location.state as { searchType?: SearchType } | null)?.searchType) {
+      navigate(location.pathname, { replace: true, state: null });
     }
-  }, [location.state, navigate]);
+  }, [location.state, location.pathname, navigate]);
 
   // Load initial data on component mount
   useEffect(() => {
