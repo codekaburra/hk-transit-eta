@@ -7,9 +7,9 @@ const ETA_COLUMNS = 3;
 
 export interface ETAColumnsProps {
   etaData: string[];
-  // True while the first fetch is in flight. A refetch keeps the previous
-  // readings, so it does not need to be told apart.
-  loading?: boolean;
+  // Whether the operator has answered yet for this stop. Until it has, an empty
+  // slot means "not heard", not "no bus".
+  loaded?: boolean;
 }
 
 // One column per departure, soonest first. Stacked in a single column the three
@@ -21,23 +21,16 @@ export interface ETAColumnsProps {
 // Three fixed columns and a stop name do not fit a phone — at 375px the name is
 // left about 50px — so below sm the columns take the full width of their own
 // row and the wait drops to its short form.
-export const ETAColumns: React.FC<ETAColumnsProps> = ({ etaData, loading = false }) => {
+export const ETAColumns: React.FC<ETAColumnsProps> = ({ etaData, loaded = true }) => {
   const { getGrayTextClass, getSecondaryTextClass } = useThemeStyles();
-  const waiting = loading && etaData.length === 0;
+  // A dash means the operator published nothing for that slot. Before the first
+  // answer there is nothing to say that with, and three dashes would make a live
+  // stop look like one out of service.
+  const placeholder = loaded ? '—' : '⋯';
 
   return (
     <div className="grid grid-cols-3 gap-2 w-full sm:w-auto shrink-0">
       {Array.from({ length: ETA_COLUMNS }, (_, index) => {
-        // A dash means the operator published nothing for that slot. Showing it
-        // before the first response says "no bus" about a stop nobody has asked
-        // about yet, which is what a route out of service looks like.
-        if (waiting) {
-          return (
-            <div key={`eta-${index}`} className={`w-full sm:w-20 text-center text-xs ${getSecondaryTextClass()}`}>
-              ⋯
-            </div>
-          );
-        }
         const parts = etaData[index] ? formatETAParts(etaData[index]) : null;
         return (
           <div key={`eta-${index}`} className="w-full sm:w-20 text-center">
@@ -54,7 +47,7 @@ export const ETAColumns: React.FC<ETAColumnsProps> = ({ etaData, loading = false
             ) : (
               // An empty column rather than a missing one, so the columns stay
               // aligned down the list.
-              <div className={`text-xs ${getSecondaryTextClass()}`}>—</div>
+              <div className={`text-xs ${getSecondaryTextClass()}`}>{placeholder}</div>
             )}
           </div>
         );

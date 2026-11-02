@@ -27,7 +27,8 @@ export interface ETAData {
   dest_tc: string;
   dest_en: string;
   eta_seq: number;
-  eta: string;
+  // null for a departure the operator lists but cannot time yet.
+  eta: string | null;
   rmk_tc: string;
   rmk_en: string;
   data_timestamp: string;

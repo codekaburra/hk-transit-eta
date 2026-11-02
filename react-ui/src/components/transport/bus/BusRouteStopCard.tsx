@@ -27,7 +27,7 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
     ),
     [routeStop]
   );
-  const { data: etaData, loading } = usePollingFetch<string[]>(routeStop ? fetchETA : null, []);
+  const { data: etaData, loaded } = usePollingFetch<string[]>(routeStop ? fetchETA : null, []);
 
   return (
     <div
@@ -70,7 +70,7 @@ export const BusRouteStopCard: React.FC<RouteStopCardProps> = ({ routeStop, onCl
         {shouldBusCompanyIcon && <BusCompanyIcon company={routeStop.company} />}
       </div>
       </div>
-      <ETAColumns etaData={etaData} loading={loading} />
+      <ETAColumns etaData={etaData} loaded={loaded} />
     </div>
   );
 }; 
