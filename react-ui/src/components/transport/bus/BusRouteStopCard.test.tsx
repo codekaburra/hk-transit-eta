@@ -89,6 +89,23 @@ describe('BusRouteStopCard', () => {
     ]);
   });
 
+  // A dash is the operator saying there is no bus. Before the first response
+  // there is nothing to say that with, and three dashes on first paint made a
+  // live stop look like one out of service.
+  it('does not report an absence it has not heard back about yet', async () => {
+    let release: (etas: string[]) => void = () => {};
+    getBusETA.mockReturnValue(new Promise<string[]>(resolve => { release = resolve; }));
+
+    renderCard(routeStop());
+
+    expect(screen.queryByText('—')).not.toBeInTheDocument();
+
+    release([new Date(Date.now() + 9 * 60000).toISOString()]);
+
+    expect(await screen.findByText(/9 分鐘/)).toBeInTheDocument();
+    expect(screen.getAllByText('—')).toHaveLength(2);
+  });
+
   // A stop near the end of service returns fewer than three. Dropping the empty
   // columns would leave the readings unaligned down a list of stops.
   it('keeps the later columns in place when the operator returns fewer', async () => {

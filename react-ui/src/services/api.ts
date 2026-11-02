@@ -27,7 +27,8 @@ export interface ETAData {
   dest_tc: string;
   dest_en: string;
   eta_seq: number;
-  eta: string;
+  // null for a departure the operator lists but cannot time yet.
+  eta: string | null;
   rmk_tc: string;
   rmk_en: string;
   data_timestamp: string;
@@ -151,9 +152,16 @@ export const getBusETA = async (
   // The operators have returned an object here in place of the list before, so
   // check the shape rather than assuming it.
   if (!Array.isArray(data?.data)) return [];
+  // eta is null for a departure the operator lists but cannot time yet, and KMB
+  // returns those interleaved with real times. Passing them on puts a hole in a
+  // positional display, where the reader takes the second column for the second
+  // bus. Sorted rather than trusting eta_seq, so "soonest first" holds whatever
+  // order the payload arrives in.
   return data.data
     .filter((item: any) => direction === item.dir)
-    .map((item: any) => item.eta);
+    .map((item: any) => item.eta)
+    .filter((eta: any): eta is string => typeof eta === 'string' && !Number.isNaN(Date.parse(eta)))
+    .sort((a: string, b: string) => Date.parse(a) - Date.parse(b));
 };
 
 // Minibus API functions

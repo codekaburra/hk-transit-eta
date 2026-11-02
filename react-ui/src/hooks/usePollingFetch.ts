@@ -12,6 +12,12 @@ export interface PollingOptions {
 export interface PollingResult<T> {
   data: T;
   loading: boolean;
+  // Whether a response has come back for the current fetcher. Unlike loading,
+  // which is true on every poll, this stays true across refetches and goes back
+  // to false only when the fetcher changes. A view that needs to tell "not asked
+  // yet" from "asked, and the answer was empty" should read this, not infer it
+  // from the shape of data.
+  loaded: boolean;
   error: string | null;
   // Fetch now, without waiting for the next tick.
   refresh: () => void;
@@ -30,8 +36,17 @@ export function usePollingFetch<T>(
   const { intervalMs = ETA_REFRESH_INTERVAL_MS, errorMessage = 'Failed to load ETA data' } = options;
 
   const [data, setData] = useState<T>(initial);
-  const [loading, setLoading] = useState(false);
+  // Starts true when there is something to fetch: the first paint happens before
+  // the effect that starts the request, and a view reading loading=false there
+  // would render "no data" for a frame.
+  const [loading, setLoading] = useState(fetcher !== null);
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // The value to fall back to when the fetcher changes. Held from the first
+  // render, since callers pass a fresh literal ([] or null) each time.
+  const initialValue = useRef(initial);
+  const lastFetcher = useRef(fetcher);
 
   // Only the newest run may publish its result. Without this, a slow response
   // for a stop the user has already navigated away from can land after a newer
@@ -52,11 +67,22 @@ export function usePollingFetch<T>(
       console.error(`${errorMessage}:`, err);
       if (id === runId.current) setError(errorMessage);
     } finally {
-      if (id === runId.current) setLoading(false);
+      if (id === runId.current) {
+        setLoading(false);
+        setLoaded(true);
+      }
     }
   }, [fetcher, errorMessage]);
 
   useEffect(() => {
+    // A new fetcher asks a different question — another stop, another route — so
+    // the previous answer must not stand in for it while the new one loads.
+    if (fetcher !== lastFetcher.current) {
+      lastFetcher.current = fetcher;
+      setData(initialValue.current);
+      setLoaded(false);
+      setLoading(fetcher !== null);
+    }
     if (!fetcher) return;
 
     run();
@@ -71,5 +97,5 @@ export function usePollingFetch<T>(
     };
   }, [fetcher, run, intervalMs]);
 
-  return { data, loading, error, refresh: run };
+  return { data, loading, loaded, error, refresh: run };
 }

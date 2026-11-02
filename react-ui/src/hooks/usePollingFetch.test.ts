@@ -73,4 +73,63 @@ describe('usePollingFetch', () => {
 
     expect(result.current.data).toEqual(['new']);
   });
+
+  // The first paint happens before the effect that starts the request. Reading
+  // loading=false there, a view rendered "no data" for one frame — three dashes
+  // on a stop that had not been asked about yet.
+  it('reports itself as not loaded from the very first render', () => {
+    const renders: Array<{ loading: boolean; loaded: boolean }> = [];
+    const fetcher = jest.fn(() => new Promise<string[]>(() => {}));
+
+    renderHook(() => {
+      const result = usePollingFetch<string[]>(fetcher, []);
+      renders.push({ loading: result.loading, loaded: result.loaded });
+      return result;
+    });
+
+    expect(renders[0]).toEqual({ loading: true, loaded: false });
+  });
+
+  // loading is true on every poll. A view that read it as "not loaded yet"
+  // flipped an empty stop from "no bus" to "waiting" every interval.
+  it('stays loaded while a later poll is in flight', async () => {
+    let calls = 0;
+    const fetcher = jest.fn(() =>
+      ++calls === 1 ? Promise.resolve<string[]>([]) : new Promise<string[]>(() => {})
+    );
+
+    const { result } = renderHook(() => usePollingFetch<string[]>(fetcher, []));
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    act(() => { result.current.refresh(); });
+
+    expect(result.current.loading).toBe(true);
+    expect(result.current.loaded).toBe(true);
+  });
+
+  // Another stop's departures must not stand in for this one's while it loads.
+  it('forgets the previous answer when the fetcher changes', async () => {
+    const first = jest.fn().mockResolvedValue(['12:00']);
+    const second = jest.fn(() => new Promise<string[]>(() => {}));
+
+    const { result, rerender } = renderHook(
+      ({ fetcher }) => usePollingFetch<string[]>(fetcher, []),
+      { initialProps: { fetcher: first as () => Promise<string[]> } }
+    );
+    await waitFor(() => expect(result.current.data).toEqual(['12:00']));
+
+    rerender({ fetcher: second as () => Promise<string[]> });
+
+    expect(result.current.data).toEqual([]);
+    expect(result.current.loaded).toBe(false);
+  });
+
+  it('counts a failed response as answered', async () => {
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    const fetcher = jest.fn().mockRejectedValue(new Error('offline'));
+
+    const { result } = renderHook(() => usePollingFetch<string[]>(fetcher, []));
+
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+  });
 });

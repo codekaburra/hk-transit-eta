@@ -23,7 +23,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
     () => getBusETA(route.company, busStop!.stop, route.route, route.service_type, route.direction),
     [busStop, route]
   );
-  const { data: etaData } = usePollingFetch<string[]>(busStop ? fetchETA : null, []);
+  const { data: etaData, loaded } = usePollingFetch<string[]>(busStop ? fetchETA : null, []);
 
   const { getHoverClass, getCardClass, getGrayTextClass } = useThemeStyles();
   return (
@@ -63,7 +63,7 @@ export const BusRouteCard: React.FC<RouteCardProps> = ({  route, busStop, onClic
         </div> */}
         {/* Empty columns would read as a stop with no service, so a card
             rendered without a stop shows none. */}
-        {busStop && <ETAColumns etaData={etaData} />}
+        {busStop && <ETAColumns etaData={etaData} loaded={loaded} />}
         <div className="w-auto sm:w-1/5 flex items-center">
           {shouldBusCompanyIcon && <BusCompanyIcon company={route.company} className="ml-auto" />}
         </div>
